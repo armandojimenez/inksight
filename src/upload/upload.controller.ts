@@ -8,7 +8,8 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { UploadService, UploadResponse } from './upload.service';
+import { UploadService } from './upload.service';
+import { UploadResponseDto } from './dto/upload-response.dto';
 import { FileValidationPipe } from '../common/pipes/file-validation.pipe';
 import { MulterErrorInterceptor } from '../common/interceptors/multer-error.interceptor';
 
@@ -30,7 +31,7 @@ export class UploadController {
   async upload(
     @UploadedFile(FileValidationPipe)
     file: Express.Multer.File,
-  ): Promise<UploadResponse> {
+  ): Promise<UploadResponseDto> {
     return this.uploadService.handleUpload(file);
   }
 }

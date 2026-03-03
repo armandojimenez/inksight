@@ -6,14 +6,7 @@ import { mkdir, writeFile, rename, unlink } from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import { extname, join } from 'path';
 import { ImageEntity } from './entities/image.entity';
-
-export interface UploadResponse {
-  id: string;
-  filename: string;
-  mimeType: string;
-  size: number;
-  analysis: string | null;
-}
+import { UploadResponseDto } from './dto/upload-response.dto';
 
 @Injectable()
 export class UploadService {
@@ -27,7 +20,7 @@ export class UploadService {
     this.uploadDir = this.configService.get<string>('UPLOAD_DIR', 'uploads');
   }
 
-  async handleUpload(file: Express.Multer.File): Promise<UploadResponse> {
+  async handleUpload(file: Express.Multer.File): Promise<UploadResponseDto> {
     const id = uuidv4();
     const ext = extname(file.originalname).toLowerCase();
     const storedFilename = `${id}${ext}`;

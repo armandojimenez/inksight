@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { UploadController } from '@/upload/upload.controller';
-import { UploadService, UploadResponse } from '@/upload/upload.service';
+import { UploadService } from '@/upload/upload.service';
+import { UploadResponseDto } from '@/upload/dto/upload-response.dto';
 import { FileValidationPipe } from '@/common/pipes/file-validation.pipe';
 import { createMinimalPng } from '../../test/fixtures/image-buffers';
 
@@ -50,7 +51,7 @@ describe('UploadController', () => {
       size: buffer.length,
     } as Express.Multer.File;
 
-    const expected: UploadResponse = {
+    const expected: UploadResponseDto = {
       id: 'test-uuid',
       filename: 'photo.png',
       mimeType: 'image/png',
@@ -75,7 +76,7 @@ describe('UploadController', () => {
       size: buffer.length,
     } as Express.Multer.File;
 
-    const expected: UploadResponse = {
+    const expected: UploadResponseDto = {
       id: 'another-uuid',
       filename: 'photo.jpg',
       mimeType: 'image/jpeg',
