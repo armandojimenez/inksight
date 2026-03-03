@@ -26,24 +26,25 @@ export class UploadService {
     const storedFilename = `${id}${ext}`;
     const finalPath = join(this.uploadDir, storedFilename);
     const tempPath = join(this.uploadDir, `.tmp-${id}${ext}`);
+    const uploadPath = join(this.uploadDir, storedFilename);
 
     // Ensure upload directory exists
     await mkdir(this.uploadDir, { recursive: true });
 
-    // Atomic write: temp file then rename
-    await writeFile(tempPath, file.buffer);
-    await rename(tempPath, finalPath);
-
-    // Persist to database
-    const entity = this.imageRepository.create({
-      originalFilename: file.originalname,
-      storedFilename,
-      mimeType: file.mimetype,
-      size: file.size,
-      uploadPath: `${this.uploadDir}/${storedFilename}`,
-    });
-
     try {
+      // Atomic write: temp file then rename
+      await writeFile(tempPath, file.buffer);
+      await rename(tempPath, finalPath);
+
+      // Persist to database
+      const entity = this.imageRepository.create({
+        originalFilename: file.originalname,
+        storedFilename,
+        mimeType: file.mimetype,
+        size: file.size,
+        uploadPath,
+      });
+
       const saved = await this.imageRepository.save(entity);
 
       return {
@@ -54,7 +55,8 @@ export class UploadService {
         analysis: saved.initialAnalysis,
       };
     } catch (error) {
-      // Clean up file on DB failure
+      // Clean up both temp and final paths on any failure
+      await unlink(tempPath).catch(() => {});
       await unlink(finalPath).catch(() => {});
       throw error;
     }

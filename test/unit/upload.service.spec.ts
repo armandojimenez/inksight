@@ -57,6 +57,7 @@ describe('UploadService', () => {
   });
 
   afterEach(() => {
+    jest.clearAllMocks();
     jest.restoreAllMocks();
   });
 
@@ -254,7 +255,7 @@ describe('UploadService', () => {
     );
   });
 
-  it('should clean up temp file if database save fails', async () => {
+  it('should clean up both temp and final paths if database save fails', async () => {
     const buffer = createMinimalPng();
     const file = {
       originalname: 'photo.png',
@@ -263,10 +264,7 @@ describe('UploadService', () => {
       size: buffer.length,
     } as Express.Multer.File;
 
-    const entity = {
-      id: TEST_UUID,
-    } as ImageEntity;
-
+    const entity = { id: TEST_UUID } as ImageEntity;
     repository.create.mockReturnValue(entity);
     repository.save.mockRejectedValue(new Error('DB connection lost'));
     mockedFs.unlink = jest.fn().mockResolvedValue(undefined);
@@ -275,7 +273,64 @@ describe('UploadService', () => {
       'DB connection lost',
     );
 
+    const tempPath = `${UPLOAD_DIR}/.tmp-${TEST_UUID}.png`;
     const finalPath = `${UPLOAD_DIR}/${TEST_UUID}.png`;
+    expect(mockedFs.unlink).toHaveBeenCalledWith(tempPath);
     expect(mockedFs.unlink).toHaveBeenCalledWith(finalPath);
+  });
+
+  it('should propagate DB error even when unlink also fails', async () => {
+    const buffer = createMinimalPng();
+    const file = {
+      originalname: 'photo.png',
+      mimetype: 'image/png',
+      buffer,
+      size: buffer.length,
+    } as Express.Multer.File;
+
+    const entity = { id: TEST_UUID } as ImageEntity;
+    repository.create.mockReturnValue(entity);
+    repository.save.mockRejectedValue(new Error('DB connection lost'));
+    mockedFs.unlink = jest.fn().mockRejectedValue(new Error('ENOENT'));
+
+    await expect(service.handleUpload(file)).rejects.toThrow(
+      'DB connection lost',
+    );
+  });
+
+  it('should clean up temp file if rename fails', async () => {
+    const buffer = createMinimalPng();
+    const file = {
+      originalname: 'photo.png',
+      mimetype: 'image/png',
+      buffer,
+      size: buffer.length,
+    } as Express.Multer.File;
+
+    mockedFs.rename.mockRejectedValue(new Error('EXDEV: cross-device rename'));
+    mockedFs.unlink = jest.fn().mockResolvedValue(undefined);
+
+    await expect(service.handleUpload(file)).rejects.toThrow('EXDEV');
+
+    const tempPath = `${UPLOAD_DIR}/.tmp-${TEST_UUID}.png`;
+    expect(mockedFs.unlink).toHaveBeenCalledWith(tempPath);
+  });
+
+  it('should not call rename if writeFile fails', async () => {
+    const buffer = createMinimalPng();
+    const file = {
+      originalname: 'photo.png',
+      mimetype: 'image/png',
+      buffer,
+      size: buffer.length,
+    } as Express.Multer.File;
+
+    mockedFs.writeFile.mockRejectedValue(new Error('ENOSPC: disk full'));
+    mockedFs.unlink = jest.fn().mockResolvedValue(undefined);
+
+    await expect(service.handleUpload(file)).rejects.toThrow('ENOSPC');
+
+    expect(mockedFs.rename).not.toHaveBeenCalled();
+    expect(repository.create).not.toHaveBeenCalled();
   });
 });
