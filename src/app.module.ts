@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import * as Joi from 'joi';
@@ -26,9 +26,10 @@ import { DatabaseModule } from './database/database.module';
       }),
     }),
     TypeOrmModule.forRootAsync({
-      useFactory: () => ({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
         type: 'postgres' as const,
-        url: process.env.DATABASE_URL,
+        url: config.get<string>('DATABASE_URL'),
         autoLoadEntities: true,
         synchronize: false,
         migrationsRun: true,

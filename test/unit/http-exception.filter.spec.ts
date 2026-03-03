@@ -127,6 +127,35 @@ describe('HttpExceptionFilter', () => {
     expect(body.error).toBe('Internal Server Error');
   });
 
+  it('should hide raw error message in production for non-HttpException', () => {
+    const originalEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+
+    const exception = new Error('Connection refused at postgres://...');
+
+    filter.catch(exception, mockHost);
+
+    const body = mockJson.mock.calls[0][0];
+    expect(body.message).toBe('Internal Server Error');
+    expect(body.message).not.toContain('postgres');
+
+    process.env.NODE_ENV = originalEnv;
+  });
+
+  it('should show raw error message in development for non-HttpException', () => {
+    const originalEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+
+    const exception = new Error('Something broke');
+
+    filter.catch(exception, mockHost);
+
+    const body = mockJson.mock.calls[0][0];
+    expect(body.message).toBe('Something broke');
+
+    process.env.NODE_ENV = originalEnv;
+  });
+
   it('should fallback to x-request-id header when correlationId is absent', () => {
     mockGetRequest.mockReturnValue({
       url: '/api/test',

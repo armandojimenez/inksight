@@ -10,7 +10,15 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Stage 2: Run
+# Stage 2: Production dependencies only
+FROM node:20-alpine AS deps
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Stage 3: Run
 FROM node:20-alpine AS runner
 
 WORKDIR /app
@@ -20,7 +28,7 @@ RUN addgroup -g 1001 nestjs && \
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/client/dist ./client/dist
-COPY --from=builder /app/node_modules ./node_modules
+COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 
 RUN mkdir -p uploads && chown nestjs:nestjs uploads

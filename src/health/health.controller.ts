@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { DataSource } from 'typeorm';
 
 @Controller('health')
@@ -6,28 +7,28 @@ export class HealthController {
   constructor(private readonly dataSource: DataSource) {}
 
   @Get()
-  async check() {
+  async check(@Res() res: Response) {
     const uptime = process.uptime();
 
     try {
       await this.dataSource.query('SELECT 1');
-      return {
+      res.status(200).json({
         status: 'healthy',
         timestamp: new Date().toISOString(),
         checks: {
           database: 'connected',
           uptime,
         },
-      };
+      });
     } catch {
-      return {
+      res.status(503).json({
         status: 'degraded',
         timestamp: new Date().toISOString(),
         checks: {
           database: 'disconnected',
           uptime,
         },
-      };
+      });
     }
   }
 }

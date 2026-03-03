@@ -60,7 +60,7 @@ describe('HealthController (integration)', () => {
 
     const res = await request(app.getHttpServer()).get('/api/health');
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(503);
     expect(res.body).toHaveProperty('status', 'degraded');
     expect(res.body.checks).toHaveProperty('database', 'disconnected');
     expect(res.body.checks).toHaveProperty('uptime');

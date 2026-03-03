@@ -48,7 +48,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
         }
       }
     } else if (exception instanceof Error) {
-      message = exception.message;
+      message =
+        process.env.NODE_ENV === 'production'
+          ? 'Internal Server Error'
+          : exception.message;
     }
 
     const requestId =
