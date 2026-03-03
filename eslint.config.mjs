@@ -3,6 +3,9 @@ import tsparser from '@typescript-eslint/parser';
 
 export default [
   {
+    ignores: ['dist/', 'node_modules/', 'client/', 'coverage/'],
+  },
+  {
     files: ['**/*.ts'],
     languageOptions: {
       parser: tsparser,
@@ -24,8 +27,5 @@ export default [
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
     },
-  },
-  {
-    ignores: ['dist/', 'node_modules/', 'client/', 'coverage/'],
   },
 ];
