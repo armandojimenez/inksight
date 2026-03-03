@@ -52,7 +52,9 @@ export class UploadService {
         filename: saved.originalFilename,
         mimeType: saved.mimeType,
         size: saved.size,
-        analysis: saved.initialAnalysis,
+        analysis: saved.initialAnalysis
+          ? (JSON.parse(saved.initialAnalysis) as Record<string, unknown>)
+          : null,
       };
     } catch (error) {
       // Clean up both temp and final paths on any failure

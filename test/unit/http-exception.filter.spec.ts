@@ -155,6 +155,23 @@ describe('HttpExceptionFilter', () => {
     process.env.NODE_ENV = originalEnv;
   });
 
+  it('should flatten message arrays from ValidationPipe into a single string', () => {
+    const exception = new HttpException(
+      {
+        message: ['field must be a string', 'field must not be empty'],
+        error: 'Bad Request',
+      },
+      HttpStatus.BAD_REQUEST,
+    );
+
+    filter.catch(exception, mockHost);
+
+    const body = mockJson.mock.calls[0][0];
+    expect(body.message).toBe(
+      'field must be a string; field must not be empty',
+    );
+  });
+
   it('should fallback to x-request-id header when correlationId is absent', () => {
     mockGetRequest.mockReturnValue({
       url: '/api/test',

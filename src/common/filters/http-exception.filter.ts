@@ -10,7 +10,7 @@ import { Response } from 'express';
 import { RequestWithCorrelation } from '../interfaces/request.interface';
 
 interface ExceptionResponseObject {
-  message?: string;
+  message?: string | string[];
   code?: string;
 }
 
@@ -37,7 +37,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message = exceptionResponse;
       } else {
         const responseObj = exceptionResponse as ExceptionResponseObject;
-        message = responseObj.message ?? exception.message;
+        const rawMessage = responseObj.message ?? exception.message;
+        message = Array.isArray(rawMessage)
+          ? rawMessage.join('; ')
+          : rawMessage;
         if (responseObj.code) {
           code = responseObj.code;
         } else {
