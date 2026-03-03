@@ -198,6 +198,23 @@ describe('UploadController (integration)', () => {
     });
   });
 
+  describe('file on disk', () => {
+    it('should write the uploaded file to the upload directory', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/upload')
+        .attach('image', createMinimalPng(), 'disk-test.png');
+
+      expect(res.status).toBe(201);
+
+      // Verify file exists on disk
+      const files = await fs.readdir(UPLOAD_DIR);
+      const uploadedFiles = files.filter(
+        (f) => !f.startsWith('.') && f.endsWith('.png'),
+      );
+      expect(uploadedFiles.length).toBeGreaterThan(0);
+    });
+  });
+
   describe('database persistence', () => {
     it('should persist the image entity to the database', async () => {
       await request(app.getHttpServer())
