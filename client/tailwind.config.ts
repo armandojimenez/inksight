@@ -1,0 +1,87 @@
+import type { Config } from 'tailwindcss';
+import animate from 'tailwindcss-animate';
+
+export default {
+  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          50: '#EEF0FF',
+          100: '#D9DEFF',
+          200: '#B3BDFF',
+          300: '#8090FF',
+          400: '#4D63FF',
+          500: '#0024CC',
+          600: '#001BA0',
+          700: '#001478',
+          800: '#000D50',
+          900: '#000628',
+        },
+        neutral: {
+          0: '#FFFFFF',
+          25: '#F7F8FD',
+          50: '#F1F3F9',
+          100: '#E2E5EF',
+          200: '#C5C9D9',
+          300: '#9CA0B3',
+          400: '#6B7280',
+          500: '#4B5063',
+          600: '#3A415A',
+          700: '#272D42',
+          800: '#181C2E',
+          900: '#0C0F1A',
+        },
+        ai: {
+          50: '#F0FDFA',
+          100: '#CCFBF1',
+          500: '#0F766E',
+          600: '#115E59',
+        },
+        success: {
+          50: '#ECFDF5',
+          500: '#047857',
+          600: '#065F46',
+        },
+        error: {
+          50: '#FEF2F2',
+          500: '#DC2626',
+          600: '#B91C1C',
+        },
+        warning: {
+          50: '#FFFBEB',
+          500: '#D97706',
+          700: '#92400E',
+        },
+        info: {
+          50: '#EFF6FF',
+          500: '#2563EB',
+        },
+      },
+      fontFamily: {
+        display: [
+          "'Space Grotesk'",
+          'system-ui',
+          '-apple-system',
+          'sans-serif',
+        ],
+        body: ["'Archivo'", 'system-ui', '-apple-system', 'sans-serif'],
+        mono: [
+          "'Space Mono'",
+          "'SF Mono'",
+          "'Fira Code'",
+          "'Consolas'",
+          'monospace',
+        ],
+      },
+      borderRadius: {
+        sm: '0.25rem',
+        DEFAULT: '0.5rem',
+        lg: '0.75rem',
+        xl: '1rem',
+        '2xl': '1.5rem',
+      },
+    },
+  },
+  plugins: [animate],
+} satisfies Config;
