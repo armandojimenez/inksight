@@ -63,6 +63,13 @@ src/
 
 **Commit rhythm follows TDD:** `test:` (red) → `feat:` (green) → `refactor:` (optional). Multiple commits per phase, NOT one blob. Tag at each phase gate (`v0.0-scaffold`, `v0.1-upload`, etc.).
 
+## Starting a Session
+
+Check current progress before doing anything:
+1. `git log --oneline -5` — see where we left off
+2. Read `docs/implementation-plan.md` — find the current phase
+3. Build and test what exists — `npm test` must pass before adding new code
+
 ## Development
 
 ```bash
