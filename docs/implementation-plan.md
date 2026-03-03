@@ -205,6 +205,21 @@ curl -s -X POST http://localhost:3000/api/upload \
 git tag v0.1-upload -m "Image upload with validation, magic bytes, path traversal prevention"
 ```
 
+### Review Findings Deferred to Later Phases
+
+The following findings from the Phase 1 code review are intentionally deferred:
+
+| Finding | Deferred To | Rationale |
+|---------|-------------|-----------|
+| Rate limiting on upload endpoint | Phase 8 | Requires infrastructure (Redis/memory store) not yet available |
+| Polyglot file re-encoding (image/text confusion) | File serving endpoint | No file serving exists yet; re-encode on read |
+| Orphaned temp file periodic cleanup | Cleanup module (Phase 6) | Scheduled cleanup is a separate concern |
+| `initialAnalysis` column → JSONB | Phase 2/3 | AI service wires the field; migration + type change together |
+| Global filters/interceptors via DI tokens | Phase 5 | Cross-cutting concern, not upload-specific |
+| SSE logging compatibility | Phase 2 | Streaming doesn't exist yet |
+| Swagger/OpenAPI decorators | Phase 7 | API documentation phase |
+| Import path consistency audit | Next refactor pass | Low priority, no runtime impact |
+
 ---
 
 ## Phase 2: Mock AI Service
