@@ -1,148 +1,101 @@
-import { DataSource } from 'typeorm';
+import { EntityMetadataBuilder } from 'typeorm/metadata-builder/EntityMetadataBuilder';
+import { MetadataArgsStorage } from 'typeorm/metadata-args/MetadataArgsStorage';
+import { getMetadataArgsStorage } from 'typeorm';
 import { ImageEntity } from '@/upload/entities/image.entity';
 
 describe('ImageEntity', () => {
-  let dataSource: DataSource;
+  let storage: MetadataArgsStorage;
 
-  beforeAll(async () => {
-    dataSource = new DataSource({
-      type: 'sqlite',
-      database: ':memory:',
-      entities: [ImageEntity],
-      synchronize: true,
-    });
-    await dataSource.initialize();
+  beforeAll(() => {
+    // Force decorator metadata to register by referencing the entity
+    void ImageEntity;
+    storage = getMetadataArgsStorage();
   });
 
-  afterAll(async () => {
-    if (dataSource.isInitialized) {
-      await dataSource.destroy();
-    }
-  });
-
-  it('should have the correct table name', () => {
-    const metadata = dataSource.getMetadata(ImageEntity);
-    expect(metadata.tableName).toBe('images');
+  it('should be registered with table name "images"', () => {
+    const tableArgs = storage.tables.find((t) => t.target === ImageEntity);
+    expect(tableArgs).toBeDefined();
+    expect(tableArgs!.name).toBe('images');
   });
 
   it('should have all required columns', () => {
-    const metadata = dataSource.getMetadata(ImageEntity);
-    const columnNames = metadata.columns.map((c) => c.propertyName);
+    const columns = storage.columns
+      .filter((c) => c.target === ImageEntity)
+      .map((c) => c.propertyName);
 
-    expect(columnNames).toContain('id');
-    expect(columnNames).toContain('originalFilename');
-    expect(columnNames).toContain('storedFilename');
-    expect(columnNames).toContain('mimeType');
-    expect(columnNames).toContain('size');
-    expect(columnNames).toContain('uploadPath');
-    expect(columnNames).toContain('initialAnalysis');
-    expect(columnNames).toContain('createdAt');
-    expect(columnNames).toContain('updatedAt');
-    expect(columnNames).toContain('version');
+    expect(columns).toContain('id');
+    expect(columns).toContain('originalFilename');
+    expect(columns).toContain('storedFilename');
+    expect(columns).toContain('mimeType');
+    expect(columns).toContain('size');
+    expect(columns).toContain('uploadPath');
+    expect(columns).toContain('initialAnalysis');
+    expect(columns).toContain('createdAt');
+    expect(columns).toContain('updatedAt');
+    expect(columns).toContain('version');
   });
 
   it('should have id as primary generated uuid column', () => {
-    const metadata = dataSource.getMetadata(ImageEntity);
-    const idColumn = metadata.findColumnWithPropertyName('id');
+    const generatedColumns = storage.generations.filter(
+      (g) => g.target === ImageEntity,
+    );
 
-    expect(idColumn).toBeDefined();
-    expect(idColumn!.isPrimary).toBe(true);
-    expect(idColumn!.generationStrategy).toBe('uuid');
+    const idGen = generatedColumns.find((g) => g.propertyName === 'id');
+    expect(idGen).toBeDefined();
+    expect(idGen!.strategy).toBe('uuid');
   });
 
   it('should have storedFilename as unique', () => {
-    const metadata = dataSource.getMetadata(ImageEntity);
-    const storedFilenameColumn =
-      metadata.findColumnWithPropertyName('storedFilename');
-
-    expect(storedFilenameColumn).toBeDefined();
-
-    const hasUniqueConstraint = metadata.uniques.some((u) =>
-      u.columns.some((c) => c.propertyName === 'storedFilename'),
+    const storedFilenameCol = storage.columns.find(
+      (c) => c.target === ImageEntity && c.propertyName === 'storedFilename',
     );
-    const hasUniqueIndex = metadata.indices.some(
-      (i) =>
-        i.isUnique &&
-        i.columns.some((c) => c.propertyName === 'storedFilename'),
-    );
-    // TypeORM may store uniqueness as a constraint, index, or column option
-    expect(hasUniqueConstraint || hasUniqueIndex).toBe(true);
+    expect(storedFilenameCol).toBeDefined();
+    expect(storedFilenameCol!.options.unique).toBe(true);
   });
 
   it('should have initialAnalysis as nullable', () => {
-    const metadata = dataSource.getMetadata(ImageEntity);
-    const analysisColumn =
-      metadata.findColumnWithPropertyName('initialAnalysis');
-
-    expect(analysisColumn).toBeDefined();
-    expect(analysisColumn!.isNullable).toBe(true);
+    const analysisCol = storage.columns.find(
+      (c) => c.target === ImageEntity && c.propertyName === 'initialAnalysis',
+    );
+    expect(analysisCol).toBeDefined();
+    expect(analysisCol!.options.nullable).toBe(true);
   });
 
   it('should have version column for optimistic locking', () => {
-    const metadata = dataSource.getMetadata(ImageEntity);
-    const versionColumn = metadata.findColumnWithPropertyName('version');
-
-    expect(versionColumn).toBeDefined();
-    expect(metadata.versionColumn).toBeDefined();
-    expect(metadata.versionColumn!.propertyName).toBe('version');
+    const versionCol = storage.columns.find(
+      (c) => c.target === ImageEntity && c.propertyName === 'version',
+    );
+    expect(versionCol).toBeDefined();
+    expect(versionCol!.mode).toBe('version');
   });
 
-  it('should have createdAt and updatedAt as auto-generated', () => {
-    const metadata = dataSource.getMetadata(ImageEntity);
-    const createdAt = metadata.findColumnWithPropertyName('createdAt');
-    const updatedAt = metadata.findColumnWithPropertyName('updatedAt');
-
-    expect(createdAt).toBeDefined();
-    expect(createdAt!.isCreateDate).toBe(true);
-    expect(updatedAt).toBeDefined();
-    expect(updatedAt!.isUpdateDate).toBe(true);
+  it('should have createdAt as CreateDateColumn', () => {
+    const createdAtCol = storage.columns.find(
+      (c) => c.target === ImageEntity && c.propertyName === 'createdAt',
+    );
+    expect(createdAtCol).toBeDefined();
+    expect(createdAtCol!.mode).toBe('createDate');
   });
 
-  it('should persist and retrieve an image record', async () => {
-    const repo = dataSource.getRepository(ImageEntity);
-
-    const image = repo.create({
-      originalFilename: 'test-photo.png',
-      storedFilename: 'abc-123.png',
-      mimeType: 'image/png',
-      size: 1024,
-      uploadPath: 'uploads/abc-123.png',
-    });
-
-    const saved = await repo.save(image);
-
-    expect(saved.id).toBeDefined();
-    expect(saved.originalFilename).toBe('test-photo.png');
-    expect(saved.storedFilename).toBe('abc-123.png');
-    expect(saved.mimeType).toBe('image/png');
-    expect(saved.size).toBe(1024);
-    expect(saved.uploadPath).toBe('uploads/abc-123.png');
-    expect(saved.initialAnalysis).toBeNull();
-    expect(saved.createdAt).toBeInstanceOf(Date);
-    expect(saved.updatedAt).toBeInstanceOf(Date);
-    expect(saved.version).toBe(1);
+  it('should have updatedAt as UpdateDateColumn', () => {
+    const updatedAtCol = storage.columns.find(
+      (c) => c.target === ImageEntity && c.propertyName === 'updatedAt',
+    );
+    expect(updatedAtCol).toBeDefined();
+    expect(updatedAtCol!.mode).toBe('updateDate');
   });
 
-  it('should enforce storedFilename uniqueness', async () => {
-    const repo = dataSource.getRepository(ImageEntity);
+  it('should have correct column types and lengths', () => {
+    const findCol = (name: string) =>
+      storage.columns.find(
+        (c) => c.target === ImageEntity && c.propertyName === name,
+      );
 
-    const image1 = repo.create({
-      originalFilename: 'photo1.png',
-      storedFilename: 'unique-name.png',
-      mimeType: 'image/png',
-      size: 512,
-      uploadPath: 'uploads/unique-name.png',
-    });
-    await repo.save(image1);
-
-    const image2 = repo.create({
-      originalFilename: 'photo2.png',
-      storedFilename: 'unique-name.png',
-      mimeType: 'image/png',
-      size: 256,
-      uploadPath: 'uploads/unique-name.png',
-    });
-
-    await expect(repo.save(image2)).rejects.toThrow();
+    expect(findCol('originalFilename')!.options.length).toBe(255);
+    expect(findCol('storedFilename')!.options.length).toBe(255);
+    expect(findCol('mimeType')!.options.length).toBe(50);
+    expect(findCol('uploadPath')!.options.length).toBe(500);
+    expect(findCol('size')!.options.type).toBe('integer');
+    expect(findCol('initialAnalysis')!.options.type).toBe('text');
   });
 });

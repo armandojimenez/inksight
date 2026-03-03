@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import * as Joi from 'joi';
 import { join } from 'path';
+import { CreateImagesTable1709500000000 } from './database/migrations/1709500000000-CreateImagesTable';
 import { HealthModule } from './health/health.module';
 import { UploadModule } from './upload/upload.module';
 import { ChatModule } from './chat/chat.module';
@@ -23,6 +24,8 @@ import { DatabaseModule } from './database/database.module';
           .valid('development', 'production', 'test')
           .default('development'),
         DATABASE_URL: Joi.string().required(),
+        UPLOAD_DIR: Joi.string().default('uploads'),
+        MAX_FILE_SIZE: Joi.number().default(16777216),
       }),
     }),
     TypeOrmModule.forRootAsync({
@@ -32,6 +35,7 @@ import { DatabaseModule } from './database/database.module';
         url: config.get<string>('DATABASE_URL'),
         autoLoadEntities: true,
         synchronize: false,
+        migrations: [CreateImagesTable1709500000000],
         migrationsRun: true,
         retryAttempts: 10,
         retryDelay: 3000,
