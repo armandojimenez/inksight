@@ -1,8 +1,4 @@
-import {
-  HttpException,
-  HttpStatus,
-  ArgumentsHost,
-} from '@nestjs/common';
+import { HttpException, HttpStatus, ArgumentsHost } from '@nestjs/common';
 import { HttpExceptionFilter } from '@/common/filters/http-exception.filter';
 
 describe('HttpExceptionFilter', () => {
@@ -57,7 +53,10 @@ describe('HttpExceptionFilter', () => {
   });
 
   it('should use human-readable reason phrase for error field', () => {
-    const exception = new HttpException('Resource not found', HttpStatus.NOT_FOUND);
+    const exception = new HttpException(
+      'Resource not found',
+      HttpStatus.NOT_FOUND,
+    );
 
     filter.catch(exception, mockHost);
 

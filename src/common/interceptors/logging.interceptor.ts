@@ -23,8 +23,7 @@ export class LoggingInterceptor implements NestInterceptor {
     const response = ctx.getResponse<Response>();
 
     const rawId = request.headers['x-request-id'] as string | undefined;
-    const requestId =
-      rawId && REQUEST_ID_PATTERN.test(rawId) ? rawId : uuid();
+    const requestId = rawId && REQUEST_ID_PATTERN.test(rawId) ? rawId : uuid();
     request.correlationId = requestId;
     response.setHeader('X-Request-Id', requestId);
 

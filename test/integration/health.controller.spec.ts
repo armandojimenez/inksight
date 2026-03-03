@@ -36,9 +36,7 @@ describe('HealthController (integration)', () => {
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('status', 'healthy');
     expect(res.body).toHaveProperty('timestamp');
-    expect(new Date(res.body.timestamp).toISOString()).toBe(
-      res.body.timestamp,
-    );
+    expect(new Date(res.body.timestamp).toISOString()).toBe(res.body.timestamp);
     expect(res.body.checks).toHaveProperty('database', 'connected');
     expect(res.body.checks).toHaveProperty('uptime');
     expect(typeof res.body.checks.uptime).toBe('number');
