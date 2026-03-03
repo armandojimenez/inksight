@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import * as request from 'supertest';
 import { DataSource } from 'typeorm';
 import { HealthController } from '@/health/health.controller';
-import { HttpExceptionFilter } from '@/common/filters/http-exception.filter';
-import { LoggingInterceptor } from '@/common/interceptors/logging.interceptor';
+import { setupApp } from '@/common/setup-app';
 
 describe('HealthController (integration)', () => {
   let app: INestApplication;
@@ -16,14 +16,13 @@ describe('HealthController (integration)', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
+      imports: [ConfigModule.forRoot({ isGlobal: true })],
       controllers: [HealthController],
       providers: [{ provide: DataSource, useValue: mockDataSource }],
     }).compile();
 
     app = module.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalFilters(new HttpExceptionFilter());
-    app.useGlobalInterceptors(new LoggingInterceptor());
+    setupApp(app);
     await app.init();
   });
 

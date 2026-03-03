@@ -49,6 +49,11 @@ jobs:
       - name: Audit dependencies
         run: npm audit --omit=dev --audit-level=high || true
 
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Lint
         run: npm run lint
 

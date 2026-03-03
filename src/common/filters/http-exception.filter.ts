@@ -6,15 +6,12 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { STATUS_CODES } from 'http';
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { RequestWithCorrelation } from '../interfaces/request.interface';
 
 interface ExceptionResponseObject {
   message?: string;
   code?: string;
-}
-
-interface RequestWithCorrelation extends Request {
-  correlationId?: string;
 }
 
 @Catch()

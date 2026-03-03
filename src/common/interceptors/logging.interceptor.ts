@@ -8,11 +8,10 @@ import {
 import { Observable } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { v4 as uuid } from 'uuid';
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { RequestWithCorrelation } from '../interfaces/request.interface';
 
-interface RequestWithCorrelation extends Request {
-  correlationId?: string;
-}
+const REQUEST_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
@@ -23,8 +22,9 @@ export class LoggingInterceptor implements NestInterceptor {
     const request = ctx.getRequest<RequestWithCorrelation>();
     const response = ctx.getResponse<Response>();
 
+    const rawId = request.headers['x-request-id'] as string | undefined;
     const requestId =
-      (request.headers['x-request-id'] as string | undefined) ?? uuid();
+      rawId && REQUEST_ID_PATTERN.test(rawId) ? rawId : uuid();
     request.correlationId = requestId;
     response.setHeader('X-Request-Id', requestId);
 

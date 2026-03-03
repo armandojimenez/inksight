@@ -1,16 +1,18 @@
+# Development-only configuration. Credentials are for local dev — never use in production.
 services:
   db:
     image: postgres:16-alpine
+    env_file: .env
     environment:
-      POSTGRES_USER: inksight
-      POSTGRES_PASSWORD: inksight_dev
-      POSTGRES_DB: inksight
+      POSTGRES_USER: ${POSTGRES_USER:-inksight}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-inksight_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-inksight}
     ports:
       - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U inksight']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-inksight}']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -19,9 +21,10 @@ services:
     build: .
     ports:
       - '3000:3000'
+    env_file: .env
     environment:
-      DATABASE_URL: postgres://inksight:inksight_dev@db:5432/inksight
-      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-inksight}:${POSTGRES_PASSWORD:-inksight_dev}@db:5432/${POSTGRES_DB:-inksight}
+      NODE_ENV: development
       PORT: 3000
     depends_on:
       db:
