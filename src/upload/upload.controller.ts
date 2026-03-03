@@ -10,6 +10,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { UploadService, UploadResponse } from './upload.service';
 import { FileValidationPipe } from '../common/pipes/file-validation.pipe';
+import { MulterErrorInterceptor } from '../common/interceptors/multer-error.interceptor';
 
 const MAX_FILE_SIZE_HARD_LIMIT = 16 * 1024 * 1024 + 1024; // 16MB + 1KB safety buffer
 
@@ -20,6 +21,7 @@ export class UploadController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
+    MulterErrorInterceptor,
     FileInterceptor('image', {
       storage: memoryStorage(),
       limits: { fileSize: MAX_FILE_SIZE_HARD_LIMIT },
