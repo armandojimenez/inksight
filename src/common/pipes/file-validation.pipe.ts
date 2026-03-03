@@ -17,6 +17,15 @@ const EXT_TO_MAGIC: Record<string, number[]> = {
   '.gif': [0x47, 0x49, 0x46],
 };
 
+const EXT_TO_MIMETYPE: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+};
+
+const MAX_FILENAME_LENGTH = 255;
+
 @Injectable()
 export class FileValidationPipe implements PipeTransform<Express.Multer.File> {
   private readonly maxFileSize: number;
@@ -36,7 +45,11 @@ export class FileValidationPipe implements PipeTransform<Express.Multer.File> {
       });
     }
 
-    // Validate extension
+    // 1. Sanitize filename FIRST (before extension extraction)
+    //    This ensures extension extraction operates on the cleaned name.
+    file.originalname = this.sanitizeFilename(file.originalname);
+
+    // 2. Validate extension (extracted from sanitized filename)
     const ext = extname(file.originalname).toLowerCase();
     if (!ALLOWED_EXTENSIONS.has(ext)) {
       throw new UnsupportedMediaTypeException({
@@ -45,7 +58,15 @@ export class FileValidationPipe implements PipeTransform<Express.Multer.File> {
       });
     }
 
-    // Validate magic bytes (keyed by extension, not mimetype)
+    // 3. Validate file size (cheapest check before magic byte inspection)
+    if (file.size > this.maxFileSize) {
+      throw new PayloadTooLargeException({
+        message: `File size exceeds the maximum allowed size of ${this.maxFileSize} bytes`,
+        code: 'FILE_TOO_LARGE',
+      });
+    }
+
+    // 4. Validate magic bytes (keyed by extension, not client-declared mimetype)
     const expectedMagic = EXT_TO_MAGIC[ext];
     if (expectedMagic) {
       if (
@@ -60,24 +81,41 @@ export class FileValidationPipe implements PipeTransform<Express.Multer.File> {
       }
     }
 
-    // Validate file size
-    if (file.size > this.maxFileSize) {
-      throw new PayloadTooLargeException({
-        message: `File size exceeds the maximum allowed size of ${this.maxFileSize} bytes`,
-        code: 'FILE_TOO_LARGE',
-      });
+    // 5. Derive correct MIME type from validated extension (defense-in-depth)
+    const correctMimeType = EXT_TO_MIMETYPE[ext];
+    if (correctMimeType) {
+      file.mimetype = correctMimeType;
     }
-
-    // Sanitize filename
-    file.originalname = this.sanitizeFilename(file.originalname);
 
     return file;
   }
 
   private sanitizeFilename(filename: string): string {
-    // Extract just the filename (strip path traversal)
-    const basename = filename.replace(/^.*[/\\]/, '');
+    // Strip null bytes first
+    let sanitized = filename.replace(/\0/g, '');
+    // Extract just the basename (strip path traversal)
+    sanitized = sanitized.replace(/^.*[/\\]/, '');
     // Replace disallowed characters
-    return basename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    sanitized = sanitized.replace(/[^a-zA-Z0-9._-]/g, '_');
+    // Truncate to max length (preserving extension)
+    if (sanitized.length > MAX_FILENAME_LENGTH) {
+      const ext = extname(sanitized);
+      const nameWithoutExt = sanitized.slice(
+        0,
+        MAX_FILENAME_LENGTH - ext.length,
+      );
+      sanitized = nameWithoutExt + ext;
+    }
+    // Fallback if sanitized result is empty, only dots, or has no base name
+    const baseWithoutExt = sanitized.replace(/\.[^.]+$/, '');
+    if (
+      !sanitized ||
+      !baseWithoutExt ||
+      /^\.+$/.test(baseWithoutExt)
+    ) {
+      const ext = extname(sanitized);
+      sanitized = ext ? `unnamed${ext}` : 'unnamed';
+    }
+    return sanitized;
   }
 }

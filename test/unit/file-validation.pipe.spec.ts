@@ -1,4 +1,8 @@
-import { BadRequestException, PayloadTooLargeException } from '@nestjs/common';
+import {
+  BadRequestException,
+  PayloadTooLargeException,
+  UnsupportedMediaTypeException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FileValidationPipe } from '@/common/pipes/file-validation.pipe';
 import {
@@ -39,6 +43,22 @@ function createMockFile(
     stream: null as never,
     ...overrides,
   };
+}
+
+/** Helper to extract error response code from a NestJS exception */
+function getErrorCode(fn: () => void): string {
+  try {
+    fn();
+    throw new Error('Expected function to throw');
+  } catch (e) {
+    if (e instanceof BadRequestException ||
+        e instanceof UnsupportedMediaTypeException ||
+        e instanceof PayloadTooLargeException) {
+      const response = e.getResponse() as Record<string, unknown>;
+      return response.code as string;
+    }
+    throw e;
+  }
 }
 
 describe('FileValidationPipe', () => {
@@ -124,93 +144,43 @@ describe('FileValidationPipe', () => {
   });
 
   describe('missing file', () => {
-    it('should reject null file', () => {
+    it('should reject null file with MISSING_FILE code', () => {
       expect(() => pipe.transform(null as never)).toThrow(BadRequestException);
-      try {
-        pipe.transform(null as never);
-      } catch (e) {
-        const response = (e as BadRequestException).getResponse() as Record<
-          string,
-          unknown
-        >;
-        expect(response.code).toBe('MISSING_FILE');
-      }
+      expect(getErrorCode(() => pipe.transform(null as never))).toBe('MISSING_FILE');
     });
 
-    it('should reject undefined file', () => {
-      expect(() => pipe.transform(undefined as never)).toThrow(
-        BadRequestException,
-      );
-      try {
-        pipe.transform(undefined as never);
-      } catch (e) {
-        const response = (e as BadRequestException).getResponse() as Record<
-          string,
-          unknown
-        >;
-        expect(response.code).toBe('MISSING_FILE');
-      }
+    it('should reject undefined file with MISSING_FILE code', () => {
+      expect(() => pipe.transform(undefined as never)).toThrow(BadRequestException);
+      expect(getErrorCode(() => pipe.transform(undefined as never))).toBe('MISSING_FILE');
     });
   });
 
   describe('invalid extensions', () => {
-    it('should reject .bmp extension', () => {
+    it('should reject .bmp extension with UnsupportedMediaTypeException', () => {
       const file = createMockFile({ originalname: 'image.bmp' });
-      expect(() => pipe.transform(file)).toThrow();
-      try {
-        pipe.transform(file);
-      } catch (e) {
-        const response = (e as BadRequestException).getResponse() as Record<
-          string,
-          unknown
-        >;
-        expect(response.code).toBe('INVALID_FILE_TYPE');
-      }
+      expect(() => pipe.transform(file)).toThrow(UnsupportedMediaTypeException);
+      expect(getErrorCode(() => pipe.transform(file))).toBe('INVALID_FILE_TYPE');
     });
 
-    it('should reject .exe extension', () => {
+    it('should reject .exe extension with UnsupportedMediaTypeException', () => {
       const file = createMockFile({
         originalname: 'virus.exe',
         buffer: createExeBuffer(),
       });
-      expect(() => pipe.transform(file)).toThrow();
-      try {
-        pipe.transform(file);
-      } catch (e) {
-        const response = (e as BadRequestException).getResponse() as Record<
-          string,
-          unknown
-        >;
-        expect(response.code).toBe('INVALID_FILE_TYPE');
-      }
+      expect(() => pipe.transform(file)).toThrow(UnsupportedMediaTypeException);
+      expect(getErrorCode(() => pipe.transform(file))).toBe('INVALID_FILE_TYPE');
     });
 
-    it('should reject .txt extension', () => {
+    it('should reject .txt extension with UnsupportedMediaTypeException', () => {
       const file = createMockFile({ originalname: 'readme.txt' });
-      expect(() => pipe.transform(file)).toThrow();
-      try {
-        pipe.transform(file);
-      } catch (e) {
-        const response = (e as BadRequestException).getResponse() as Record<
-          string,
-          unknown
-        >;
-        expect(response.code).toBe('INVALID_FILE_TYPE');
-      }
+      expect(() => pipe.transform(file)).toThrow(UnsupportedMediaTypeException);
+      expect(getErrorCode(() => pipe.transform(file))).toBe('INVALID_FILE_TYPE');
     });
 
     it('should reject a file with no extension', () => {
       const file = createMockFile({ originalname: 'noextension' });
-      expect(() => pipe.transform(file)).toThrow();
-      try {
-        pipe.transform(file);
-      } catch (e) {
-        const response = (e as BadRequestException).getResponse() as Record<
-          string,
-          unknown
-        >;
-        expect(response.code).toBe('INVALID_FILE_TYPE');
-      }
+      expect(() => pipe.transform(file)).toThrow(UnsupportedMediaTypeException);
+      expect(getErrorCode(() => pipe.transform(file))).toBe('INVALID_FILE_TYPE');
     });
   });
 
@@ -223,15 +193,7 @@ describe('FileValidationPipe', () => {
         size: createMinimalJpeg().length,
       });
       expect(() => pipe.transform(file)).toThrow(BadRequestException);
-      try {
-        pipe.transform(file);
-      } catch (e) {
-        const response = (e as BadRequestException).getResponse() as Record<
-          string,
-          unknown
-        >;
-        expect(response.code).toBe('FILE_CONTENT_MISMATCH');
-      }
+      expect(getErrorCode(() => pipe.transform(file))).toBe('FILE_CONTENT_MISMATCH');
     });
 
     it('should reject JPG extension with PNG magic bytes', () => {
@@ -242,15 +204,7 @@ describe('FileValidationPipe', () => {
         size: createMinimalPng().length,
       });
       expect(() => pipe.transform(file)).toThrow(BadRequestException);
-      try {
-        pipe.transform(file);
-      } catch (e) {
-        const response = (e as BadRequestException).getResponse() as Record<
-          string,
-          unknown
-        >;
-        expect(response.code).toBe('FILE_CONTENT_MISMATCH');
-      }
+      expect(getErrorCode(() => pipe.transform(file))).toBe('FILE_CONTENT_MISMATCH');
     });
 
     it('should reject PNG extension with random bytes', () => {
@@ -260,15 +214,7 @@ describe('FileValidationPipe', () => {
         size: createFakeImageBuffer().length,
       });
       expect(() => pipe.transform(file)).toThrow(BadRequestException);
-      try {
-        pipe.transform(file);
-      } catch (e) {
-        const response = (e as BadRequestException).getResponse() as Record<
-          string,
-          unknown
-        >;
-        expect(response.code).toBe('FILE_CONTENT_MISMATCH');
-      }
+      expect(getErrorCode(() => pipe.transform(file))).toBe('FILE_CONTENT_MISMATCH');
     });
 
     it('should reject a zero-byte file', () => {
@@ -278,15 +224,7 @@ describe('FileValidationPipe', () => {
         size: 0,
       });
       expect(() => pipe.transform(file)).toThrow(BadRequestException);
-      try {
-        pipe.transform(file);
-      } catch (e) {
-        const response = (e as BadRequestException).getResponse() as Record<
-          string,
-          unknown
-        >;
-        expect(response.code).toBe('FILE_CONTENT_MISMATCH');
-      }
+      expect(getErrorCode(() => pipe.transform(file))).toBe('FILE_CONTENT_MISMATCH');
     });
 
     it('should reject a truncated header (too short for magic bytes)', () => {
@@ -296,15 +234,7 @@ describe('FileValidationPipe', () => {
         size: 2,
       });
       expect(() => pipe.transform(file)).toThrow(BadRequestException);
-      try {
-        pipe.transform(file);
-      } catch (e) {
-        const response = (e as BadRequestException).getResponse() as Record<
-          string,
-          unknown
-        >;
-        expect(response.code).toBe('FILE_CONTENT_MISMATCH');
-      }
+      expect(getErrorCode(() => pipe.transform(file))).toBe('FILE_CONTENT_MISMATCH');
     });
   });
 
@@ -317,14 +247,18 @@ describe('FileValidationPipe', () => {
         size: MAX_FILE_SIZE + 1,
       });
       expect(() => pipe.transform(file)).toThrow(PayloadTooLargeException);
-      try {
-        pipe.transform(file);
-      } catch (e) {
-        const response = (
-          e as PayloadTooLargeException
-        ).getResponse() as Record<string, unknown>;
-        expect(response.code).toBe('FILE_TOO_LARGE');
-      }
+      expect(getErrorCode(() => pipe.transform(file))).toBe('FILE_TOO_LARGE');
+    });
+
+    it('should check size before magic bytes (rejects oversized file without FILE_CONTENT_MISMATCH)', () => {
+      // File has wrong magic bytes AND is oversized — should get FILE_TOO_LARGE, not FILE_CONTENT_MISMATCH
+      const file = createMockFile({
+        originalname: 'oversized-wrong-magic.png',
+        buffer: Buffer.alloc(MAX_FILE_SIZE + 1, 0x00),
+        size: MAX_FILE_SIZE + 1,
+      });
+      expect(() => pipe.transform(file)).toThrow(PayloadTooLargeException);
+      expect(getErrorCode(() => pipe.transform(file))).toBe('FILE_TOO_LARGE');
     });
   });
 
@@ -338,6 +272,7 @@ describe('FileValidationPipe', () => {
       const result = pipe.transform(file);
       expect(result.originalname).not.toContain('..');
       expect(result.originalname).not.toContain('/');
+      expect(result.originalname).toBe('passwd.png');
     });
 
     it('should sanitize backslash path traversal', () => {
@@ -349,6 +284,7 @@ describe('FileValidationPipe', () => {
       const result = pipe.transform(file);
       expect(result.originalname).not.toContain('..');
       expect(result.originalname).not.toContain('\\');
+      expect(result.originalname).toBe('passwd.png');
     });
 
     it('should sanitize special characters', () => {
@@ -369,6 +305,100 @@ describe('FileValidationPipe', () => {
       });
       const result = pipe.transform(file);
       expect(result.originalname).toBe('my-photo_2024.png');
+    });
+
+    it('should strip null bytes from filename', () => {
+      const file = createMockFile({
+        originalname: 'photo\0.png',
+        buffer: createMinimalPng(),
+        size: createMinimalPng().length,
+      });
+      const result = pipe.transform(file);
+      expect(result.originalname).not.toContain('\0');
+      expect(result.originalname).toBe('photo.png');
+    });
+
+    it('should truncate filenames exceeding 255 characters', () => {
+      const longName = 'a'.repeat(260) + '.png';
+      const file = createMockFile({
+        originalname: longName,
+        buffer: createMinimalPng(),
+        size: createMinimalPng().length,
+      });
+      const result = pipe.transform(file);
+      expect(result.originalname.length).toBeLessThanOrEqual(255);
+      expect(result.originalname).toMatch(/\.png$/);
+    });
+
+    it('should fall back to "unnamed" for dots-only filename base', () => {
+      const file = createMockFile({
+        originalname: '...png',
+        buffer: createMinimalPng(),
+        size: createMinimalPng().length,
+      });
+      const result = pipe.transform(file);
+      expect(result.originalname).toBe('unnamed.png');
+    });
+
+    it('should reject dotfile-only filename after sanitization (/.png → .png → unnamed → no ext)', () => {
+      // /.png after path strip = .png, extname('.png') = '' (Node treats as dotfile)
+      // Fallback produces 'unnamed' which has no extension → correctly rejected
+      const file = createMockFile({
+        originalname: '/.png',
+        buffer: createMinimalPng(),
+        size: createMinimalPng().length,
+      });
+      expect(() => pipe.transform(file)).toThrow(UnsupportedMediaTypeException);
+      expect(getErrorCode(() => pipe.transform(file))).toBe('INVALID_FILE_TYPE');
+    });
+
+    it('should fall back to "unnamed" when base is only dots', () => {
+      // "..photo.png" has base "..photo" after sanitization which is "..photo"
+      // "....png" → base is "..." → dots-only → fallback to "unnamed.png"
+      const file = createMockFile({
+        originalname: '....png',
+        buffer: createMinimalPng(),
+        size: createMinimalPng().length,
+      });
+      const result = pipe.transform(file);
+      expect(result.originalname).toBe('unnamed.png');
+    });
+  });
+
+  describe('MIME type derivation', () => {
+    it('should override client-declared mimetype based on validated extension', () => {
+      const file = createMockFile({
+        originalname: 'photo.png',
+        mimetype: 'application/octet-stream', // wrong mimetype from client
+        buffer: createMinimalPng(),
+        size: createMinimalPng().length,
+      });
+      const result = pipe.transform(file);
+      expect(result.mimetype).toBe('image/png');
+    });
+
+    it('should set correct mimetype for jpg extension', () => {
+      const buffer = createMinimalJpeg();
+      const file = createMockFile({
+        originalname: 'photo.jpg',
+        mimetype: 'image/png', // deliberately wrong
+        buffer,
+        size: buffer.length,
+      });
+      const result = pipe.transform(file);
+      expect(result.mimetype).toBe('image/jpeg');
+    });
+
+    it('should set correct mimetype for gif extension', () => {
+      const buffer = createMinimalGif();
+      const file = createMockFile({
+        originalname: 'anim.gif',
+        mimetype: 'application/octet-stream',
+        buffer,
+        size: buffer.length,
+      });
+      const result = pipe.transform(file);
+      expect(result.mimetype).toBe('image/gif');
     });
   });
 });
