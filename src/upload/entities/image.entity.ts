@@ -5,7 +5,6 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   VersionColumn,
-  Index,
 } from 'typeorm';
 
 @Entity('images')
@@ -16,7 +15,6 @@ export class ImageEntity {
   @Column({ type: 'varchar', length: 255 })
   originalFilename!: string;
 
-  @Index({ unique: true })
   @Column({ type: 'varchar', length: 255, unique: true })
   storedFilename!: string;
 
