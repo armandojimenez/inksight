@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inksight — Design System v1.0</title>
+<meta name="description" content="Design tokens, components, and accessibility patterns for Inksight — an AI-powered visual assistant.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M16 6C8 6 2 16 2 16s6 10 14 10 14-10 14-10S24 6 16 6z' fill='none' stroke='%230024CC' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%230024CC'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Archivo:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/*
+ * Design tokens sourced from: client/src/styles/tokens.css
+ * This is the single source of truth for all design values.
+ */
+:root {
+  --color-primary-50:#EEF0FF;--color-primary-100:#D9DEFF;--color-primary-200:#B3BDFF;
+  --color-primary-300:#8090FF;--color-primary-400:#4D63FF;--color-primary-500:#0024CC;
+  --color-primary-600:#001BA0;--color-primary-700:#001478;--color-primary-800:#000D50;
+  --color-primary-900:#000628;
+  --color-neutral-0:#FFFFFF;--color-neutral-25:#F7F8FD;--color-neutral-50:#F1F3F9;
+  --color-neutral-100:#E2E5EF;--color-neutral-200:#C5C9D9;--color-neutral-300:#9CA0B3;
+  --color-neutral-400:#6B7280;--color-neutral-500:#4B5063;--color-neutral-600:#3A415A;
+  --color-neutral-700:#272D42;--color-neutral-800:#181C2E;--color-neutral-900:#0C0F1A;
+  --color-success-50:#ECFDF5;--color-success-500:#047857;--color-success-600:#065F46;
+  --color-error-50:#FEF2F2;--color-error-500:#DC2626;--color-error-600:#B91C1C;
+  --color-warning-50:#FFFBEB;--color-warning-500:#D97706;--color-warning-700:#92400E;
+  --color-info-50:#EFF6FF;--color-info-500:#2563EB;
+  --color-ai-50:#F0FDFA;--color-ai-100:#CCFBF1;--color-ai-500:#0F766E;--color-ai-600:#115E59;
+  --font-display:'Space Grotesk',system-ui,-apple-system,sans-serif;
+  --font-body:'Archivo',system-ui,-apple-system,sans-serif;
+  --font-mono:'Space Mono','SF Mono','Fira Code','Consolas',monospace;
+  --text-xs:0.75rem;--text-xs-lh:1rem;--text-sm:0.875rem;--text-sm-lh:1.25rem;
+  --text-base:1rem;--text-base-lh:1.5rem;--text-lg:1.125rem;--text-lg-lh:1.75rem;
+  --text-xl:1.25rem;--text-xl-lh:1.75rem;--text-2xl:1.5rem;--text-2xl-lh:2rem;
+  --text-3xl:1.875rem;--text-3xl-lh:2.25rem;
+  --font-weight-regular:400;--font-weight-medium:500;--font-weight-semibold:600;--font-weight-bold:700;
+  --space-1:0.25rem;--space-2:0.5rem;--space-3:0.75rem;--space-4:1rem;--space-5:1.25rem;
+  --space-6:1.5rem;--space-8:2rem;--space-10:2.5rem;--space-12:3rem;--space-16:4rem;
+  --space-20:5rem;--space-24:6rem;
+  --radius-sm:0.25rem;--radius-base:0.5rem;--radius-lg:0.75rem;--radius-xl:1rem;
+  --radius-2xl:1.5rem;--radius-full:9999px;
+  --shadow-xs:0 1px 2px 0 rgba(12,15,26,0.04);
+  --shadow-sm:0 1px 3px 0 rgba(12,15,26,0.06),0 1px 2px -1px rgba(12,15,26,0.06);
+  --shadow-md:0 4px 6px -1px rgba(12,15,26,0.07),0 2px 4px -2px rgba(12,15,26,0.05);
+  --shadow-lg:0 10px 15px -3px rgba(12,15,26,0.08),0 4px 6px -4px rgba(12,15,26,0.04);
+  --shadow-xl:0 20px 25px -5px rgba(12,15,26,0.08),0 8px 10px -6px rgba(12,15,26,0.04);
+  --shadow-focus:0 0 0 2px var(--color-neutral-0),0 0 0 4px var(--color-primary-400);
+  --transition-fast:150ms ease-out;--transition-base:200ms ease-in-out;--transition-slow:300ms ease-in-out;
+  --touch-target-min:44px;--button-height:44px;--input-height:44px;
+  --sidebar-width:280px;--header-height:56px;
+  --anim-streaming-duration:1.4s;--anim-streaming-easing:ease-in-out;
+}
+
+/* ---- REDUCED MOTION (must be in this file, not just tokens.css) ---- */
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto!important}
+  *,*::before,*::after{animation-duration:0.01ms!important;animation-iteration-count:1!important;
+    transition-duration:0.01ms!important}
+}
+
+/* ---- SKIP LINK ---- */
+.ds-skip-link{position:absolute;top:-100%;left:var(--space-4);padding:var(--space-2) var(--space-4);
+  background:var(--color-primary-500);color:var(--color-neutral-0);font-family:var(--font-body);
+  font-size:var(--text-sm);border-radius:0 0 var(--radius-base) var(--radius-base);
+  z-index:100;text-decoration:none;font-weight:var(--font-weight-semibold)}
+.ds-skip-link:focus{top:0}
+
+/* ---- RESET ---- */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{font-family:var(--font-body);font-size:var(--text-base);line-height:var(--text-base-lh);
+  color:var(--color-neutral-600);background:var(--color-neutral-25);
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+
+/* ---- LAYOUT ---- */
+.ds-layout{display:flex;min-height:100vh}
+.ds-nav{position:sticky;top:0;height:100vh;width:220px;flex-shrink:0;padding:var(--space-8) 0 var(--space-8) var(--space-6);
+  overflow-y:auto;border-right:1px solid var(--color-neutral-100);background:var(--color-neutral-0);z-index:10}
+.ds-main{flex:1;min-width:0;padding:var(--space-10) var(--space-12) var(--space-24) var(--space-12);max-width:960px}
+
+@media(max-width:860px){
+  .ds-nav{display:none}
+  .ds-main{padding:var(--space-6) var(--space-4) var(--space-16) var(--space-4)}
+}
+
+/* ---- NAV ---- */
+.ds-nav-brand{display:flex;align-items:center;gap:var(--space-2);padding:0 var(--space-4) var(--space-6) 0;
+  border-bottom:1px solid var(--color-neutral-100);margin-bottom:var(--space-6)}
+.ds-nav-brand svg{width:28px;height:28px;color:var(--color-primary-500)}
+.ds-nav-brand span{font-family:var(--font-display);font-weight:var(--font-weight-semibold);
+  font-size:var(--text-lg);color:var(--color-neutral-800)}
+.ds-nav-label{font-family:var(--font-mono);font-size:10px;letter-spacing:0.08em;
+  text-transform:uppercase;color:var(--color-neutral-400);padding:var(--space-4) var(--space-4) var(--space-2) 0}
+.ds-nav a{display:flex;align-items:center;min-height:var(--touch-target-min);padding:0 var(--space-4) 0 0;
+  font-size:var(--text-sm);color:var(--color-neutral-400);text-decoration:none;border-radius:var(--radius-sm);
+  transition:color var(--transition-fast)}
+.ds-nav a:hover{color:var(--color-neutral-700)}
+.ds-nav a.active{color:var(--color-primary-500);font-weight:var(--font-weight-medium)}
+
+/* ---- HEADER ---- */
+.ds-hero{margin-bottom:var(--space-16)}
+.ds-hero h1{font-family:var(--font-display);font-size:2.5rem;font-weight:var(--font-weight-bold);
+  color:var(--color-neutral-900);line-height:1.15;letter-spacing:-0.025em}
+.ds-hero .ds-subtitle{font-size:var(--text-lg);color:var(--color-neutral-400);margin-top:var(--space-3)}
+.ds-hero .ds-version{display:inline-flex;align-items:center;gap:var(--space-2);margin-top:var(--space-4);
+  padding:var(--space-1) var(--space-3);background:var(--color-primary-50);color:var(--color-primary-500);
+  font-family:var(--font-mono);font-size:var(--text-xs);border-radius:var(--radius-full);font-weight:var(--font-weight-bold)}
+
+/* ---- SECTIONS ---- */
+.ds-section{margin-bottom:var(--space-20);scroll-margin-top:var(--space-8)}
+.ds-section-header{margin-bottom:var(--space-8)}
+.ds-section-header h2{font-family:var(--font-display);font-size:var(--text-2xl);font-weight:var(--font-weight-semibold);
+  color:var(--color-neutral-800);letter-spacing:-0.015em}
+.ds-section-header p{color:var(--color-neutral-400);margin-top:var(--space-2);max-width:600px}
+.ds-section-divider{width:48px;height:2px;background:var(--color-primary-500);margin-bottom:var(--space-3);border-radius:1px}
+
+.ds-subsection{margin-bottom:var(--space-10)}
+.ds-subsection h3{font-family:var(--font-display);font-size:var(--text-lg);font-weight:var(--font-weight-semibold);
+  color:var(--color-neutral-700);margin-bottom:var(--space-4)}
+
+/* ---- COLOR SWATCHES ---- */
+.ds-color-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:var(--space-3)}
+.ds-swatch{border-radius:var(--radius-lg);overflow:hidden;background:var(--color-neutral-0);
+  box-shadow:var(--shadow-sm);border:1px solid var(--color-neutral-100);transition:transform var(--transition-fast),box-shadow var(--transition-fast)}
+.ds-swatch:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.ds-swatch-color{height:64px;position:relative}
+.ds-swatch-info{padding:var(--space-2) var(--space-3)}
+.ds-swatch-hex{font-family:var(--font-mono);font-size:11px;color:var(--color-neutral-600);font-weight:var(--font-weight-bold)}
+.ds-swatch-name{font-size:10px;color:var(--color-neutral-400);margin-top:2px}
+.ds-swatch-badge{position:absolute;bottom:6px;right:6px;padding:1px 6px;border-radius:var(--radius-full);
+  font-family:var(--font-mono);font-size:9px;font-weight:var(--font-weight-bold)}
+.ds-badge-aaa{background:rgba(255,255,255,0.95);color:#047857}
+.ds-badge-aa{background:rgba(255,255,255,0.95);color:#2563EB}
+.ds-badge-fail{background:rgba(255,255,255,0.85);color:var(--color-neutral-400)}
+
+/* ---- TYPOGRAPHY SAMPLES ---- */
+.ds-type-sample{padding:var(--space-5) 0;border-bottom:1px solid var(--color-neutral-50)}
+.ds-type-sample:last-child{border-bottom:none}
+.ds-type-meta{display:flex;gap:var(--space-4);flex-wrap:wrap;margin-top:var(--space-2)}
+.ds-type-tag{font-family:var(--font-mono);font-size:10px;padding:2px 8px;border-radius:var(--radius-full);
+  background:var(--color-neutral-50);color:var(--color-neutral-500)}
+
+/* ---- SPACING VIS ---- */
+.ds-spacing-row{display:flex;align-items:center;gap:var(--space-4);padding:var(--space-2) 0}
+.ds-spacing-bar{height:20px;background:var(--color-primary-100);border-radius:var(--radius-sm);
+  border:1px solid var(--color-primary-200);transition:background var(--transition-fast)}
+.ds-spacing-bar:hover{background:var(--color-primary-200)}
+.ds-spacing-label{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-neutral-500);min-width:80px}
+.ds-spacing-px{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-neutral-400);min-width:40px}
+
+/* ---- RADIUS VIS ---- */
+.ds-radius-grid{display:flex;gap:var(--space-5);flex-wrap:wrap;align-items:end}
+.ds-radius-item{display:flex;flex-direction:column;align-items:center;gap:var(--space-2)}
+.ds-radius-box{width:72px;height:72px;background:var(--color-primary-50);border:2px solid var(--color-primary-200);
+  transition:border-color var(--transition-fast)}
+.ds-radius-box:hover{border-color:var(--color-primary-400)}
+.ds-radius-label{font-family:var(--font-mono);font-size:10px;color:var(--color-neutral-400)}
+
+/* ---- SHADOW VIS ---- */
+.ds-shadow-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:var(--space-5)}
+.ds-shadow-card{background:var(--color-neutral-0);border-radius:var(--radius-lg);padding:var(--space-6);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;height:120px;
+  border:1px solid transparent;transition:transform var(--transition-fast)}
+.ds-shadow-card:hover{transform:translateY(-1px)}
+.ds-shadow-label{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-neutral-400);margin-top:var(--space-2)}
+
+/* ---- COMPONENT SHOWCASE ---- */
+.ds-component-row{display:flex;gap:var(--space-4);flex-wrap:wrap;align-items:flex-start;margin-bottom:var(--space-5)}
+.ds-component-cell{display:flex;flex-direction:column;gap:var(--space-2);align-items:flex-start}
+.ds-component-cell-label{font-family:var(--font-mono);font-size:10px;color:var(--color-neutral-400);
+  text-transform:uppercase;letter-spacing:0.06em}
+
+/* ---- BUTTONS ---- */
+.ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);
+  height:var(--button-height);padding:0 var(--space-6);border-radius:var(--radius-base);
+  font-family:var(--font-body);font-size:var(--text-sm);font-weight:var(--font-weight-semibold);
+  cursor:pointer;border:1.5px solid transparent;transition:all var(--transition-fast);
+  text-decoration:none;white-space:nowrap;min-width:120px}
+.ds-btn:focus-visible{outline:none;box-shadow:var(--shadow-focus)}
+
+.ds-btn-primary{background:var(--color-primary-500);color:var(--color-neutral-0);border-color:var(--color-primary-500)}
+.ds-btn-primary:hover{background:var(--color-primary-600);border-color:var(--color-primary-600)}
+.ds-btn-primary:active{background:var(--color-primary-700);border-color:var(--color-primary-700)}
+.ds-btn-primary:disabled,.ds-btn-primary[aria-disabled="true"]{opacity:0.5;cursor:not-allowed}
+
+.ds-btn-secondary{background:transparent;color:var(--color-primary-500);border-color:var(--color-primary-500)}
+.ds-btn-secondary:hover{background:var(--color-primary-50)}
+.ds-btn-secondary:active{background:var(--color-primary-100)}
+.ds-btn-secondary:disabled,.ds-btn-secondary[aria-disabled="true"]{opacity:0.5;cursor:not-allowed}
+
+.ds-btn-ghost{background:transparent;color:var(--color-neutral-500);border-color:transparent}
+.ds-btn-ghost:hover{background:var(--color-neutral-50);color:var(--color-neutral-700)}
+.ds-btn-ghost:active{background:var(--color-neutral-100)}
+.ds-btn-ghost:disabled,.ds-btn-ghost[aria-disabled="true"]{opacity:0.5;cursor:not-allowed}
+
+/* ---- INPUTS ---- */
+.ds-input-wrap{display:flex;flex-direction:column;gap:var(--space-1);width:320px;max-width:100%}
+.ds-input-label{font-size:var(--text-sm);font-weight:var(--font-weight-medium);color:var(--color-neutral-600)}
+.ds-input{height:var(--input-height);padding:0 var(--space-4);border:1.5px solid var(--color-neutral-200);
+  border-radius:var(--radius-base);font-family:var(--font-body);font-size:var(--text-base);
+  color:var(--color-neutral-600);background:var(--color-neutral-0);transition:border-color var(--transition-fast),
+  box-shadow var(--transition-fast);outline:none;width:100%}
+.ds-input::placeholder{color:var(--color-neutral-400)}
+.ds-input:focus{border-color:var(--color-primary-500);box-shadow:0 0 0 3px var(--color-primary-50)}
+.ds-input-error{border-color:var(--color-error-500)!important}
+.ds-input-error:focus{box-shadow:0 0 0 3px var(--color-error-50)!important}
+.ds-input-msg{font-size:var(--text-xs);color:var(--color-error-500);display:flex;align-items:center;gap:var(--space-1)}
+
+/* ---- CHAT BUBBLES ---- */
+.ds-chat-area{display:flex;flex-direction:column;gap:var(--space-4);max-width:500px;
+  padding:var(--space-6);background:var(--color-neutral-25);border-radius:var(--radius-lg);
+  border:1px solid var(--color-neutral-100)}
+.ds-chat-msg{display:flex;flex-direction:column;max-width:80%}
+.ds-chat-msg-user{align-self:flex-end}
+.ds-chat-msg-assistant{align-self:flex-start}
+.ds-chat-bubble{padding:var(--space-3) var(--space-4);font-size:var(--text-base);line-height:var(--text-base-lh)}
+.ds-chat-bubble-user{background:var(--color-primary-500);color:var(--color-neutral-0);
+  border-radius:var(--radius-xl) var(--radius-xl) var(--radius-sm) var(--radius-xl)}
+.ds-chat-bubble-assistant{background:var(--color-ai-50);color:var(--color-neutral-600);
+  border:1px solid var(--color-ai-100);border-radius:var(--radius-xl) var(--radius-xl) var(--radius-xl) var(--radius-sm)}
+.ds-chat-ai-dot{display:inline-block;width:8px;height:8px;border-radius:var(--radius-full);
+  background:var(--color-ai-500);margin-right:var(--space-2);vertical-align:middle}
+.ds-chat-time{font-size:var(--text-xs);color:var(--color-neutral-400);margin-top:var(--space-1);padding:0 var(--space-1)}
+.ds-chat-time-user{text-align:right}
+
+/* ---- DROPZONE ---- */
+.ds-dropzone{border:2px dashed var(--color-neutral-200);border-radius:var(--radius-lg);
+  padding:var(--space-10) var(--space-6);text-align:center;cursor:pointer;
+  transition:all var(--transition-base);background:var(--color-neutral-25);max-width:480px}
+.ds-dropzone:hover,.ds-dropzone-hover{border-color:var(--color-primary-400);background:var(--color-primary-50)}
+.ds-dropzone:hover .ds-dropzone-icon,.ds-dropzone-hover .ds-dropzone-icon{color:var(--color-primary-500)}
+.ds-dropzone-drag{border-style:solid!important;border-color:var(--color-primary-500)!important;background:var(--color-primary-50)!important}
+.ds-dropzone-error{border-color:var(--color-error-500)!important;background:var(--color-error-50)!important}
+.ds-dropzone-icon{display:block;margin:0 auto var(--space-3);color:var(--color-neutral-400);transition:color var(--transition-fast)}
+.ds-dropzone-text{font-size:var(--text-base);color:var(--color-neutral-500)}
+.ds-dropzone-text strong{color:var(--color-primary-500)}
+.ds-dropzone-hint{font-size:var(--text-sm);color:var(--color-neutral-400);margin-top:var(--space-2)}
+.ds-dropzone-progress{margin-top:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2);align-items:center}
+.ds-progress-bar{width:200px;height:6px;background:var(--color-neutral-100);border-radius:var(--radius-full);overflow:hidden}
+.ds-progress-fill{height:100%;background:var(--color-primary-500);border-radius:var(--radius-full);
+  transition:width 0.6s ease-out;width:0%}
+.ds-progress-fill.animate{animation:progressFill 2s ease-out forwards}
+@keyframes progressFill{0%{width:0%}100%{width:72%}}
+.ds-dropzone-error-msg{font-size:var(--text-sm);color:var(--color-error-500);margin-top:var(--space-2);
+  display:flex;align-items:center;gap:var(--space-1);justify-content:center}
+
+/* ---- TOASTS ---- */
+.ds-toast{display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-4) var(--space-5);
+  border-radius:var(--radius-base);min-width:320px;max-width:420px;box-shadow:var(--shadow-lg);border-left:4px solid;
+  position:relative}
+.ds-toast-close{position:absolute;top:var(--space-2);right:var(--space-2);background:none;border:none;
+  cursor:pointer;color:var(--color-neutral-400);padding:var(--space-2);line-height:1;
+  min-width:var(--touch-target-min);min-height:var(--touch-target-min);display:flex;
+  align-items:center;justify-content:center;border-radius:var(--radius-sm)}
+.ds-toast-close:hover{color:var(--color-neutral-600);background:rgba(0,0,0,0.05)}
+.ds-toast-close:focus-visible{outline:none;box-shadow:var(--shadow-focus)}
+.ds-toast-icon{flex-shrink:0;width:20px;height:20px;margin-top:1px}
+.ds-toast-body{flex:1}
+.ds-toast-title{font-weight:var(--font-weight-semibold);font-size:var(--text-sm);margin-bottom:2px}
+.ds-toast-msg{font-size:var(--text-sm);opacity:0.8}
+.ds-toast-success{background:var(--color-success-50);border-left-color:var(--color-success-500);color:var(--color-success-600)}
+.ds-toast-error{background:var(--color-error-50);border-left-color:var(--color-error-500);color:var(--color-error-600)}
+.ds-toast-warning{background:var(--color-warning-50);border-left-color:var(--color-warning-500);color:var(--color-warning-700)}
+.ds-toast-info{background:var(--color-info-50);border-left-color:var(--color-info-500);color:var(--color-info-500)}
+
+/* ---- SIDEBAR ITEMS ---- */
+.ds-sidebar-demo{width:260px;background:var(--color-neutral-0);border:1px solid var(--color-neutral-100);
+  border-radius:var(--radius-lg);overflow:hidden}
+.ds-sidebar-item{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);
+  cursor:pointer;transition:background var(--transition-fast);border-left:3px solid transparent}
+.ds-sidebar-item:hover{background:var(--color-neutral-50)}
+.ds-sidebar-item-active{background:var(--color-primary-50)!important;border-left-color:var(--color-primary-500)}
+.ds-sidebar-item-active .ds-sidebar-item-name{color:var(--color-primary-500);font-weight:var(--font-weight-medium)}
+.ds-sidebar-thumb{width:36px;height:36px;border-radius:var(--radius-base);background:var(--color-neutral-100);
+  display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.ds-sidebar-item-name{font-size:var(--text-sm);color:var(--color-neutral-600);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ds-sidebar-item-meta{font-size:var(--text-xs);color:var(--color-neutral-400)}
+
+/* ---- STREAMING ---- */
+.ds-streaming{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-4);
+  background:var(--color-ai-50);border-radius:var(--radius-xl);border:1px solid var(--color-ai-100);
+  max-width:200px}
+.ds-streaming-dots{display:flex;gap:5px}
+.ds-streaming-dot{width:6px;height:6px;border-radius:var(--radius-full);background:var(--color-ai-500);
+  animation:streamPulse var(--anim-streaming-duration) var(--anim-streaming-easing) infinite}
+.ds-streaming-dot:nth-child(2){animation-delay:0.2s}
+.ds-streaming-dot:nth-child(3){animation-delay:0.4s}
+@keyframes streamPulse{0%,100%{opacity:0.3;transform:scale(0.85)}50%{opacity:1;transform:scale(1.1)}}
+.ds-streaming-label{font-size:var(--text-xs);color:var(--color-ai-600)}
+
+.reduced-motion .ds-streaming-dot{animation:none!important;opacity:0.6}
+.reduced-motion *{animation:none!important;transition:none!important}
+
+/* ---- ACCESSIBILITY TABLE ---- */
+.ds-table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
+.ds-table th{text-align:left;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;
+  letter-spacing:0.06em;color:var(--color-neutral-400);padding:var(--space-3) var(--space-4);
+  border-bottom:2px solid var(--color-neutral-100);font-weight:var(--font-weight-semibold)}
+.ds-table td{padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--color-neutral-50);color:var(--color-neutral-600)}
+.ds-table tr:last-child td{border-bottom:none}
+.ds-table tbody tr:hover{background:var(--color-neutral-25)}
+
+/* ---- CODE ---- */
+.ds-code{font-family:var(--font-mono);font-size:11px;padding:2px 6px;border-radius:var(--radius-sm);
+  background:var(--color-neutral-50);color:var(--color-primary-600);border:1px solid var(--color-neutral-100)}
+
+/* ---- MOTION TOGGLE ---- */
+.ds-toggle-wrap{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-4) var(--space-5);
+  background:var(--color-neutral-0);border:1px solid var(--color-neutral-100);border-radius:var(--radius-base);
+  margin-bottom:var(--space-6)}
+.ds-toggle{position:relative;width:44px;height:24px;cursor:pointer}
+.ds-toggle input{opacity:0;width:0;height:0;position:absolute}
+.ds-toggle-track{position:absolute;inset:0;background:var(--color-neutral-200);border-radius:var(--radius-full);
+  transition:background var(--transition-fast)}
+.ds-toggle-thumb{position:absolute;top:2px;left:2px;width:20px;height:20px;background:var(--color-neutral-0);
+  border-radius:var(--radius-full);box-shadow:var(--shadow-sm);transition:transform var(--transition-fast)}
+.ds-toggle input:checked~.ds-toggle-track{background:var(--color-primary-500)}
+.ds-toggle input:checked~.ds-toggle-thumb{transform:translateX(20px)}
+.ds-toggle input:focus-visible~.ds-toggle-track{box-shadow:var(--shadow-focus)}
+.ds-toggle-text{font-size:var(--text-sm);color:var(--color-neutral-500)}
+
+/* ---- UTILITY ---- */
+.ds-flex{display:flex}.ds-flex-col{flex-direction:column}.ds-flex-wrap{flex-wrap:wrap}
+.ds-gap-2{gap:var(--space-2)}.ds-gap-3{gap:var(--space-3)}.ds-gap-4{gap:var(--space-4)}.ds-gap-5{gap:var(--space-5)}
+.ds-items-center{align-items:center}.ds-justify-between{justify-content:space-between}
+</style>
+</head>
+<body>
+
+<a href="#main-content" class="ds-skip-link">Skip to main content</a>
+
+<div class="ds-layout">
+
+<!-- ============ SIDE NAV ============ -->
+<nav class="ds-nav" aria-label="Design system navigation">
+  <div class="ds-nav-brand">
+    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M16 6C8 6 2 16 2 16s6 10 14 10 14-10 14-10S24 6 16 6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="16" cy="16" r="6" fill="currentColor"/><circle cx="14" cy="14" r="2" fill="white" opacity="0.9"/>
+    </svg>
+    <span>Inksight</span>
+  </div>
+  <div class="ds-nav-label">Foundation</div>
+  <a href="#colors">Colors</a>
+  <a href="#typography">Typography</a>
+  <a href="#spacing">Spacing</a>
+  <a href="#radius">Border Radius</a>
+  <a href="#shadows">Shadows</a>
+  <div class="ds-nav-label">Components</div>
+  <a href="#buttons">Buttons</a>
+  <a href="#inputs">Inputs</a>
+  <a href="#chat">Chat Bubbles</a>
+  <a href="#dropzone">Upload Dropzone</a>
+  <a href="#toasts">Toasts</a>
+  <a href="#sidebar">Sidebar Items</a>
+  <a href="#streaming">Streaming</a>
+  <div class="ds-nav-label">Guidelines</div>
+  <a href="#accessibility">Accessibility</a>
+  <a href="#motion">Motion</a>
+</nav>
+
+<!-- ============ MAIN ============ -->
+<main class="ds-main" id="main-content">
+
+<!-- HERO -->
+<header class="ds-hero">
+  <h1>Inksight<br>Design System</h1>
+  <p class="ds-subtitle">Tokens, components, and accessibility patterns for the Inksight visual assistant.</p>
+  <span class="ds-version">v1.0</span>
+</header>
+
+<!-- ============ COLORS ============ -->
+<section class="ds-section" id="colors">
+  <div class="ds-section-header">
+    <div class="ds-section-divider"></div>
+    <h2>Color Palette</h2>
+    <p>Derived from Inkit's brand blue. Every color includes its WCAG contrast ratio against white.</p>
+  </div>
+
+  <div class="ds-subsection">
+    <h3>Primary</h3>
+    <div class="ds-color-grid" id="primary-colors"></div>
+  </div>
+  <div class="ds-subsection">
+    <h3>Neutral</h3>
+    <div class="ds-color-grid" id="neutral-colors"></div>
+  </div>
+  <div class="ds-subsection">
+    <h3>Semantic</h3>
+    <div class="ds-color-grid" id="semantic-colors"></div>
+  </div>
+  <div class="ds-subsection">
+    <h3>AI Accent</h3>
+    <div class="ds-color-grid" id="ai-colors"></div>
+  </div>
+</section>
+
+<!-- ============ TYPOGRAPHY ============ -->
+<section class="ds-section" id="typography">
+  <div class="ds-section-header">
+    <div class="ds-section-divider"></div>
+    <h2>Typography</h2>
+    <p>Three font families from Inkit's stack — Space Grotesk for display, Archivo for body, Space Mono for code.</p>
+  </div>
+  <div id="type-samples"></div>
+</section>
+
+<!-- ============ SPACING ============ -->
+<section class="ds-section" id="spacing">
+  <div class="ds-section-header">
+    <div class="ds-section-divider"></div>
+    <h2>Spacing Scale</h2>
+    <p>4px base unit on an 8px grid. Used for margins, padding, and gaps throughout the system.</p>
+  </div>
+  <div id="spacing-vis"></div>
+</section>
+
+<!-- ============ BORDER RADIUS ============ -->
+<section class="ds-section" id="radius">
+  <div class="ds-section-header">
+    <div class="ds-section-divider"></div>
+    <h2>Border Radius</h2>
+    <p>Progressive rounding from subtle to circular.</p>
+  </div>
+  <div class="ds-radius-grid" id="radius-vis"></div>
+</section>
+
+<!-- ============ SHADOWS ============ -->
+<section class="ds-section" id="shadows">
+  <div class="ds-section-header">
+    <div class="ds-section-divider"></div>
+    <h2>Shadows</h2>
+    <p>Blue-tinted shadows matching the neutral palette. Five levels of elevation.</p>
+  </div>
+  <div class="ds-shadow-grid" id="shadow-vis"></div>
+</section>
+
+<!-- ============ BUTTONS ============ -->
+<section class="ds-section" id="buttons">
+  <div class="ds-section-header">
+    <div class="ds-section-divider"></div>
+    <h2>Buttons</h2>
+    <p>Three variants, each with full state coverage. Minimum 44px height for WCAG 2.5.5 AAA touch targets.</p>
+  </div>
+  <div class="ds-subsection">
+    <h3>Primary</h3>
+    <div class="ds-component-row">
+      <div class="ds-component-cell"><span class="ds-component-cell-label">Default</span><button class="ds-btn ds-btn-primary">Upload Image</button></div>
+      <div class="ds-component-cell"><span class="ds-component-cell-label">Focus</span><button class="ds-btn ds-btn-primary" style="box-shadow:var(--shadow-focus)">Upload Image</button></div>
+      <div class="ds-component-cell"><span class="ds-component-cell-label">Disabled</span><button class="ds-btn ds-btn-primary" disabled aria-disabled="true">Upload Image</button></div>
+    </div>
+    <p style="font-size:var(--text-xs);color:var(--color-neutral-400);margin-top:var(--space-1)">Contrast: white on <code class="ds-code">#0024CC</code> = <strong>7.3:1</strong> (AAA)</p>
+  </div>
+  <div class="ds-subsection">
+    <h3>Secondary</h3>
+    <div class="ds-component-row">
+      <div class="ds-component-cell"><span class="ds-component-cell-label">Default</span><button class="ds-btn ds-btn-secondary">View History</button></div>
+      <div class="ds-component-cell"><span class="ds-component-cell-label">Focus</span><button class="ds-btn ds-btn-secondary" style="box-shadow:var(--shadow-focus)">View History</button></div>
+      <div class="ds-component-cell"><span class="ds-component-cell-label">Disabled</span><button class="ds-btn ds-btn-secondary" disabled aria-disabled="true">View History</button></div>
+    </div>
+  </div>
+  <div class="ds-subsection">
+    <h3>Ghost</h3>
+    <div class="ds-component-row">
+      <div class="ds-component-cell"><span class="ds-component-cell-label">Default</span><button class="ds-btn ds-btn-ghost">Cancel</button></div>
+      <div class="ds-component-cell"><span class="ds-component-cell-label">Focus</span><button class="ds-btn ds-btn-ghost" style="box-shadow:var(--shadow-focus)">Cancel</button></div>
+      <div class="ds-component-cell"><span class="ds-component-cell-label">Disabled</span><button class="ds-btn ds-btn-ghost" disabled aria-disabled="true">Cancel</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INPUTS ============ -->
+<section class="ds-section" id="inputs">
+  <div class="ds-section-header">
+    <div class="ds-section-divider"></div>
+    <h2>Text Inputs</h2>
+    <p>All inputs require a visible label. Error messages use <code class="ds-code">aria-describedby</code> for screen reader association.</p>
+  </div>
+  <div class="ds-component-row">
+    <div class="ds-component-cell">
+      <span class="ds-component-cell-label">Default</span>
+      <div class="ds-input-wrap">
+        <label class="ds-input-label" for="input-default">Message</label>
+        <input class="ds-input" id="input-default" type="text" placeholder="Ask about this image...">
+      </div>
+    </div>
+    <div class="ds-component-cell">
+      <span class="ds-component-cell-label">Error</span>
+      <div class="ds-input-wrap">
+        <label class="ds-input-label" for="input-error">Message</label>
+        <input class="ds-input ds-input-error" id="input-error" type="text" value="" aria-describedby="input-error-msg" aria-invalid="true">
+        <span class="ds-input-msg" id="input-error-msg">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Message cannot be empty
+        </span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CHAT BUBBLES ============ -->
+<section class="ds-section" id="chat">
+  <div class="ds-section-header">
+    <div class="ds-section-divider"></div>
+    <h2>Chat Bubbles</h2>
+    <p>User messages are right-aligned in primary blue (7.3:1 AAA). Assistant messages use the AI teal accent with an indicator dot.</p>
+  </div>
+  <div class="ds-chat-area" role="log" aria-label="Example conversation">
+    <div class="ds-chat-msg ds-chat-msg-user" role="article" aria-label="Your message">
+      <div class="ds-chat-bubble ds-chat-bubble-user">What objects can you see in this image?</div>
+      <div class="ds-chat-time ds-chat-time-user">10:30 AM</div>
+    </div>
+    <div class="ds-chat-msg ds-chat-msg-assistant" role="article" aria-label="Assistant response">
+      <div class="ds-chat-bubble ds-chat-bubble-assistant">
+        <span class="ds-chat-ai-dot" aria-hidden="true"></span>I can see a scenic mountain landscape with rolling green hills in the foreground and snow-capped peaks in the distance. There's a winding river cutting through the valley.
+      </div>
+      <div class="ds-chat-time">10:30 AM</div>
+    </div>
+    <div class="ds-chat-msg ds-chat-msg-user" role="article" aria-label="Your message">
+      <div class="ds-chat-bubble ds-chat-bubble-user">What about the lighting?</div>
+      <div class="ds-chat-time ds-chat-time-user">10:31 AM</div>
+    </div>
+    <div class="ds-chat-msg ds-chat-msg-assistant" role="article" aria-label="Assistant response">
+      <div class="ds-chat-bubble ds-chat-bubble-assistant">
+        <span class="ds-chat-ai-dot" aria-hidden="true"></span>The lighting suggests golden hour — warm, directional light casting long shadows across the hillside. The sky shows a gradient from deep blue to warm amber near the horizon.
+      </div>
+      <div class="ds-chat-time">10:31 AM</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DROPZONE ============ -->
+<section class="ds-section" id="dropzone">
+  <div class="ds-section-header">
+    <div class="ds-section-divider"></div>
+    <h2>Upload Dropzone</h2>
+    <p>Keyboard-focusable with full ARIA labeling. Five states: default, hover, drag-over, uploading, error.</p>
+  </div>
+  <div class="ds-component-row" style="gap:var(--space-8)">
+    <div class="ds-component-cell">
+      <span class="ds-component-cell-label">Default</span>
+      <div class="ds-dropzone" tabindex="0" role="button" aria-label="Upload image. Drag and drop or press Enter to browse. Accepts PNG, JPG, and GIF up to 16 megabytes.">
+        <svg class="ds-dropzone-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+        <div class="ds-dropzone-text">Drop an image here, or <strong>browse</strong></div>
+        <div class="ds-dropzone-hint">PNG, JPG, GIF — up to 16MB</div>
+      </div>
+    </div>
+    <div class="ds-component-cell">
+      <span class="ds-component-cell-label">Uploading</span>
+      <div class="ds-dropzone" style="border-style:solid;border-color:var(--color-primary-500)">
+        <svg class="ds-dropzone-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-500)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+        <div class="ds-dropzone-text" style="color:var(--color-primary-500)">Uploading photo.jpg...</div>
+        <div class="ds-dropzone-progress" role="progressbar" aria-valuenow="72" aria-valuemin="0" aria-valuemax="100" aria-label="Upload progress">
+          <div class="ds-progress-bar"><div class="ds-progress-fill animate"></div></div>
+          <span style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-primary-500)">72%</span>
+        </div>
+      </div>
+    </div>
+    <div class="ds-component-cell">
+      <span class="ds-component-cell-label">Error</span>
+      <div class="ds-dropzone ds-dropzone-error">
+        <svg class="ds-dropzone-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--color-error-500)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+        <div class="ds-dropzone-text" style="color:var(--color-error-500)">Upload failed</div>
+        <div class="ds-dropzone-error-msg" role="alert">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          File type .bmp is not supported
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TOASTS ============ -->
+<section class="ds-section" id="toasts">
+  <div class="ds-section-header">
+    <div class="ds-section-divider"></div>
+    <h2>Toast Notifications</h2>
+    <p>Success and info use <code class="ds-code">role="status"</code> for polite announcement. Errors use <code class="ds-code">role="alert"</code> for immediate announcement.</p>
+  </div>
+  <div class="ds-flex ds-flex-col ds-gap-4">
+    <div class="ds-toast ds-toast-success" role="status">
+      <svg class="ds-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="ds-toast-body"><div class="ds-toast-title">Image uploaded</div><div class="ds-toast-msg">photo.jpg analyzed successfully</div></div>
+      <button class="ds-toast-close" aria-label="Dismiss notification">&times;</button>
+    </div>
+    <div class="ds-toast ds-toast-error" role="alert">
+      <svg class="ds-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      <div class="ds-toast-body"><div class="ds-toast-title">Upload failed</div><div class="ds-toast-msg">File exceeds 16MB size limit</div></div>
+      <button class="ds-toast-close" aria-label="Dismiss notification">&times;</button>
+    </div>
+    <div class="ds-toast ds-toast-warning" role="status">
+      <svg class="ds-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div class="ds-toast-body"><div class="ds-toast-title">Rate limit approaching</div><div class="ds-toast-msg">8 of 10 uploads used this minute</div></div>
+      <button class="ds-toast-close" aria-label="Dismiss notification">&times;</button>
+    </div>
+    <div class="ds-toast ds-toast-info" role="status">
+      <svg class="ds-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <div class="ds-toast-body"><div class="ds-toast-title">Tip</div><div class="ds-toast-msg">Try asking "What colors are in this image?"</div></div>
+      <button class="ds-toast-close" aria-label="Dismiss notification">&times;</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SIDEBAR ============ -->
+<section class="ds-section" id="sidebar">
+  <div class="ds-section-header">
+    <div class="ds-section-divider"></div>
+    <h2>Sidebar Items</h2>
+    <p>Image gallery navigation. Active item has a 3px primary left border and highlighted background. Arrow key navigation supported.</p>
+  </div>
+  <nav class="ds-sidebar-demo" aria-label="Image conversations">
+    <ul role="list" style="list-style:none;padding:0;margin:0">
+      <li class="ds-sidebar-item ds-sidebar-item-active" aria-current="true">
+        <div class="ds-sidebar-thumb">&#x1F3DE;</div>
+        <div><div class="ds-sidebar-item-name">landscape.jpg</div><div class="ds-sidebar-item-meta">4 messages</div></div>
+      </li>
+      <li class="ds-sidebar-item">
+        <div class="ds-sidebar-thumb">&#x1F4CA;</div>
+        <div><div class="ds-sidebar-item-name">quarterly-chart.png</div><div class="ds-sidebar-item-meta">2 messages</div></div>
+      </li>
+      <li class="ds-sidebar-item">
+        <div class="ds-sidebar-thumb">&#x1F4F7;</div>
+        <div><div class="ds-sidebar-item-name">team-photo.jpg</div><div class="ds-sidebar-item-meta">1 message</div></div>
+      </li>
+    </ul>
+  </nav>
+</section>
+
+<!-- ============ STREAMING ============ -->
+<section class="ds-section" id="streaming">
+  <div class="ds-section-header">
+    <div class="ds-section-divider"></div>
+    <h2>Streaming Indicator</h2>
+    <p>Pulsing dots during AI response generation. Automatically falls back to static text when <code class="ds-code">prefers-reduced-motion</code> is active.</p>
+  </div>
+  <div class="ds-streaming" role="status" aria-label="Assistant is typing">
+    <span class="ds-chat-ai-dot" aria-hidden="true" style="margin:0"></span>
+    <div class="ds-streaming-dots" aria-hidden="true">
+      <div class="ds-streaming-dot"></div>
+      <div class="ds-streaming-dot"></div>
+      <div class="ds-streaming-dot"></div>
+    </div>
+    <span class="ds-streaming-label">Analyzing...</span>
+  </div>
+</section>
+
+<!-- ============ ACCESSIBILITY ============ -->
+<section class="ds-section" id="accessibility">
+  <div class="ds-section-header">
+    <div class="ds-section-divider"></div>
+    <h2>Accessibility</h2>
+    <p>WCAG 2.1 AA minimum, AAA where achievable. Every interactive element meets the 44px touch target requirement.</p>
+  </div>
+
+  <div class="ds-subsection">
+    <h3>Keyboard Navigation</h3>
+    <table class="ds-table">
+      <thead><tr><th>Key</th><th>Context</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td><code class="ds-code">Tab</code></td><td>Global</td><td>Move to next interactive element</td></tr>
+        <tr><td><code class="ds-code">Shift+Tab</code></td><td>Global</td><td>Move to previous element</td></tr>
+        <tr><td><code class="ds-code">Enter</code></td><td>Chat input</td><td>Send message</td></tr>
+        <tr><td><code class="ds-code">Shift+Enter</code></td><td>Chat input</td><td>New line</td></tr>
+        <tr><td><code class="ds-code">Escape</code></td><td>Sidebar overlay</td><td>Close sidebar</td></tr>
+        <tr><td><code class="ds-code">&uarr; / &darr;</code></td><td>Sidebar list</td><td>Navigate images</td></tr>
+        <tr><td><code class="ds-code">Space</code></td><td>Dropzone</td><td>Open file picker</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="ds-subsection">
+    <h3>ARIA Patterns</h3>
+    <table class="ds-table">
+      <thead><tr><th>Component</th><th>Role / Attribute</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Chat area</td><td><code class="ds-code">role="log"</code></td><td>Marks scrolling message region</td></tr>
+        <tr><td>Each message</td><td><code class="ds-code">role="article"</code></td><td>Self-contained message unit</td></tr>
+        <tr><td>Streaming</td><td><code class="ds-code">aria-live="polite"</code></td><td>Announces new content without interrupting</td></tr>
+        <tr><td>Error toast</td><td><code class="ds-code">role="alert"</code></td><td>Immediate screen reader announcement</td></tr>
+        <tr><td>Success toast</td><td><code class="ds-code">role="status"</code></td><td>Polite announcement</td></tr>
+        <tr><td>Input error</td><td><code class="ds-code">aria-describedby</code></td><td>Associates error message with input</td></tr>
+        <tr><td>Sidebar</td><td><code class="ds-code">role="listbox"</code></td><td>Arrow-navigable option list</td></tr>
+        <tr><td>Dropzone</td><td><code class="ds-code">role="button"</code></td><td>Keyboard-activatable upload target</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ MOTION ============ -->
+<section class="ds-section" id="motion">
+  <div class="ds-section-header">
+    <div class="ds-section-divider"></div>
+    <h2>Motion &amp; Reduced Motion</h2>
+    <p>All animations respect <code class="ds-code">prefers-reduced-motion</code>. Toggle to preview both states.</p>
+  </div>
+  <div class="ds-toggle-wrap">
+    <label class="ds-toggle">
+      <input type="checkbox" id="motion-toggle" aria-label="Simulate reduced motion">
+      <span class="ds-toggle-track"></span>
+      <span class="ds-toggle-thumb"></span>
+    </label>
+    <span class="ds-toggle-text">Simulate <code class="ds-code">prefers-reduced-motion: reduce</code></span>
+  </div>
+  <div class="ds-flex ds-gap-5 ds-flex-wrap">
+    <div>
+      <span class="ds-component-cell-label">Streaming dots</span>
+      <div class="ds-streaming" style="margin-top:var(--space-2)" role="status" aria-label="Assistant is typing">
+        <div class="ds-streaming-dots" aria-hidden="true">
+          <div class="ds-streaming-dot"></div>
+          <div class="ds-streaming-dot"></div>
+          <div class="ds-streaming-dot"></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <span class="ds-component-cell-label">Button hover</span>
+      <button class="ds-btn ds-btn-primary" style="margin-top:var(--space-2)">Hover me</button>
+    </div>
+    <div>
+      <span class="ds-component-cell-label">Input focus</span>
+      <label for="motion-input" class="ds-input-label" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Demo input</label>
+      <input class="ds-input" id="motion-input" style="margin-top:var(--space-2);width:200px" placeholder="Click to focus">
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+// ---- WCAG Contrast Ratio Calculator ----
+function luminance(hex) {
+  const rgb = hex.replace('#','').match(/.{2}/g).map(c => {
+    const v = parseInt(c,16)/255;
+    return v <= 0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055,2.4);
+  });
+  return 0.2126*rgb[0] + 0.7152*rgb[1] + 0.0722*rgb[2];
+}
+function contrastRatio(hex1, hex2) {
+  const l1 = luminance(hex1), l2 = luminance(hex2);
+  const lighter = Math.max(l1,l2), darker = Math.min(l1,l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+function wcagLevel(ratio) {
+  if (ratio >= 7) return {label:'AAA', cls:'ds-badge-aaa'};
+  if (ratio >= 4.5) return {label:'AA', cls:'ds-badge-aa'};
+  return {label: ratio >= 3 ? '3:1' : 'Fail', cls:'ds-badge-fail'};
+}
+
+function createSwatch(name, hex, container) {
+  const ratio = contrastRatio(hex, '#FFFFFF');
+  const level = wcagLevel(ratio);
+  const isLight = luminance(hex) > 0.4;
+  const el = document.createElement('div');
+  el.className = 'ds-swatch';
+  el.innerHTML = `
+    <div class="ds-swatch-color" style="background:${hex}">
+      <span class="ds-swatch-badge ${level.cls}">${ratio.toFixed(1)}:1 ${level.label}</span>
+    </div>
+    <div class="ds-swatch-info">
+      <div class="ds-swatch-hex">${hex}</div>
+      <div class="ds-swatch-name">${name}</div>
+    </div>`;
+  container.appendChild(el);
+}
+
+// Primary colors
+const primaryColors = [
+  ['primary-50','#EEF0FF'],['primary-100','#D9DEFF'],['primary-200','#B3BDFF'],
+  ['primary-300','#8090FF'],['primary-400','#4D63FF'],['primary-500','#0024CC'],
+  ['primary-600','#001BA0'],['primary-700','#001478'],['primary-800','#000D50'],['primary-900','#000628']
+];
+primaryColors.forEach(([n,h]) => createSwatch(n,h,document.getElementById('primary-colors')));
+
+// Neutral colors
+const neutralColors = [
+  ['neutral-0','#FFFFFF'],['neutral-25','#F7F8FD'],['neutral-50','#F1F3F9'],
+  ['neutral-100','#E2E5EF'],['neutral-200','#C5C9D9'],['neutral-300','#9CA0B3'],
+  ['neutral-400','#6B7280'],['neutral-500','#4B5063'],['neutral-600','#3A415A'],
+  ['neutral-700','#272D42'],['neutral-800','#181C2E'],['neutral-900','#0C0F1A']
+];
+neutralColors.forEach(([n,h]) => createSwatch(n,h,document.getElementById('neutral-colors')));
+
+// Semantic colors
+const semanticColors = [
+  ['success-50','#ECFDF5'],['success-500','#047857'],['success-600','#065F46'],
+  ['error-50','#FEF2F2'],['error-500','#DC2626'],['error-600','#B91C1C'],
+  ['warning-50','#FFFBEB'],['warning-500','#D97706'],['warning-700','#92400E'],
+  ['info-50','#EFF6FF'],['info-500','#2563EB']
+];
+semanticColors.forEach(([n,h]) => createSwatch(n,h,document.getElementById('semantic-colors')));
+
+// AI colors
+const aiColors = [['ai-50','#F0FDFA'],['ai-100','#CCFBF1'],['ai-500','#0F766E'],['ai-600','#115E59']];
+aiColors.forEach(([n,h]) => createSwatch(n,h,document.getElementById('ai-colors')));
+
+// ---- Typography ----
+const typeSamples = [
+  {text:'The quick brown fox jumps',family:'var(--font-display)',familyName:'Space Grotesk',weight:700,size:'var(--text-3xl)',lh:'var(--text-3xl-lh)',token:'text-3xl',px:'30px'},
+  {text:'Over the lazy dog nearby',family:'var(--font-display)',familyName:'Space Grotesk',weight:600,size:'var(--text-2xl)',lh:'var(--text-2xl-lh)',token:'text-2xl',px:'24px'},
+  {text:'A wonderful serenity has taken',family:'var(--font-display)',familyName:'Space Grotesk',weight:600,size:'var(--text-xl)',lh:'var(--text-xl-lh)',token:'text-xl',px:'20px'},
+  {text:'Possession of my entire soul',family:'var(--font-display)',familyName:'Space Grotesk',weight:500,size:'var(--text-lg)',lh:'var(--text-lg-lh)',token:'text-lg',px:'18px'},
+  {text:'I am so happy, my dear friend, so absorbed in the exquisite sense of mere tranquil existence, that I neglect my talents.',family:'var(--font-body)',familyName:'Archivo',weight:400,size:'var(--text-base)',lh:'var(--text-base-lh)',token:'text-base',px:'16px'},
+  {text:'A wonderful serenity has taken possession of my entire soul, like these sweet mornings of spring.',family:'var(--font-body)',familyName:'Archivo',weight:400,size:'var(--text-sm)',lh:'var(--text-sm-lh)',token:'text-sm',px:'14px'},
+  {text:'Caption text and timestamps appear at this size across the interface.',family:'var(--font-body)',familyName:'Archivo',weight:400,size:'var(--text-xs)',lh:'var(--text-xs-lh)',token:'text-xs',px:'12px'},
+  {text:'const response = await fetch("/api/chat/img-123");',family:'var(--font-mono)',familyName:'Space Mono',weight:400,size:'var(--text-sm)',lh:'var(--text-sm-lh)',token:'mono',px:'14px'},
+];
+const typeContainer = document.getElementById('type-samples');
+typeSamples.forEach(s => {
+  const div = document.createElement('div');
+  div.className = 'ds-type-sample';
+  div.innerHTML = `
+    <div style="font-family:${s.family};font-weight:${s.weight};font-size:${s.size};line-height:${s.lh};color:var(--color-neutral-700)">${s.text}</div>
+    <div class="ds-type-meta">
+      <span class="ds-type-tag">${s.familyName} ${s.weight}</span>
+      <span class="ds-type-tag">${s.px} / ${s.lh}</span>
+      <span class="ds-type-tag">--${s.token}</span>
+    </div>`;
+  typeContainer.appendChild(div);
+});
+
+// ---- Spacing ----
+const spacings = [
+  ['--space-1','4px',4],['--space-2','8px',8],['--space-3','12px',12],['--space-4','16px',16],
+  ['--space-5','20px',20],['--space-6','24px',24],['--space-8','32px',32],['--space-10','40px',40],
+  ['--space-12','48px',48],['--space-16','64px',64],['--space-20','80px',80],['--space-24','96px',96]
+];
+const spacingContainer = document.getElementById('spacing-vis');
+spacings.forEach(([token, label, px]) => {
+  const row = document.createElement('div');
+  row.className = 'ds-spacing-row';
+  row.innerHTML = `
+    <span class="ds-spacing-label"><code class="ds-code">${token}</code></span>
+    <div class="ds-spacing-bar" style="width:${Math.min(px * 2.5, 500)}px"></div>
+    <span class="ds-spacing-px">${label}</span>`;
+  spacingContainer.appendChild(row);
+});
+
+// ---- Border Radius ----
+const radii = [
+  ['sm','4px','var(--radius-sm)'],['base','8px','var(--radius-base)'],['lg','12px','var(--radius-lg)'],
+  ['xl','16px','var(--radius-xl)'],['2xl','24px','var(--radius-2xl)'],['full','9999px','var(--radius-full)']
+];
+const radiusContainer = document.getElementById('radius-vis');
+radii.forEach(([name, px, token]) => {
+  const item = document.createElement('div');
+  item.className = 'ds-radius-item';
+  item.innerHTML = `
+    <div class="ds-radius-box" style="border-radius:${token}"></div>
+    <span class="ds-radius-label">${name} (${px})</span>`;
+  radiusContainer.appendChild(item);
+});
+
+// ---- Shadows ----
+const shadows = [['xs','--shadow-xs'],['sm','--shadow-sm'],['md','--shadow-md'],['lg','--shadow-lg'],['xl','--shadow-xl']];
+const shadowContainer = document.getElementById('shadow-vis');
+shadows.forEach(([name, token]) => {
+  const card = document.createElement('div');
+  card.className = 'ds-shadow-card';
+  card.style.boxShadow = `var(${token})`;
+  card.innerHTML = `<span style="font-family:var(--font-display);font-weight:600;color:var(--color-neutral-700)">${name}</span>
+    <span class="ds-shadow-label">${token}</span>`;
+  shadowContainer.appendChild(card);
+});
+
+// ---- Active nav highlighting ----
+const sections = document.querySelectorAll('.ds-section');
+const navLinks = document.querySelectorAll('.ds-nav a');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      navLinks.forEach(l => l.classList.remove('active'));
+      const active = document.querySelector(`.ds-nav a[href="#${entry.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, {rootMargin:'-20% 0px -70% 0px'});
+sections.forEach(s => observer.observe(s));
+
+// ---- Motion toggle ----
+document.getElementById('motion-toggle').addEventListener('change', function() {
+  document.body.classList.toggle('reduced-motion', this.checked);
+});
+</script>
+
+</body>
+</html>
