@@ -143,6 +143,8 @@ git tag v0.0-scaffold -m "Project scaffold with Docker Compose, PostgreSQL, modu
 7. Create `uploads/` directory management (`.gitkeep`, auto-creation)
 8. Implement filename sanitization (path traversal prevention)
 9. Validate upload field name (reject if field isn't named `image`)
+10. Configure request body size limits: `express.json({ limit: '1mb' })` and multipart `MAX_FILE_SIZE` from env (SEC-10)
+11. Add `UPLOAD_DIR` and `MAX_FILE_SIZE` to ConfigModule Joi validation schema
 
 ### Tests to Write First
 - [ ] `file-validation.pipe.spec.ts`
@@ -716,18 +718,24 @@ git tag v0.7-cache -m "In-memory caching with write-through invalidation, Redis-
 **Reference Docs:** [TDD Sec 9.1–9.4](./technical-design.md#91-defense-layers) (security layers, rate limiting config, file upload security), [TDD Sec 10.1–10.3](./technical-design.md#101-structured-logging) (logging, health check, request monitoring), [TDD Sec 8.6](./technical-design.md#86-scheduled-data-cleanup) (cleanup cron with active session guard), [ADR-008](./adr/008-rate-limiting.md)
 
 ### Tasks
+
+> **Note:** Tasks 2–7 were already implemented in Phase 0. This phase focuses on rate limiting, cleanup, and remaining hardening.
+
 1. Install and configure `@nestjs/throttler`
    - Global: 100 req/min, 3 req/sec
    - Upload: 10 req/min (stricter)
    - Chat: 30 req/min
    - Health: exempt
-2. Install and configure `helmet` security headers
-3. Configure CORS (permissive in dev, restrictive in prod)
-4. Implement `LoggingInterceptor` with correlation IDs
-5. Implement `GET /api/health` with DB connectivity check
-6. Enable `app.enableShutdownHooks()` for graceful shutdown
-7. Ensure no stack traces leak in production error responses
+2. ~~Install and configure `helmet` security headers~~ *(done in Phase 0)*
+3. ~~Configure CORS (permissive in dev, restrictive in prod)~~ *(done in Phase 0)*
+4. ~~Implement `LoggingInterceptor` with correlation IDs~~ *(done in Phase 0)*
+5. ~~Implement `GET /api/health` with DB connectivity check~~ *(done in Phase 0)*
+6. ~~Enable `app.enableShutdownHooks()` for graceful shutdown~~ *(done in Phase 0)*
+7. ~~Ensure no stack traces leak in production error responses~~ *(done in Phase 0)*
 8. Install `@nestjs/schedule`, implement `CleanupService` with `@Cron(EVERY_HOUR)` for 24-hour data expiration
+9. Set `trust proxy` in main.ts so rate limiting uses real client IPs: `app.getHttpAdapter().getInstance().set('trust proxy', 1)`
+10. Add `RATE_LIMIT_TTL`, `RATE_LIMIT_MAX`, and `ALLOWED_ORIGIN` to ConfigModule Joi validation schema
+11. Migrate HttpExceptionFilter and LoggingInterceptor from `new` instantiation to `APP_FILTER`/`APP_INTERCEPTOR` DI provider tokens
 
 ### Tests to Write First
 - [ ] `rate-limiting.spec.ts`
