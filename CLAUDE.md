@@ -63,6 +63,17 @@ src/
 
 **Commit rhythm follows TDD:** `test:` (red) → `feat:` (green) → `refactor:` (optional). Multiple commits per phase, NOT one blob. Tag at each phase gate (`v0.0-scaffold`, `v0.1-upload`, etc.).
 
+## No Shortcuts, No Compromises
+
+**The correct fix is ALWAYS better than the quick fix. No exceptions.**
+
+- **Fix bugs when you find them.** If a bug affects the work you're doing, fix it NOW — don't defer it, don't say "out of scope", don't create a follow-up task for it. The only exception is if the fix requires infrastructure from a future phase (e.g., needs the AI service that doesn't exist yet).
+- **Take the correct approach, not the easy one.** Technical debt compounds. A shortcut today becomes a refactoring nightmare tomorrow. Always choose the long-term solution — even if it means touching more files or writing more tests.
+- **Never assume, always verify.** Don't trust plans, comments, variable names, or your own intuition. Read the code. Read the PRD. Compare against the technical design. Document what you find with `file:line` references.
+- **"Good enough" is not good enough.** If there's a known issue — a missing validation, a race condition, an inconsistent error shape — raise it, figure it out, fix it. Don't say "acceptable for now" or "close enough."
+- **The user makes the decisions.** When there's a tradeoff (performance vs. simplicity, strict vs. permissive validation), present the options with evidence and let the user decide. Don't silently pick the easy path.
+- **Document everything you verify.** Context is lost between sessions. If you verified magic bytes, cite the spec. If you checked the PRD, reference the requirement ID. If you tested an edge case, note the test file and line. Future sessions depend on this.
+
 ## Starting a Session
 
 Check current progress before doing anything:
