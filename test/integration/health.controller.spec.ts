@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { DataSource } from 'typeorm';
-import { HealthModule } from '@/health/health.module';
+import { HealthController } from '@/health/health.controller';
 import { HttpExceptionFilter } from '@/common/filters/http-exception.filter';
 import { LoggingInterceptor } from '@/common/interceptors/logging.interceptor';
 
@@ -16,11 +16,9 @@ describe('HealthController (integration)', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      imports: [HealthModule],
-    })
-      .overrideProvider(DataSource)
-      .useValue(mockDataSource)
-      .compile();
+      controllers: [HealthController],
+      providers: [{ provide: DataSource, useValue: mockDataSource }],
+    }).compile();
 
     app = module.createNestApplication();
     app.setGlobalPrefix('api');
