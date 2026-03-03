@@ -26,9 +26,7 @@ export class CreateImagesTable1709500000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "IDX_images_createdAt"`,
-    );
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_images_createdAt"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "images"`);
   }
 }

@@ -108,11 +108,7 @@ export class FileValidationPipe implements PipeTransform<Express.Multer.File> {
     }
     // Fallback if sanitized result is empty, only dots, or has no base name
     const baseWithoutExt = sanitized.replace(/\.[^.]+$/, '');
-    if (
-      !sanitized ||
-      !baseWithoutExt ||
-      /^\.+$/.test(baseWithoutExt)
-    ) {
+    if (!sanitized || !baseWithoutExt || /^\.+$/.test(baseWithoutExt)) {
       const ext = extname(sanitized);
       sanitized = ext ? `unnamed${ext}` : 'unnamed';
     }

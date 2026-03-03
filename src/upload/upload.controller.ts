@@ -28,7 +28,12 @@ export class UploadController {
     MulterErrorInterceptor,
     FileInterceptor('image', {
       storage: memoryStorage(),
-      limits: { fileSize: MAX_FILE_SIZE_HARD_LIMIT, files: 1, fields: 0, parts: 2 },
+      limits: {
+        fileSize: MAX_FILE_SIZE_HARD_LIMIT,
+        files: 1,
+        fields: 0,
+        parts: 2,
+      },
     }),
   )
   async upload(

@@ -48,9 +48,7 @@ describe('MulterErrorInterceptor', () => {
         unknown
       >;
       expect(response.code).toBe('MISSING_FILE');
-      expect(response.message).toBe(
-        'No file provided. Use field name "image"',
-      );
+      expect(response.message).toBe('No file provided. Use field name "image"');
     }
   });
 
@@ -65,9 +63,10 @@ describe('MulterErrorInterceptor', () => {
     try {
       await firstValueFrom(interceptor.intercept(mockContext, handler));
     } catch (e) {
-      const response = (
-        e as PayloadTooLargeException
-      ).getResponse() as Record<string, unknown>;
+      const response = (e as PayloadTooLargeException).getResponse() as Record<
+        string,
+        unknown
+      >;
       expect(response.code).toBe('FILE_TOO_LARGE');
       expect(response.message).toBe(
         'File size exceeds the maximum allowed limit',

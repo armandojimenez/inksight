@@ -16,9 +16,7 @@ const mockedUuid = jest.mocked(uuid);
 
 describe('UploadService', () => {
   let service: UploadService;
-  let repository: jest.Mocked<
-    Pick<Repository<ImageEntity>, 'create' | 'save'>
-  >;
+  let repository: jest.Mocked<Pick<Repository<ImageEntity>, 'create' | 'save'>>;
 
   const UPLOAD_DIR = 'test-uploads';
   const TEST_UUID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';

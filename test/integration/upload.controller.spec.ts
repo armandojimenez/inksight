@@ -230,12 +230,13 @@ describe('UploadController (integration)', () => {
       expect(mockRepository.save).toHaveBeenCalled();
 
       const savedEntity = mockRepository.save.mock.calls[0][0];
-      expect(savedEntity).toHaveProperty('originalFilename', 'persist-test.png');
+      expect(savedEntity).toHaveProperty(
+        'originalFilename',
+        'persist-test.png',
+      );
       expect(savedEntity).toHaveProperty('mimeType', 'image/png');
       expect(savedEntity).toHaveProperty('size');
-      expect(savedEntity.storedFilename).toMatch(
-        /^[0-9a-f-]+\.png$/,
-      );
+      expect(savedEntity.storedFilename).toMatch(/^[0-9a-f-]+\.png$/);
       expect(savedEntity.uploadPath).toContain(UPLOAD_DIR);
     });
   });

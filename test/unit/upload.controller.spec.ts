@@ -100,9 +100,7 @@ describe('UploadController', () => {
       size: 100,
     } as Express.Multer.File;
 
-    uploadService.handleUpload.mockRejectedValue(
-      new Error('Upload failed'),
-    );
+    uploadService.handleUpload.mockRejectedValue(new Error('Upload failed'));
 
     await expect(controller.upload(file)).rejects.toThrow('Upload failed');
   });
