@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { UploadController } from '@/upload/upload.controller';
 import { UploadService, UploadResponse } from '@/upload/upload.service';
+import { FileValidationPipe } from '@/common/pipes/file-validation.pipe';
 import { createMinimalPng } from '../../test/fixtures/image-buffers';
 
 describe('UploadController', () => {
@@ -19,6 +21,16 @@ describe('UploadController', () => {
           provide: UploadService,
           useValue: uploadService,
         },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) => {
+              if (key === 'MAX_FILE_SIZE') return 16 * 1024 * 1024;
+              return undefined;
+            }),
+          },
+        },
+        FileValidationPipe,
       ],
     }).compile();
 
