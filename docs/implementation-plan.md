@@ -207,18 +207,18 @@ git tag v0.1-upload -m "Image upload with validation, magic bytes, path traversa
 
 ### Review Findings Deferred to Later Phases
 
-The following findings from the Phase 1 code review are intentionally deferred:
+The following findings from the Phase 1 code review are intentionally deferred. Each item is tracked as a task in its target phase.
 
 | Finding | Deferred To | Rationale |
 |---------|-------------|-----------|
-| Rate limiting on upload endpoint | Phase 8 | Requires infrastructure (Redis/memory store) not yet available |
-| Polyglot file re-encoding (image/text confusion) | File serving endpoint | No file serving exists yet; re-encode on read |
-| Orphaned temp file periodic cleanup | Cleanup module (Phase 6) | Scheduled cleanup is a separate concern |
-| `initialAnalysis` column → JSONB | Phase 2/3 | AI service wires the field; migration + type change together |
-| Global filters/interceptors via DI tokens | Phase 5 | Cross-cutting concern, not upload-specific |
-| SSE logging compatibility | Phase 2 | Streaming doesn't exist yet |
-| Swagger/OpenAPI decorators | Phase 7 | API documentation phase |
-| Import path consistency audit | Next refactor pass | Low priority, no runtime impact |
+| Rate limiting on upload endpoint | Phase 8 (Task 1) | Already tracked: upload-specific 10 req/min limit |
+| Polyglot file re-encoding (image/text confusion) | Phase 5 | Add re-encoding when file serving endpoint is built |
+| Orphaned temp file periodic cleanup | Phase 8 (Task 8) | Add to CleanupService alongside image expiration |
+| `initialAnalysis` column → JSONB + migration | Phase 3 | Wire AI response into upload; migration + type change together |
+| Global filters/interceptors via DI tokens | Phase 8 (Task 11) | Already tracked: migrate to APP_FILTER/APP_INTERCEPTOR |
+| SSE logging compatibility | Phase 4 | Verify LoggingInterceptor doesn't interfere with SSE streams |
+| Swagger/OpenAPI decorators | Phase 9 (9A) | Already tracked: install @nestjs/swagger + decorators |
+| Import path consistency audit | Phase 12 | Low priority, bundle in final polish pass |
 
 ---
 
@@ -297,6 +297,9 @@ git tag v0.2-mock-ai -m "Mock AI service with OpenAI-compatible format, JSON Sch
 4. Wire up AI service injection via `AI_SERVICE_TOKEN`
 5. Return OpenAI-compatible response format
 6. Implement `PaginationQueryDto` with `@IsOptional`, `@IsInt`, `@Min(1)`, `@Max(50)` for future history endpoint
+7. Wire initial AI analysis into upload flow: call `analyzeImage()` after file save, store JSON result in `initialAnalysis`
+8. Migration: alter `initialAnalysis` from TEXT to JSONB (nullable, backward-compatible with existing null rows)
+9. Update `UploadService` to populate `initialAnalysis` and return parsed object in response `analysis` field
 
 ### Tests to Write First
 - [ ] `chat.controller.spec.ts` (integration)
@@ -394,6 +397,7 @@ git tag v0.3-chat -m "Chat endpoint with input validation, OpenAI response forma
 3. Implement client disconnect detection (`req.on('close')`)
 4. Implement backpressure handling (drain event)
 5. Implement connection timeout (30 seconds)
+6. Verify LoggingInterceptor compatibility with SSE streams (must not buffer or interfere with chunked responses)
 
 ### Tests to Write First
 - [ ] `mock-ai.service.streaming.spec.ts`
@@ -482,6 +486,7 @@ git tag v0.4-streaming -m "SSE streaming with OpenAI chunk format, disconnect de
 9. Implement `GET /api/images` endpoint (paginated list with message counts for sidebar gallery)
 10. Implement `DELETE /api/images/:imageId` endpoint (cascade delete messages, remove file, invalidate cache)
 11. Implement `GET /api/images/:imageId/file` endpoint (serve uploaded image with proper Content-Type, 404 handling)
+12. Validate served image Content-Type is derived from stored mimeType, not file extension (defense against polyglot files)
 
 ### Tests to Write First
 - [ ] `history.service.spec.ts`
@@ -747,7 +752,7 @@ git tag v0.7-cache -m "In-memory caching with write-through invalidation, Redis-
 5. ~~Implement `GET /api/health` with DB connectivity check~~ *(done in Phase 0)*
 6. ~~Enable `app.enableShutdownHooks()` for graceful shutdown~~ *(done in Phase 0)*
 7. ~~Ensure no stack traces leak in production error responses~~ *(done in Phase 0)*
-8. Install `@nestjs/schedule`, implement `CleanupService` with `@Cron(EVERY_HOUR)` for 24-hour data expiration
+8. Install `@nestjs/schedule`, implement `CleanupService` with `@Cron(EVERY_HOUR)` for 24-hour data expiration and orphaned temp file cleanup (`.tmp-*` files older than 1 hour in UPLOAD_DIR)
 9. Set `trust proxy` in main.ts so rate limiting uses real client IPs: `app.getHttpAdapter().getInstance().set('trust proxy', 1)`
 10. Add `RATE_LIMIT_TTL`, `RATE_LIMIT_MAX`, and `ALLOWED_ORIGIN` to ConfigModule Joi validation schema
 11. Migrate HttpExceptionFilter and LoggingInterceptor from `new` instantiation to `APP_FILTER`/`APP_INTERCEPTOR` DI provider tokens
@@ -774,6 +779,8 @@ git tag v0.7-cache -m "In-memory caching with write-through invalidation, Redis-
   - Cleanup invalidates cache for removed images
   - Cleanup skips images within TTL
   - Cleanup skips images with recent chat activity
+  - Cleanup removes orphaned `.tmp-*` files older than 1 hour
+  - Cleanup skips recent `.tmp-*` files (in-progress uploads)
 
 ### Phase Gate
 
@@ -1062,7 +1069,8 @@ git tag v0.11-e2e -m "E2E test suite, 85%+ coverage across all modules"
    - Design decisions summary (link to ADRs)
    - AI tools disclosure (link to `docs/ai-tools.md`)
    - Project structure overview
-2. Verify all tests pass
+2. Audit and normalize import paths across all source files (consistent `@/` alias usage)
+3. Verify all tests pass
 3. Verify Docker Compose builds and runs from clean state
 4. Verify `npm start` serves both API and React client
 5. Remove any dead code, console.logs, TODOs
