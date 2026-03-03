@@ -11,7 +11,8 @@ build/
 !.env.example
 
 # Uploads (runtime data)
-uploads/
+uploads/*
+!uploads/.gitkeep
 
 # OS
 .DS_Store
