@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { AppModule } from '@/app.module';
 import { ImageEntity } from '@/upload/entities/image.entity';
+import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 
 describe('AppModule', () => {
   let module: TestingModule;
@@ -38,6 +39,8 @@ describe('AppModule', () => {
       .overrideProvider(DataSource)
       .useValue(mockDataSource)
       .overrideProvider(getRepositoryToken(ImageEntity))
+      .useValue(mockRepository)
+      .overrideProvider(getRepositoryToken(ChatMessageEntity))
       .useValue(mockRepository)
       .compile();
   });
