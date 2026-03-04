@@ -194,15 +194,17 @@ describe('HistoryService', () => {
   });
 
   describe('getRecentMessages', () => {
-    it('should return ConversationMessage array', async () => {
+    it('should return ConversationMessage array in chronological order', async () => {
+      // Repo returns DESC order (newest first)
       const messages = [
-        { role: 'user', content: 'Hello' },
         { role: 'assistant', content: 'Hi' },
+        { role: 'user', content: 'Hello' },
       ] as ChatMessageEntity[];
       repo.find.mockResolvedValue(messages);
 
       const result = await service.getRecentMessages(IMAGE_ID_A);
 
+      // Service reverses to chronological order
       expect(result).toEqual([
         { role: 'user', content: 'Hello' },
         { role: 'assistant', content: 'Hi' },
@@ -217,15 +219,27 @@ describe('HistoryService', () => {
       expect(result).toEqual([]);
     });
 
-    it('should cap at 50 messages by default', async () => {
+    it('should query with DESC order and cap at 50 by default', async () => {
       repo.find.mockResolvedValue([]);
 
       await service.getRecentMessages(IMAGE_ID_A);
 
       expect(repo.find).toHaveBeenCalledWith({
         where: { imageId: IMAGE_ID_A },
-        order: { createdAt: 'ASC' },
+        order: { createdAt: 'DESC' },
         take: 50,
+      });
+    });
+
+    it('should respect custom maxMessages parameter', async () => {
+      repo.find.mockResolvedValue([]);
+
+      await service.getRecentMessages(IMAGE_ID_A, 10);
+
+      expect(repo.find).toHaveBeenCalledWith({
+        where: { imageId: IMAGE_ID_A },
+        order: { createdAt: 'DESC' },
+        take: 10,
       });
     });
   });

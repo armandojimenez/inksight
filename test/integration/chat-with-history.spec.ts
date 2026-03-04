@@ -108,6 +108,7 @@ describe('Chat with History (integration)', () => {
   beforeEach(async () => {
     messageStore = [];
     let msgCounter = 0;
+    let timeBase = Date.now();
 
     mockImageRepo = { findOneBy: jest.fn() };
     mockMessageRepo = {
@@ -115,8 +116,8 @@ describe('Chat with History (integration)', () => {
         const saved = {
           ...entity,
           id: `msg-${++msgCounter}`,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          createdAt: new Date(timeBase + msgCounter),
+          updatedAt: new Date(timeBase + msgCounter),
         };
         messageStore.push(saved);
         return Promise.resolve(saved);
@@ -134,18 +135,28 @@ describe('Chat with History (integration)', () => {
           filtered.length,
         ]);
       }),
-      find: jest.fn().mockImplementation((options: { where: { imageId: string }; take?: number }) => {
+      find: jest.fn().mockImplementation((options: { where: { imageId: string }; order?: { createdAt?: 'ASC' | 'DESC' }; take?: number }) => {
         const filtered = messageStore.filter(
           (m) => m.imageId === options.where.imageId,
         );
-        return Promise.resolve(filtered.slice(0, options.take ?? filtered.length));
+        const sorted = [...filtered];
+        if (options.order?.createdAt === 'DESC') {
+          sorted.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        } else {
+          sorted.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+        }
+        return Promise.resolve(sorted.slice(0, options.take ?? sorted.length));
       }),
       count: jest.fn().mockImplementation((options: { where: { imageId: string } }) =>
         Promise.resolve(
           messageStore.filter((m) => m.imageId === options.where.imageId).length,
         ),
       ),
-      remove: jest.fn().mockResolvedValue([]),
+      remove: jest.fn().mockImplementation((entities: ChatMessageEntity[]) => {
+        const ids = new Set(entities.map((e) => e.id));
+        messageStore = messageStore.filter((m) => !ids.has(m.id));
+        return Promise.resolve(entities);
+      }),
       delete: jest.fn().mockResolvedValue({ affected: 0, raw: [] }),
     };
 

@@ -50,10 +50,10 @@ export class HistoryService {
   ): Promise<ConversationMessage[]> {
     const messages = await this.messageRepository.find({
       where: { imageId },
-      order: { createdAt: 'ASC' },
+      order: { createdAt: 'DESC' },
       take: maxMessages,
     });
-    return messages.map((msg) => ({
+    return messages.reverse().map((msg) => ({
       role: msg.role as ConversationMessage['role'],
       content: msg.content,
     }));
