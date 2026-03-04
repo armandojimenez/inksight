@@ -9,14 +9,33 @@ describe('HistoryService', () => {
   let repo: jest.Mocked<
     Pick<
       Repository<ChatMessageEntity>,
-      'save' | 'create' | 'findAndCount' | 'find' | 'count' | 'remove' | 'delete'
+      'save' | 'create' | 'findAndCount' | 'find' | 'count' | 'remove' | 'delete' | 'createQueryBuilder'
     >
   >;
+  let mockQueryBuilder: {
+    delete: jest.Mock;
+    select: jest.Mock;
+    addSelect: jest.Mock;
+    where: jest.Mock;
+    groupBy: jest.Mock;
+    execute: jest.Mock;
+    getRawMany: jest.Mock;
+  };
 
   const IMAGE_ID_A = '550e8400-e29b-41d4-a716-446655440000';
   const IMAGE_ID_B = '660e8400-e29b-41d4-a716-446655440001';
 
   beforeEach(async () => {
+    mockQueryBuilder = {
+      delete: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 0 }),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    };
+
     repo = {
       save: jest.fn(),
       create: jest.fn(),
@@ -25,6 +44,7 @@ describe('HistoryService', () => {
       count: jest.fn(),
       remove: jest.fn(),
       delete: jest.fn(),
+      createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder) as jest.Mock,
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -258,58 +278,37 @@ describe('HistoryService', () => {
   });
 
   describe('enforceHistoryCap', () => {
-    it('should remove oldest messages when count exceeds 50', async () => {
+    it('should delete oldest messages via single query when count exceeds 50', async () => {
       repo.count.mockResolvedValue(53);
-      const excessMessages = [
-        { id: 'old1' },
-        { id: 'old2' },
-        { id: 'old3' },
-      ] as ChatMessageEntity[];
-      repo.find.mockResolvedValue(excessMessages);
-      (repo.remove as jest.Mock).mockResolvedValue(excessMessages);
 
       await service.enforceHistoryCap(IMAGE_ID_A);
 
-      expect(repo.find).toHaveBeenCalledWith({
-        where: { imageId: IMAGE_ID_A },
-        order: { createdAt: 'ASC' },
-        take: 3,
-      });
-      expect(repo.remove).toHaveBeenCalledWith(excessMessages);
+      expect(repo.createQueryBuilder).toHaveBeenCalled();
+      expect(mockQueryBuilder.delete).toHaveBeenCalled();
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        expect.stringContaining('imageId'),
+        expect.objectContaining({ imageId: IMAGE_ID_A, excess: 3 }),
+      );
+      expect(mockQueryBuilder.execute).toHaveBeenCalled();
     });
 
-    it('should not remove messages when count is at or below 50', async () => {
+    it('should not delete when count is at or below 50', async () => {
       repo.count.mockResolvedValue(50);
 
       await service.enforceHistoryCap(IMAGE_ID_A);
 
-      expect(repo.find).not.toHaveBeenCalled();
-      expect(repo.remove).not.toHaveBeenCalled();
+      expect(repo.createQueryBuilder).not.toHaveBeenCalled();
     });
 
-    it('should remove exactly 1 message when count is 51', async () => {
+    it('should delete exactly 1 message when count is 51', async () => {
       repo.count.mockResolvedValue(51);
-      const excessMessages = [{ id: 'old1' }] as ChatMessageEntity[];
-      repo.find.mockResolvedValue(excessMessages);
-      (repo.remove as jest.Mock).mockResolvedValue(excessMessages);
 
       await service.enforceHistoryCap(IMAGE_ID_A);
 
-      expect(repo.find).toHaveBeenCalledWith({
-        where: { imageId: IMAGE_ID_A },
-        order: { createdAt: 'ASC' },
-        take: 1,
-      });
-      expect(repo.remove).toHaveBeenCalledWith(excessMessages);
-    });
-
-    it('should not call remove when find returns empty array', async () => {
-      repo.count.mockResolvedValue(55);
-      repo.find.mockResolvedValue([]);
-
-      await service.enforceHistoryCap(IMAGE_ID_A);
-
-      expect(repo.remove).not.toHaveBeenCalled();
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        expect.stringContaining('LIMIT'),
+        expect.objectContaining({ excess: 1 }),
+      );
     });
   });
 
@@ -343,6 +342,45 @@ describe('HistoryService', () => {
       expect(repo.count).toHaveBeenCalledWith({
         where: { imageId: IMAGE_ID_A },
       });
+    });
+  });
+
+  describe('getMessageCountBatch', () => {
+    it('should return counts for multiple imageIds in one query', async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { imageId: IMAGE_ID_A, count: '5' },
+        { imageId: IMAGE_ID_B, count: '3' },
+      ]);
+
+      const result = await service.getMessageCountBatch([
+        IMAGE_ID_A,
+        IMAGE_ID_B,
+      ]);
+
+      expect(result.get(IMAGE_ID_A)).toBe(5);
+      expect(result.get(IMAGE_ID_B)).toBe(3);
+      expect(repo.createQueryBuilder).toHaveBeenCalledWith('msg');
+    });
+
+    it('should return 0 for imageIds with no messages', async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { imageId: IMAGE_ID_A, count: '2' },
+      ]);
+
+      const result = await service.getMessageCountBatch([
+        IMAGE_ID_A,
+        IMAGE_ID_B,
+      ]);
+
+      expect(result.get(IMAGE_ID_A)).toBe(2);
+      expect(result.get(IMAGE_ID_B)).toBe(0);
+    });
+
+    it('should return empty map for empty input', async () => {
+      const result = await service.getMessageCountBatch([]);
+
+      expect(result.size).toBe(0);
+      expect(repo.createQueryBuilder).not.toHaveBeenCalled();
     });
   });
 

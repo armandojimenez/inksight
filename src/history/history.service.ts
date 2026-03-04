@@ -74,6 +74,30 @@ export class HistoryService {
     return this.messageRepository.count({ where: { imageId } });
   }
 
+  async getMessageCountBatch(
+    imageIds: string[],
+  ): Promise<Map<string, number>> {
+    if (imageIds.length === 0) return new Map();
+
+    const results: Array<{ imageId: string; count: string }> =
+      await this.messageRepository
+        .createQueryBuilder('msg')
+        .select('msg.imageId', 'imageId')
+        .addSelect('COUNT(*)', 'count')
+        .where('msg.imageId IN (:...imageIds)', { imageIds })
+        .groupBy('msg.imageId')
+        .getRawMany();
+
+    const counts = new Map<string, number>();
+    for (const id of imageIds) {
+      counts.set(id, 0);
+    }
+    for (const row of results) {
+      counts.set(row.imageId, parseInt(row.count, 10));
+    }
+    return counts;
+  }
+
   async deleteByImageId(imageId: string): Promise<void> {
     await this.messageRepository.delete({ imageId });
   }
@@ -82,14 +106,18 @@ export class HistoryService {
     const count = await this.messageRepository.count({ where: { imageId } });
     if (count <= DEFAULT_HISTORY_CAP) return;
 
-    const excess = count - DEFAULT_HISTORY_CAP;
-    const oldestMessages = await this.messageRepository.find({
-      where: { imageId },
-      order: { createdAt: 'ASC' },
-      take: excess,
-    });
-    if (oldestMessages.length > 0) {
-      await this.messageRepository.remove(oldestMessages);
-    }
+    await this.messageRepository
+      .createQueryBuilder()
+      .delete()
+      .where(
+        `id IN (
+          SELECT id FROM chat_messages
+          WHERE "imageId" = :imageId
+          ORDER BY "createdAt" ASC
+          LIMIT :excess
+        )`,
+        { imageId, excess: count - DEFAULT_HISTORY_CAP },
+      )
+      .execute();
   }
 }
