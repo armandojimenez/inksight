@@ -33,14 +33,16 @@ describe('withRetry', () => {
   });
 
   it('should throw last error after max attempts', async () => {
-    const error = new Error('persistent failure');
-    const operation = jest.fn().mockRejectedValue(error);
+    const operation = jest.fn().mockRejectedValue(new Error('persistent failure'));
 
     const promise = withRetry(operation, { attempts: 3 });
+    // Attach rejection handler before advancing timers to avoid unhandled rejection
+    const expectation = expect(promise).rejects.toThrow('persistent failure');
+
     await jest.advanceTimersByTimeAsync(500);  // delay after attempt 1
     await jest.advanceTimersByTimeAsync(1000); // delay after attempt 2
 
-    await expect(promise).rejects.toThrow('persistent failure');
+    await expectation;
     expect(operation).toHaveBeenCalledTimes(3);
   });
 
@@ -48,6 +50,7 @@ describe('withRetry', () => {
     const operation = jest.fn().mockRejectedValue(new Error('fail'));
 
     const promise = withRetry(operation, { attempts: 3 });
+    const expectation = expect(promise).rejects.toThrow('fail');
 
     // After attempt 1: delay = 500 * 2^0 = 500ms
     await jest.advanceTimersByTimeAsync(499);
@@ -61,19 +64,20 @@ describe('withRetry', () => {
     await jest.advanceTimersByTimeAsync(1);
     expect(operation).toHaveBeenCalledTimes(3); // retried after 1000ms
 
-    await expect(promise).rejects.toThrow('fail');
+    await expectation;
   });
 
   it('should use default options when none provided', async () => {
     const operation = jest.fn().mockRejectedValue(new Error('fail'));
 
     const promise = withRetry(operation);
+    const expectation = expect(promise).rejects.toThrow('fail');
 
     // Default: 3 attempts, 500ms delay, backoff 2
     await jest.advanceTimersByTimeAsync(500);  // after attempt 1
     await jest.advanceTimersByTimeAsync(1000); // after attempt 2
 
-    await expect(promise).rejects.toThrow('fail');
+    await expectation;
     expect(operation).toHaveBeenCalledTimes(3);
   });
 
@@ -85,6 +89,7 @@ describe('withRetry', () => {
       delayMs: 100,
       backoff: 3,
     });
+    const expectation = expect(promise).rejects.toThrow('fail');
 
     // Delays: 100, 300, 900, 2700
     await jest.advanceTimersByTimeAsync(100);  // after attempt 1
@@ -99,7 +104,7 @@ describe('withRetry', () => {
     await jest.advanceTimersByTimeAsync(2700); // after attempt 4
     expect(operation).toHaveBeenCalledTimes(5);
 
-    await expect(promise).rejects.toThrow('fail');
+    await expectation;
   });
 
   it('should not delay after final failed attempt', async () => {
@@ -107,11 +112,12 @@ describe('withRetry', () => {
 
     const start = Date.now();
     const promise = withRetry(operation, { attempts: 2 });
+    const expectation = expect(promise).rejects.toThrow('fail');
 
     // Only one delay: 500ms between attempt 1 and 2
     await jest.advanceTimersByTimeAsync(500);
 
-    await expect(promise).rejects.toThrow('fail');
+    await expectation;
 
     // Total elapsed should be ~500ms (one delay), not 1500ms (two delays)
     const elapsed = Date.now() - start;
