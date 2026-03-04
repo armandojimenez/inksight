@@ -96,6 +96,6 @@ describe('ImageEntity', () => {
     expect(findCol('mimeType')!.options.length).toBe(50);
     expect(findCol('uploadPath')!.options.length).toBe(500);
     expect(findCol('size')!.options.type).toBe('integer');
-    expect(findCol('initialAnalysis')!.options.type).toBe('text');
+    expect(findCol('initialAnalysis')!.options.type).toBe('jsonb');
   });
 });

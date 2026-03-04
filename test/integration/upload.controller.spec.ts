@@ -29,7 +29,6 @@ describe('UploadController (integration)', () => {
       create: jest.fn((data) => ({
         id: 'test-uuid-1234',
         ...data,
-        initialAnalysis: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         version: 1,
@@ -80,7 +79,8 @@ describe('UploadController (integration)', () => {
       expect(res.body).toHaveProperty('mimeType', 'image/png');
       expect(res.body).toHaveProperty('size');
       expect(res.body.size).toBeGreaterThan(0);
-      expect(res.body).toHaveProperty('analysis', null);
+      expect(res.body).toHaveProperty('analysis');
+      expect(res.body.analysis).not.toBeNull();
     });
 
     it('should upload a valid JPEG and return 201', async () => {

@@ -6,6 +6,9 @@ import * as fs from 'fs/promises';
 import * as uuid from 'uuid';
 import { UploadService } from '@/upload/upload.service';
 import { ImageEntity } from '@/upload/entities/image.entity';
+import { AI_SERVICE_TOKEN } from '@/common/constants';
+import { IAiService } from '@/ai/interfaces/ai-service.interface';
+import { OpenAiChatCompletion } from '@/ai/interfaces/openai-chat-completion.interface';
 import { createMinimalPng } from '../../test/fixtures/image-buffers';
 
 jest.mock('fs/promises');
@@ -14,9 +17,27 @@ jest.mock('uuid');
 const mockedFs = jest.mocked(fs);
 const mockedUuid = jest.mocked(uuid);
 
+const mockAnalysisCompletion: OpenAiChatCompletion = {
+  id: 'chatcmpl-test',
+  object: 'chat.completion',
+  created: 1234567890,
+  model: 'gpt-4o',
+  choices: [
+    {
+      index: 0,
+      message: { role: 'assistant', content: 'A test image analysis.' },
+      finish_reason: 'stop',
+    },
+  ],
+  usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+};
+
 describe('UploadService', () => {
   let service: UploadService;
-  let repository: jest.Mocked<Pick<Repository<ImageEntity>, 'create' | 'save'>>;
+  let repository: jest.Mocked<
+    Pick<Repository<ImageEntity>, 'create' | 'save'>
+  >;
+  let aiService: jest.Mocked<Pick<IAiService, 'analyzeImage'>>;
 
   const UPLOAD_DIR = 'test-uploads';
   const TEST_UUID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
@@ -25,6 +46,10 @@ describe('UploadService', () => {
     repository = {
       create: jest.fn(),
       save: jest.fn(),
+    };
+
+    aiService = {
+      analyzeImage: jest.fn().mockResolvedValue(mockAnalysisCompletion),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -42,6 +67,10 @@ describe('UploadService', () => {
               return undefined;
             }),
           },
+        },
+        {
+          provide: AI_SERVICE_TOKEN,
+          useValue: aiService,
         },
       ],
     }).compile();
@@ -79,7 +108,10 @@ describe('UploadService', () => {
       mimeType: 'image/png',
       size: buffer.length,
       uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
-      initialAnalysis: null,
+      initialAnalysis: mockAnalysisCompletion as unknown as Record<
+        string,
+        unknown
+      >,
     } as ImageEntity;
 
     repository.create.mockReturnValue(savedEntity);
@@ -108,7 +140,10 @@ describe('UploadService', () => {
       mimeType: 'image/png',
       size: buffer.length,
       uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
-      initialAnalysis: null,
+      initialAnalysis: mockAnalysisCompletion as unknown as Record<
+        string,
+        unknown
+      >,
     } as ImageEntity;
 
     repository.create.mockReturnValue(savedEntity);
@@ -139,7 +174,10 @@ describe('UploadService', () => {
       mimeType: 'image/png',
       size: buffer.length,
       uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
-      initialAnalysis: null,
+      initialAnalysis: mockAnalysisCompletion as unknown as Record<
+        string,
+        unknown
+      >,
     } as ImageEntity;
 
     repository.create.mockReturnValue(savedEntity);
@@ -155,7 +193,7 @@ describe('UploadService', () => {
     );
   });
 
-  it('should persist the image entity to the database', async () => {
+  it('should persist the image entity to the database with AI analysis', async () => {
     const buffer = createMinimalPng();
     const file = {
       originalname: 'photo.png',
@@ -171,7 +209,10 @@ describe('UploadService', () => {
       mimeType: 'image/png',
       size: buffer.length,
       uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
-      initialAnalysis: null,
+      initialAnalysis: mockAnalysisCompletion as unknown as Record<
+        string,
+        unknown
+      >,
     } as ImageEntity;
 
     repository.create.mockReturnValue(savedEntity);
@@ -185,11 +226,82 @@ describe('UploadService', () => {
       mimeType: 'image/png',
       size: buffer.length,
       uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
+      initialAnalysis: mockAnalysisCompletion,
     });
     expect(repository.save).toHaveBeenCalledWith(savedEntity);
   });
 
-  it('should return the upload response with analysis: null', async () => {
+  it('should call AI analyzeImage with the upload path', async () => {
+    const buffer = createMinimalPng();
+    const file = {
+      originalname: 'photo.png',
+      mimetype: 'image/png',
+      buffer,
+      size: buffer.length,
+    } as Express.Multer.File;
+
+    const savedEntity = {
+      id: TEST_UUID,
+      originalFilename: 'photo.png',
+      storedFilename: `${TEST_UUID}.png`,
+      mimeType: 'image/png',
+      size: buffer.length,
+      uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
+      initialAnalysis: mockAnalysisCompletion as unknown as Record<
+        string,
+        unknown
+      >,
+    } as ImageEntity;
+
+    repository.create.mockReturnValue(savedEntity);
+    repository.save.mockResolvedValue(savedEntity);
+
+    await service.handleUpload(file);
+
+    expect(aiService.analyzeImage).toHaveBeenCalledWith(
+      `${UPLOAD_DIR}/${TEST_UUID}.png`,
+    );
+  });
+
+  it('should return the upload response with analysis from AI', async () => {
+    const buffer = createMinimalPng();
+    const file = {
+      originalname: 'photo.png',
+      mimetype: 'image/png',
+      buffer,
+      size: buffer.length,
+    } as Express.Multer.File;
+
+    const savedEntity = {
+      id: TEST_UUID,
+      originalFilename: 'photo.png',
+      storedFilename: `${TEST_UUID}.png`,
+      mimeType: 'image/png',
+      size: buffer.length,
+      uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
+      initialAnalysis: mockAnalysisCompletion as unknown as Record<
+        string,
+        unknown
+      >,
+    } as ImageEntity;
+
+    repository.create.mockReturnValue(savedEntity);
+    repository.save.mockResolvedValue(savedEntity);
+
+    const result = await service.handleUpload(file);
+
+    expect(result).toEqual({
+      id: TEST_UUID,
+      filename: 'photo.png',
+      mimeType: 'image/png',
+      size: buffer.length,
+      analysis: mockAnalysisCompletion,
+    });
+  });
+
+  it('should gracefully handle AI analysis failure and return analysis: null', async () => {
+    aiService.analyzeImage.mockRejectedValue(new Error('AI service down'));
+
     const buffer = createMinimalPng();
     const file = {
       originalname: 'photo.png',
@@ -213,13 +325,10 @@ describe('UploadService', () => {
 
     const result = await service.handleUpload(file);
 
-    expect(result).toEqual({
-      id: TEST_UUID,
-      filename: 'photo.png',
-      mimeType: 'image/png',
-      size: buffer.length,
-      analysis: null,
-    });
+    expect(result.analysis).toBeNull();
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ initialAnalysis: null }),
+    );
   });
 
   it('should extract the correct extension from the original filename', async () => {
@@ -238,7 +347,10 @@ describe('UploadService', () => {
       mimeType: 'image/png',
       size: buffer.length,
       uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
-      initialAnalysis: null,
+      initialAnalysis: mockAnalysisCompletion as unknown as Record<
+        string,
+        unknown
+      >,
     } as ImageEntity;
 
     repository.create.mockReturnValue(savedEntity);
