@@ -3,6 +3,7 @@ import helmet from 'helmet';
 import { ConfigService } from '@nestjs/config';
 import { HttpExceptionFilter } from './filters/http-exception.filter';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
+import { validationExceptionFactory } from './factories/validation-exception.factory';
 
 export function setupApp(app: INestApplication): void {
   const config = app.get(ConfigService);
@@ -25,6 +26,7 @@ export function setupApp(app: INestApplication): void {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      exceptionFactory: validationExceptionFactory,
     }),
   );
 
