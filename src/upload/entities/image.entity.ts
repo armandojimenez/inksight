@@ -27,8 +27,8 @@ export class ImageEntity {
   @Column({ type: 'varchar', length: 500 })
   uploadPath!: string;
 
-  @Column({ type: 'text', nullable: true, default: null })
-  initialAnalysis!: string | null;
+  @Column({ type: 'jsonb', nullable: true, default: null })
+  initialAnalysis!: Record<string, unknown> | null;
 
   @CreateDateColumn()
   createdAt!: Date;
