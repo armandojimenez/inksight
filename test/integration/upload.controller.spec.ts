@@ -6,7 +6,9 @@ import * as request from 'supertest';
 import * as fs from 'fs/promises';
 import { UploadModule } from '@/upload/upload.module';
 import { ImageEntity } from '@/upload/entities/image.entity';
+import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { AI_SERVICE_TOKEN } from '@/common/constants';
+import { HistoryService } from '@/history/history.service';
 import { setupApp } from '@/common/setup-app';
 import { OpenAiChatCompletion } from '@/ai/interfaces/openai-chat-completion.interface';
 import {
@@ -66,6 +68,24 @@ describe('UploadController (integration)', () => {
       chatStream: jest.fn(),
     };
 
+    const mockMessageRepo = {
+      save: jest.fn().mockResolvedValue({ id: 'msg-1' }),
+      create: jest.fn().mockImplementation((d: unknown) => d),
+      findAndCount: jest.fn().mockResolvedValue([[], 0]),
+      find: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+      remove: jest.fn(),
+      delete: jest.fn(),
+    };
+
+    const mockHistoryService = {
+      addMessage: jest.fn().mockResolvedValue({ id: 'msg-1' }),
+      getRecentMessages: jest.fn().mockResolvedValue([]),
+      getHistory: jest.fn().mockResolvedValue({ messages: [], total: 0 }),
+      getMessageCount: jest.fn().mockResolvedValue(0),
+      deleteByImageId: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
@@ -82,8 +102,12 @@ describe('UploadController (integration)', () => {
     })
       .overrideProvider(getRepositoryToken(ImageEntity))
       .useValue(mockRepository)
+      .overrideProvider(getRepositoryToken(ChatMessageEntity))
+      .useValue(mockMessageRepo)
       .overrideProvider(AI_SERVICE_TOKEN)
       .useValue(mockAiService)
+      .overrideProvider(HistoryService)
+      .useValue(mockHistoryService)
       .compile();
 
     app = module.createNestApplication();
