@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ChatMessageEntity } from './entities/chat-message.entity';
 import { ConversationMessage } from '@/ai/interfaces/conversation-message.interface';
+import { withRetry } from '@/common/utils/retry';
 
 const DEFAULT_HISTORY_CAP = 50;
 const VALID_ROLES = new Set(['user', 'assistant']);
@@ -34,7 +35,7 @@ export class HistoryService {
       content,
       tokenCount,
     });
-    return this.messageRepository.save(entity);
+    return withRetry(() => this.messageRepository.save(entity));
   }
 
   async getHistory(
