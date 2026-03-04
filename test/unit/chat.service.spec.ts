@@ -176,6 +176,22 @@ describe('ChatService', () => {
       );
     });
 
+    it('should return completion even when enforceHistoryCap throws', async () => {
+      const image = { id: TEST_IMAGE_ID } as ImageEntity;
+      imageRepository.findOneBy.mockResolvedValue(image);
+      aiService.chat.mockResolvedValue(mockCompletion);
+      historyService.enforceHistoryCap.mockRejectedValue(
+        new Error('DB transient failure'),
+      );
+
+      const result = await service.chat(TEST_IMAGE_ID, 'Hello');
+
+      expect(result).toBe(mockCompletion);
+      expect(historyService.enforceHistoryCap).toHaveBeenCalledWith(
+        TEST_IMAGE_ID,
+      );
+    });
+
     it('should forward non-empty history to AI service', async () => {
       const image = { id: TEST_IMAGE_ID } as ImageEntity;
       imageRepository.findOneBy.mockResolvedValue(image);
