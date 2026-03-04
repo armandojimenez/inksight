@@ -8,6 +8,8 @@ import { OpenAiChatCompletion } from '@/ai/interfaces/openai-chat-completion.int
 import { OpenAiStreamChunk } from '@/ai/interfaces/openai-stream-chunk.interface';
 import { HistoryService } from '@/history/history.service';
 
+const MAX_PERSISTED_CONTENT_LENGTH = 50_000;
+
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
@@ -52,6 +54,8 @@ export class ChatService {
       tokenCount,
     );
 
+    await this.historyService.enforceHistoryCap(imageId);
+
     return completion;
   }
 
@@ -80,16 +84,22 @@ export class ChatService {
     imageId: string,
   ): AsyncGenerator<OpenAiStreamChunk> {
     const contentParts: string[] = [];
+    let totalLength = 0;
     try {
       for await (const chunk of generator) {
         const delta = chunk.choices[0]?.delta;
         if (delta?.content) {
-          contentParts.push(delta.content);
+          if (totalLength < MAX_PERSISTED_CONTENT_LENGTH) {
+            contentParts.push(delta.content);
+            totalLength += delta.content.length;
+          }
         }
         yield chunk;
       }
     } finally {
-      const fullContent = contentParts.join('');
+      const fullContent = contentParts
+        .join('')
+        .slice(0, MAX_PERSISTED_CONTENT_LENGTH);
       if (fullContent.length > 0) {
         try {
           await this.historyService.addMessage(
@@ -97,6 +107,7 @@ export class ChatService {
             'assistant',
             fullContent,
           );
+          await this.historyService.enforceHistoryCap(imageId);
         } catch (err) {
           this.logger.error(
             `Failed to persist streamed assistant message for image ${imageId}: ${err instanceof Error ? err.message : 'Unknown error'}`,

@@ -51,7 +51,6 @@ describe('HistoryService', () => {
       } as ChatMessageEntity;
       repo.create.mockReturnValue(entity);
       repo.save.mockResolvedValue(entity);
-      repo.count.mockResolvedValue(1);
 
       await service.addMessage(IMAGE_ID_A, 'user', 'Hello');
 
@@ -74,7 +73,6 @@ describe('HistoryService', () => {
       } as ChatMessageEntity;
       repo.create.mockReturnValue(entity);
       repo.save.mockResolvedValue(entity);
-      repo.count.mockResolvedValue(1);
 
       await service.addMessage(IMAGE_ID_A, 'assistant', 'I see an image');
 
@@ -96,7 +94,6 @@ describe('HistoryService', () => {
       } as ChatMessageEntity;
       repo.create.mockReturnValue(entity);
       repo.save.mockResolvedValue(entity);
-      repo.count.mockResolvedValue(1);
 
       const result = await service.addMessage(IMAGE_ID_A, 'user', 'Test');
 
@@ -113,7 +110,6 @@ describe('HistoryService', () => {
       } as ChatMessageEntity;
       repo.create.mockReturnValue(entity);
       repo.save.mockResolvedValue(entity);
-      repo.count.mockResolvedValue(1);
 
       await service.addMessage(IMAGE_ID_A, 'assistant', 'Response', 42);
 
@@ -123,6 +119,23 @@ describe('HistoryService', () => {
         content: 'Response',
         tokenCount: 42,
       });
+    });
+
+    it('should not call enforceHistoryCap internally', async () => {
+      const entity = { id: 'msg-5' } as ChatMessageEntity;
+      repo.create.mockReturnValue(entity);
+      repo.save.mockResolvedValue(entity);
+
+      await service.addMessage(IMAGE_ID_A, 'user', 'Test');
+
+      // enforceHistoryCap uses count + find + remove — none should be called
+      expect(repo.count).not.toHaveBeenCalled();
+    });
+
+    it('should reject invalid role', async () => {
+      await expect(
+        service.addMessage(IMAGE_ID_A, 'system' as 'user', 'Hello'),
+      ).rejects.toThrow('Invalid message role');
     });
   });
 
@@ -255,12 +268,7 @@ describe('HistoryService', () => {
       repo.find.mockResolvedValue(excessMessages);
       (repo.remove as jest.Mock).mockResolvedValue(excessMessages);
 
-      // addMessage triggers enforceHistoryCap internally
-      const entity = { id: 'new' } as ChatMessageEntity;
-      repo.create.mockReturnValue(entity);
-      repo.save.mockResolvedValue(entity);
-
-      await service.addMessage(IMAGE_ID_A, 'user', 'trigger cap');
+      await service.enforceHistoryCap(IMAGE_ID_A);
 
       expect(repo.find).toHaveBeenCalledWith({
         where: { imageId: IMAGE_ID_A },
@@ -273,13 +281,34 @@ describe('HistoryService', () => {
     it('should not remove messages when count is at or below 50', async () => {
       repo.count.mockResolvedValue(50);
 
-      const entity = { id: 'new' } as ChatMessageEntity;
-      repo.create.mockReturnValue(entity);
-      repo.save.mockResolvedValue(entity);
-
-      await service.addMessage(IMAGE_ID_A, 'user', 'within cap');
+      await service.enforceHistoryCap(IMAGE_ID_A);
 
       expect(repo.find).not.toHaveBeenCalled();
+      expect(repo.remove).not.toHaveBeenCalled();
+    });
+
+    it('should remove exactly 1 message when count is 51', async () => {
+      repo.count.mockResolvedValue(51);
+      const excessMessages = [{ id: 'old1' }] as ChatMessageEntity[];
+      repo.find.mockResolvedValue(excessMessages);
+      (repo.remove as jest.Mock).mockResolvedValue(excessMessages);
+
+      await service.enforceHistoryCap(IMAGE_ID_A);
+
+      expect(repo.find).toHaveBeenCalledWith({
+        where: { imageId: IMAGE_ID_A },
+        order: { createdAt: 'ASC' },
+        take: 1,
+      });
+      expect(repo.remove).toHaveBeenCalledWith(excessMessages);
+    });
+
+    it('should not call remove when find returns empty array', async () => {
+      repo.count.mockResolvedValue(55);
+      repo.find.mockResolvedValue([]);
+
+      await service.enforceHistoryCap(IMAGE_ID_A);
+
       expect(repo.remove).not.toHaveBeenCalled();
     });
   });

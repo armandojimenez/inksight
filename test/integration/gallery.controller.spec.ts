@@ -42,6 +42,7 @@ describe('Gallery Controller (integration)', () => {
     getHistory: jest.Mock;
     getMessageCount: jest.Mock;
     deleteByImageId: jest.Mock;
+    enforceHistoryCap: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -59,6 +60,7 @@ describe('Gallery Controller (integration)', () => {
       getHistory: jest.fn().mockResolvedValue({ messages: [], total: 0 }),
       getMessageCount: jest.fn().mockResolvedValue(0),
       deleteByImageId: jest.fn(),
+      enforceHistoryCap: jest.fn().mockResolvedValue(undefined),
     };
 
     const mockMessageRepo = {

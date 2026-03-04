@@ -66,6 +66,7 @@ describe('ChatController (integration)', () => {
       getHistory: jest.fn().mockResolvedValue({ messages: [], total: 0 }),
       getMessageCount: jest.fn().mockResolvedValue(0),
       deleteByImageId: jest.fn(),
+      enforceHistoryCap: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({

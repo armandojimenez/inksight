@@ -15,7 +15,7 @@ describe('ChatService', () => {
   let imageRepository: jest.Mocked<Pick<Repository<ImageEntity>, 'findOneBy'>>;
   let aiService: jest.Mocked<Pick<IAiService, 'chat' | 'chatStream'>>;
   let historyService: jest.Mocked<
-    Pick<HistoryService, 'addMessage' | 'getRecentMessages'>
+    Pick<HistoryService, 'addMessage' | 'getRecentMessages' | 'enforceHistoryCap'>
   >;
 
   const TEST_IMAGE_ID = '550e8400-e29b-41d4-a716-446655440000';
@@ -48,6 +48,7 @@ describe('ChatService', () => {
     historyService = {
       addMessage: jest.fn().mockResolvedValue({ id: 'msg-1' }),
       getRecentMessages: jest.fn().mockResolvedValue([]),
+      enforceHistoryCap: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -159,6 +160,42 @@ describe('ChatService', () => {
 
       expect(historyService.getRecentMessages).toHaveBeenCalledWith(
         TEST_IMAGE_ID,
+      );
+    });
+
+    it('should call enforceHistoryCap once after both messages', async () => {
+      const image = { id: TEST_IMAGE_ID } as ImageEntity;
+      imageRepository.findOneBy.mockResolvedValue(image);
+      aiService.chat.mockResolvedValue(mockCompletion);
+
+      await service.chat(TEST_IMAGE_ID, 'Hello');
+
+      expect(historyService.enforceHistoryCap).toHaveBeenCalledTimes(1);
+      expect(historyService.enforceHistoryCap).toHaveBeenCalledWith(
+        TEST_IMAGE_ID,
+      );
+    });
+
+    it('should forward non-empty history to AI service', async () => {
+      const image = { id: TEST_IMAGE_ID } as ImageEntity;
+      imageRepository.findOneBy.mockResolvedValue(image);
+      aiService.chat.mockResolvedValue(mockCompletion);
+      historyService.getRecentMessages.mockResolvedValue([
+        { role: 'user', content: 'Previous Q' },
+        { role: 'assistant', content: 'Previous A' },
+        { role: 'user', content: 'Hello' },
+      ]);
+
+      await service.chat(TEST_IMAGE_ID, 'Hello');
+
+      expect(aiService.chat).toHaveBeenCalledWith(
+        'Hello',
+        TEST_IMAGE_ID,
+        [
+          { role: 'user', content: 'Previous Q' },
+          { role: 'assistant', content: 'Previous A' },
+          { role: 'user', content: 'Hello' },
+        ],
       );
     });
   });
@@ -288,6 +325,133 @@ describe('ChatService', () => {
         TEST_IMAGE_ID,
         'assistant',
         'Hello World',
+      );
+    });
+
+    it('should not persist assistant message when stream has no content', async () => {
+      const image = { id: TEST_IMAGE_ID } as ImageEntity;
+      imageRepository.findOneBy.mockResolvedValue(image);
+
+      const emptyChunk: OpenAiStreamChunk = {
+        id: 'chatcmpl-test',
+        object: 'chat.completion.chunk',
+        created: 1700000000,
+        model: 'gpt-4o',
+        choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+      };
+
+      async function* gen(): AsyncGenerator<OpenAiStreamChunk> {
+        yield emptyChunk;
+      }
+
+      aiService.chatStream.mockReturnValue(gen());
+
+      const generator = await service.chatStream(TEST_IMAGE_ID, 'Test');
+      for await (const _chunk of generator) {
+        // drain
+      }
+
+      // Only user message, no assistant message
+      expect(historyService.addMessage).toHaveBeenCalledTimes(1);
+      expect(historyService.addMessage).toHaveBeenCalledWith(
+        TEST_IMAGE_ID,
+        'user',
+        'Test',
+      );
+    });
+
+    it('should call enforceHistoryCap after stream persistence', async () => {
+      const image = { id: TEST_IMAGE_ID } as ImageEntity;
+      imageRepository.findOneBy.mockResolvedValue(image);
+
+      async function* gen(): AsyncGenerator<OpenAiStreamChunk> {
+        yield {
+          id: 'chatcmpl-test',
+          object: 'chat.completion.chunk',
+          created: 1700000000,
+          model: 'gpt-4o',
+          choices: [
+            { index: 0, delta: { content: 'response' }, finish_reason: null },
+          ],
+        };
+      }
+
+      aiService.chatStream.mockReturnValue(gen());
+
+      const generator = await service.chatStream(TEST_IMAGE_ID, 'Test');
+      for await (const _chunk of generator) {
+        // drain
+      }
+
+      expect(historyService.enforceHistoryCap).toHaveBeenCalledTimes(1);
+      expect(historyService.enforceHistoryCap).toHaveBeenCalledWith(
+        TEST_IMAGE_ID,
+      );
+    });
+
+    it('should truncate persisted content at 50,000 characters', async () => {
+      const image = { id: TEST_IMAGE_ID } as ImageEntity;
+      imageRepository.findOneBy.mockResolvedValue(image);
+
+      const longContent = 'x'.repeat(60_000);
+      async function* gen(): AsyncGenerator<OpenAiStreamChunk> {
+        yield {
+          id: 'chatcmpl-test',
+          object: 'chat.completion.chunk',
+          created: 1700000000,
+          model: 'gpt-4o',
+          choices: [
+            { index: 0, delta: { content: longContent }, finish_reason: null },
+          ],
+        };
+      }
+
+      aiService.chatStream.mockReturnValue(gen());
+
+      const generator = await service.chatStream(TEST_IMAGE_ID, 'Test');
+      for await (const _chunk of generator) {
+        // drain
+      }
+
+      const savedContent = historyService.addMessage.mock.calls.find(
+        (call) => call[1] === 'assistant',
+      )![2];
+      expect(savedContent.length).toBe(50_000);
+    });
+
+    it('should persist partial content on abort', async () => {
+      const image = { id: TEST_IMAGE_ID } as ImageEntity;
+      imageRepository.findOneBy.mockResolvedValue(image);
+
+      async function* gen(): AsyncGenerator<OpenAiStreamChunk> {
+        yield {
+          id: 'chatcmpl-test',
+          object: 'chat.completion.chunk',
+          created: 1700000000,
+          model: 'gpt-4o',
+          choices: [
+            { index: 0, delta: { content: 'partial' }, finish_reason: null },
+          ],
+        };
+        throw new Error('Aborted');
+      }
+
+      aiService.chatStream.mockReturnValue(gen());
+
+      const generator = await service.chatStream(TEST_IMAGE_ID, 'Test');
+      try {
+        for await (const _chunk of generator) {
+          // drain
+        }
+      } catch {
+        // expected abort error
+      }
+
+      // Partial content should still be persisted in finally block
+      expect(historyService.addMessage).toHaveBeenCalledWith(
+        TEST_IMAGE_ID,
+        'assistant',
+        'partial',
       );
     });
   });

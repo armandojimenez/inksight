@@ -1,13 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ChatMessageEntity } from './entities/chat-message.entity';
 import { ConversationMessage } from '@/ai/interfaces/conversation-message.interface';
 
 const DEFAULT_HISTORY_CAP = 50;
+const VALID_ROLES = new Set(['user', 'assistant']);
+
+export type MessageRole = 'user' | 'assistant';
 
 @Injectable()
 export class HistoryService {
+  private readonly logger = new Logger(HistoryService.name);
+
   constructor(
     @InjectRepository(ChatMessageEntity)
     private readonly messageRepository: Repository<ChatMessageEntity>,
@@ -15,19 +20,21 @@ export class HistoryService {
 
   async addMessage(
     imageId: string,
-    role: string,
+    role: MessageRole,
     content: string,
     tokenCount: number | null = null,
   ): Promise<ChatMessageEntity> {
+    if (!VALID_ROLES.has(role)) {
+      throw new Error(`Invalid message role: ${role}. Must be 'user' or 'assistant'.`);
+    }
+
     const entity = this.messageRepository.create({
       imageId,
       role,
       content,
       tokenCount,
     });
-    const saved = await this.messageRepository.save(entity);
-    await this.enforceHistoryCap(imageId);
-    return saved;
+    return this.messageRepository.save(entity);
   }
 
   async getHistory(
@@ -67,7 +74,7 @@ export class HistoryService {
     await this.messageRepository.delete({ imageId });
   }
 
-  private async enforceHistoryCap(imageId: string): Promise<void> {
+  async enforceHistoryCap(imageId: string): Promise<void> {
     const count = await this.messageRepository.count({ where: { imageId } });
     if (count <= DEFAULT_HISTORY_CAP) return;
 
@@ -77,6 +84,8 @@ export class HistoryService {
       order: { createdAt: 'ASC' },
       take: excess,
     });
-    await this.messageRepository.remove(oldestMessages);
+    if (oldestMessages.length > 0) {
+      await this.messageRepository.remove(oldestMessages);
+    }
   }
 }
