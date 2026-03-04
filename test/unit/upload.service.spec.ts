@@ -366,46 +366,67 @@ describe('UploadService', () => {
   });
 
   it('should clean up both temp and final paths if database save fails', async () => {
-    const buffer = createMinimalPng();
-    const file = {
-      originalname: 'photo.png',
-      mimetype: 'image/png',
-      buffer,
-      size: buffer.length,
-    } as Express.Multer.File;
+    jest.useFakeTimers();
+    try {
+      const buffer = createMinimalPng();
+      const file = {
+        originalname: 'photo.png',
+        mimetype: 'image/png',
+        buffer,
+        size: buffer.length,
+      } as Express.Multer.File;
 
-    const entity = { id: TEST_UUID } as ImageEntity;
-    repository.create.mockReturnValue(entity);
-    repository.save.mockRejectedValue(new Error('DB connection lost'));
-    mockedFs.unlink = jest.fn().mockResolvedValue(undefined);
+      const entity = { id: TEST_UUID } as ImageEntity;
+      repository.create.mockReturnValue(entity);
+      repository.save.mockRejectedValue(new Error('DB connection lost'));
+      mockedFs.unlink = jest.fn().mockResolvedValue(undefined);
 
-    await expect(service.handleUpload(file)).rejects.toThrow(
-      'DB connection lost',
-    );
+      const promise = service.handleUpload(file);
+      const expectation = expect(promise).rejects.toThrow('DB connection lost');
 
-    const tempPath = `${UPLOAD_DIR}/.tmp-${TEST_UUID}.png`;
-    const finalPath = `${UPLOAD_DIR}/${TEST_UUID}.png`;
-    expect(mockedFs.unlink).toHaveBeenCalledWith(tempPath);
-    expect(mockedFs.unlink).toHaveBeenCalledWith(finalPath);
+      // Advance past withRetry delays (500ms + 1000ms)
+      await jest.advanceTimersByTimeAsync(500);
+      await jest.advanceTimersByTimeAsync(1000);
+
+      await expectation;
+
+      const tempPath = `${UPLOAD_DIR}/.tmp-${TEST_UUID}.png`;
+      const finalPath = `${UPLOAD_DIR}/${TEST_UUID}.png`;
+      expect(mockedFs.unlink).toHaveBeenCalledWith(tempPath);
+      expect(mockedFs.unlink).toHaveBeenCalledWith(finalPath);
+      // withRetry retries 3 times before giving up
+      expect(repository.save).toHaveBeenCalledTimes(3);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('should propagate DB error even when unlink also fails', async () => {
-    const buffer = createMinimalPng();
-    const file = {
-      originalname: 'photo.png',
-      mimetype: 'image/png',
-      buffer,
-      size: buffer.length,
-    } as Express.Multer.File;
+    jest.useFakeTimers();
+    try {
+      const buffer = createMinimalPng();
+      const file = {
+        originalname: 'photo.png',
+        mimetype: 'image/png',
+        buffer,
+        size: buffer.length,
+      } as Express.Multer.File;
 
-    const entity = { id: TEST_UUID } as ImageEntity;
-    repository.create.mockReturnValue(entity);
-    repository.save.mockRejectedValue(new Error('DB connection lost'));
-    mockedFs.unlink = jest.fn().mockRejectedValue(new Error('ENOENT'));
+      const entity = { id: TEST_UUID } as ImageEntity;
+      repository.create.mockReturnValue(entity);
+      repository.save.mockRejectedValue(new Error('DB connection lost'));
+      mockedFs.unlink = jest.fn().mockRejectedValue(new Error('ENOENT'));
 
-    await expect(service.handleUpload(file)).rejects.toThrow(
-      'DB connection lost',
-    );
+      const promise = service.handleUpload(file);
+      const expectation = expect(promise).rejects.toThrow('DB connection lost');
+
+      await jest.advanceTimersByTimeAsync(500);
+      await jest.advanceTimersByTimeAsync(1000);
+
+      await expectation;
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('should clean up temp file if rename fails', async () => {

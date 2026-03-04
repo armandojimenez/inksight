@@ -9,6 +9,7 @@ import { ImageEntity } from './entities/image.entity';
 import { UploadResponseDto } from './dto/upload-response.dto';
 import { IAiService } from '@/ai/interfaces/ai-service.interface';
 import { AI_SERVICE_TOKEN } from '@/common/constants';
+import { withRetry } from '@/common/utils/retry';
 
 @Injectable()
 export class UploadService {
@@ -61,7 +62,7 @@ export class UploadService {
         initialAnalysis,
       });
 
-      const saved = await this.imageRepository.save(entity);
+      const saved = await withRetry(() => this.imageRepository.save(entity));
 
       return {
         id: saved.id,
