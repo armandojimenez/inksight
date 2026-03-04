@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
@@ -7,15 +7,20 @@ import { v4 as uuidv4 } from 'uuid';
 import { extname, join } from 'path';
 import { ImageEntity } from './entities/image.entity';
 import { UploadResponseDto } from './dto/upload-response.dto';
+import { IAiService } from '@/ai/interfaces/ai-service.interface';
+import { AI_SERVICE_TOKEN } from '@/common/constants';
 
 @Injectable()
 export class UploadService {
+  private readonly logger = new Logger(UploadService.name);
   private readonly uploadDir: string;
 
   constructor(
     @InjectRepository(ImageEntity)
     private readonly imageRepository: Repository<ImageEntity>,
     private readonly configService: ConfigService,
+    @Inject(AI_SERVICE_TOKEN)
+    private readonly aiService: IAiService,
   ) {
     this.uploadDir = this.configService.get<string>('UPLOAD_DIR', 'uploads');
   }
@@ -36,13 +41,25 @@ export class UploadService {
       await writeFile(tempPath, file.buffer);
       await rename(tempPath, finalPath);
 
-      // Persist to database
+      // Attempt AI analysis — failure does not block upload
+      let initialAnalysis: Record<string, unknown> | null = null;
+      try {
+        const completion = await this.aiService.analyzeImage(uploadPath);
+        initialAnalysis = completion as unknown as Record<string, unknown>;
+      } catch (aiError) {
+        this.logger.warn(
+          `AI analysis failed for ${uploadPath}: ${aiError instanceof Error ? aiError.message : String(aiError)}`,
+        );
+      }
+
+      // Single save — avoids @VersionColumn double-increment
       const entity = this.imageRepository.create({
         originalFilename: file.originalname,
         storedFilename,
         mimeType: file.mimetype,
         size: file.size,
         uploadPath,
+        initialAnalysis,
       });
 
       const saved = await this.imageRepository.save(entity);
@@ -52,9 +69,7 @@ export class UploadService {
         filename: saved.originalFilename,
         mimeType: saved.mimeType,
         size: saved.size,
-        analysis: saved.initialAnalysis
-          ? (JSON.parse(saved.initialAnalysis) as Record<string, unknown>)
-          : null,
+        analysis: saved.initialAnalysis,
       };
     } catch (error) {
       // Clean up both temp and final paths on any failure
