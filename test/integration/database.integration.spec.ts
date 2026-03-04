@@ -43,8 +43,7 @@ describe('Database integration', () => {
 
   beforeEach(async () => {
     if (!dbAvailable) return;
-    await messageRepo.query('DELETE FROM chat_messages');
-    await imageRepo.query('DELETE FROM images');
+    await dataSource.query('TRUNCATE TABLE chat_messages, images RESTART IDENTITY CASCADE');
   });
 
   it('should have both tables after migrations run', async () => {
@@ -210,5 +209,65 @@ describe('Database integration', () => {
     results.forEach((r) => expect(r.id).toBeDefined());
 
     expect(await imageRepo.count()).toBe(10);
+  });
+
+  describe('Optimistic locking', () => {
+    function createTestImage(suffix: string) {
+      return imageRepo.create({
+        originalFilename: `lock-${suffix}.png`,
+        storedFilename: `lock-${suffix}.png`,
+        mimeType: 'image/png',
+        size: 100,
+        uploadPath: `uploads/lock-${suffix}.png`,
+        initialAnalysis: null,
+      });
+    }
+
+    it('should assign version 1 to a new image', async () => {
+      if (!dbAvailable) return;
+
+      const saved = await imageRepo.save(createTestImage('new'));
+      expect(saved.version).toBe(1);
+    });
+
+    it('should increment version on sequential updates', async () => {
+      if (!dbAvailable) return;
+
+      const saved = await imageRepo.save(createTestImage('seq'));
+      expect(saved.version).toBe(1);
+
+      saved.originalFilename = 'updated-1.png';
+      const v2 = await imageRepo.save(saved);
+      expect(v2.version).toBe(2);
+
+      v2.originalFilename = 'updated-2.png';
+      const v3 = await imageRepo.save(v2);
+      expect(v3.version).toBe(3);
+    });
+
+    it('should detect stale version via optimistic lock on findOne', async () => {
+      if (!dbAvailable) return;
+
+      const saved = await imageRepo.save(createTestImage('conflict'));
+
+      // Load entity at version 1
+      const loaded = await dataSource.manager.findOne(ImageEntity, {
+        where: { id: saved.id },
+        lock: { mode: 'optimistic', version: 1 },
+      });
+      expect(loaded).toBeDefined();
+
+      // Simulate concurrent update: increment version in DB
+      loaded!.originalFilename = 'concurrent-update.png';
+      await imageRepo.save(loaded!);
+
+      // Now DB has version 2. Trying to load with expected version 1 should throw.
+      await expect(
+        dataSource.manager.findOne(ImageEntity, {
+          where: { id: saved.id },
+          lock: { mode: 'optimistic', version: 1 },
+        }),
+      ).rejects.toThrow(/optimistic lock/i);
+    });
   });
 });
