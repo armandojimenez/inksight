@@ -31,13 +31,15 @@ Inksight needs a caching layer to reduce database reads for frequently accessed 
 
 ## Cache Design
 
-| Data | Key Pattern | TTL | Invalidation |
-|------|-------------|-----|-------------|
-| Image metadata | `image:{id}` | 10 min | On delete |
-| Conversation history | `history:{imageId}` | 5 min | On new message |
-| Recent messages | `recent:{imageId}` | 5 min | On new message |
+| Data | Key Pattern | TTL | Cached When | Invalidation |
+|------|-------------|-----|-------------|-------------|
+| Image metadata | `image:{imageId}` | 10 min | Always | `deleteImage` |
+| Conversation history (page 1) | `history:{imageId}` | 5 min | `page===1 && limit===20` (defaults) | `addMessage`, `enforceHistoryCap`, `deleteByImageId`, `deleteImage` |
+| Recent messages (default count) | `recent:{imageId}` | 5 min | `maxMessages===50` (default) | Same as history |
 
-Write-through invalidation: every write operation (`addMessage`, `deleteImage`) explicitly deletes the affected cache keys. This prevents stale reads without complex invalidation logic.
+**Flat keys by design:** History is only cached for the default pagination parameters (page 1, limit 20). Non-default pagination always goes to DB. This eliminates the need for composite keys (`history:{id}:{page}:{limit}`) and the key-tracking data structure that would be required to invalidate them — which would not be Redis-compatible and could leak memory.
+
+Write-through invalidation: every write operation (`addMessage`, `deleteImage`, `enforceHistoryCap`, `deleteByImageId`) explicitly deletes the affected cache keys via `HistoryService.invalidateCache()`. This prevents stale reads without complex invalidation logic.
 
 ## Scaling Path
 

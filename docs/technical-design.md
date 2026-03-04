@@ -850,7 +850,7 @@ Using NestJS's built-in `CacheModule` with in-memory store:
 @Module({
   imports: [
     CacheModule.register({
-      ttl: 300,     // Default: 5 minutes
+      ttl: 300_000, // Default: 5 minutes (ms)
       max: 100,     // Max items in cache
     }),
   ],

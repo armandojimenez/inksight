@@ -691,20 +691,42 @@ git tag v0.6-hardened-db -m "Database hardening: indexes, optimistic locking, re
 **Reference Docs:** [TDD Sec 8.1–8.5](./technical-design.md#81-cache-layer-design) (cache design, keys/TTLs, write-through invalidation, scalability path), [ADR-007](./adr/007-caching-strategy.md)
 
 ### Tasks
-1. Configure NestJS CacheModule (in-memory, TTL: 5min, max: 100 items)
-2. Add cache to `HistoryService.getHistory()` (key: `history:{imageId}`)
-3. Add cache to `UploadService.findImage()` (key: `image:{imageId}`)
-4. Implement write-through invalidation (invalidate on new message, on delete)
-5. Add cache-related logging (hit/miss for debugging)
+1. Install `@nestjs/cache-manager@^3.0.0` and `cache-manager@^5.0.0`
+2. Add `CACHE_MANAGER` mock to all 12 existing test files that use HistoryService or ImagesService (prerequisite — must pass before any service changes)
+3. Configure NestJS CacheModule (in-memory, TTL: 5min/300_000ms, max: 100 items, `isGlobal: true`)
+4. Create `src/cache/cache-keys.ts` — centralized cache key constants
+5. Add cache to `HistoryService.getHistory()` (key: `history:{imageId}`, page 1 + default limit only)
+6. Add cache to `HistoryService.getRecentMessages()` (key: `recent:{imageId}`, default count=50 only)
+7. Add cache to `ImagesService.getImageForServing()` (key: `image:{imageId}`, TTL 10min — **cache ImageEntity only, NOT ReadStream**)
+8. Add `HistoryService.invalidateCache(imageId)` — single public method for history/recent cache invalidation
+9. Implement write-through invalidation: `addMessage`, `enforceHistoryCap` (when deleting), `deleteByImageId`, `deleteImage` (cross-service via `invalidateCache`)
+10. Wrap all cache `get`/`set`/`del` in try/catch — failures logged, never re-thrown (Redis readiness)
+11. Add cache-related logging (hit/miss/invalidation for debugging)
+12. Fix `technical-design.md:853` TTL from `300` to `300_000` (ms, not seconds)
+13. Update ADR-007 key patterns to document flat key simplification
+
+> **Key design decisions:** Flat cache keys matching ADR-007 (no paginated keys, no key tracker Map). Pages 2+ and non-default counts go to DB uncached. `CacheInterceptor`/decorators rejected in favor of manual cache-aside for invalidation control. See [detailed plan](/Users/armandojimenez/.claude/plans/phase-7-caching-layer.md).
 
 ### Tests to Write First
+- [ ] Add `CACHE_MANAGER` mock to all 12 existing test files (3 unit + 9 integration) — verify `npm test` passes
 - [ ] `cache.integration.spec.ts`
   - First call to getHistory → cache miss → DB query
   - Second call to getHistory → cache hit → no DB query
+  - getHistory with non-default pagination → always DB (not cached)
   - Adding a message → cache invalidated
   - Next getHistory call → cache miss → fresh DB query
-  - Cache respects TTL (expires after configured time)
+  - Cache respects TTL (short TTL + real delay, NOT jest.useFakeTimers — incompatible with lru-cache)
   - Cache respects max size (LRU eviction)
+  - getRecentMessages — miss/hit/invalidation pattern (default count only)
+  - getRecentMessages with non-default count → always DB
+  - image:{imageId} — entity cached, ReadStream created fresh each time
+  - deleteImage → invalidates image, history, and recent keys
+  - Different imageIds don't cross-contaminate cache
+  - enforceHistoryCap → cache invalidated when messages deleted, no-op when within cap
+  - deleteByImageId → cache invalidated
+  - Cache get/set failure → falls through to DB, does not throw
+  - invalidateCache for non-existent imageId → no-op, no error
+  - addMessage for imageId A does not invalidate imageId B's cache
 
 ### Phase Gate
 
@@ -747,6 +769,16 @@ curl -s "http://localhost:3000/api/chat/$IMAGE_ID/history" > /dev/null
 git tag v0.7-cache -m "In-memory caching with write-through invalidation, Redis-ready abstraction"
 ```
 
+### Review Findings Deferred to Later Phases
+
+The following findings from the Phase 7 code review are intentionally deferred. Each item is tracked as a task in its target phase.
+
+| Finding | Deferred To | Rationale |
+|---------|-------------|-----------|
+| CleanupService cache invalidation (call `invalidateCache` + `del('image:{id}')` per deleted image) | Phase 8 (Task 8) | CleanupModule is still a stub; `invalidateCache()` method will be ready from Phase 7 |
+| `listImages()` / `getMessageCountBatch()` caching | Not planned | Volatile data (uploads/deletes), cache invalidation complexity for multi-entity paginated results not justified for MVP |
+| In-memory store serialization behavior (returns same object reference, no round-trip) | Redis upgrade path | When switching to Redis, cached data will be serialized — class instances become plain objects. Acceptable for MVP. |
+
 ---
 
 ## Phase 8: Production Hardening
@@ -770,7 +802,7 @@ git tag v0.7-cache -m "In-memory caching with write-through invalidation, Redis-
 5. ~~Implement `GET /api/health` with DB connectivity check~~ *(done in Phase 0)*
 6. ~~Enable `app.enableShutdownHooks()` for graceful shutdown~~ *(done in Phase 0)*
 7. ~~Ensure no stack traces leak in production error responses~~ *(done in Phase 0)*
-8. Install `@nestjs/schedule`, implement `CleanupService` with `@Cron(EVERY_HOUR)` for 24-hour data expiration and orphaned temp file cleanup (`.tmp-*` files older than 1 hour in UPLOAD_DIR)
+8. Install `@nestjs/schedule`, implement `CleanupService` with `@Cron(EVERY_HOUR)` for 24-hour data expiration and orphaned temp file cleanup (`.tmp-*` files older than 1 hour in UPLOAD_DIR). **Cache invalidation:** For each deleted image, call `historyService.invalidateCache(imageId)` and `cacheManager.del('image:{imageId}')` — the `invalidateCache()` method is available from Phase 7
 9. Set `trust proxy` in main.ts so rate limiting uses real client IPs: `app.getHttpAdapter().getInstance().set('trust proxy', 1)`
 10. Add `RATE_LIMIT_TTL`, `RATE_LIMIT_MAX`, and `ALLOWED_ORIGIN` to ConfigModule Joi validation schema
 11. Migrate HttpExceptionFilter and LoggingInterceptor from `new` instantiation to `APP_FILTER`/`APP_INTERCEPTOR` DI provider tokens
