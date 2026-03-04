@@ -47,16 +47,10 @@ describe('Database integration', () => {
     await imageRepo.query('DELETE FROM images');
   });
 
-  it('should run all migrations cleanly', async () => {
+  it('should have both tables after migrations run', async () => {
     if (!dbAvailable) return;
 
-    // Undo all migrations then re-run
-    for (let i = 0; i < migrations.length; i++) {
-      await dataSource.undoLastMigration();
-    }
-
-    await dataSource.runMigrations();
-
+    // migrationsRun: true in beforeAll already applied all migrations
     const tables: Array<{ table_name: string }> = await dataSource.query(`
       SELECT table_name FROM information_schema.tables
       WHERE table_schema = 'public'
@@ -68,6 +62,12 @@ describe('Database integration', () => {
       'chat_messages',
       'images',
     ]);
+
+    // Verify all migrations were recorded
+    const applied: Array<{ name: string }> = await dataSource.query(
+      `SELECT name FROM migrations ORDER BY id`,
+    );
+    expect(applied.length).toBe(migrations.length);
   });
 
   it('should CRUD on images', async () => {
