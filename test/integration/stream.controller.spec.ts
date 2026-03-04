@@ -395,16 +395,30 @@ describe('StreamController (integration)', () => {
           id: VALID_UUID,
         } as ImageEntity);
 
-        // Create a generator that delays long enough for timeout to fire
-        async function* slowGenerator(): AsyncGenerator<OpenAiStreamChunk> {
-          yield buildChunk('id1', 1700000000, { role: 'assistant', content: '' }, null);
-          // Wait longer than the timeout — should be aborted
-          await new Promise((resolve) => setTimeout(resolve, 60000));
-          yield buildChunk('id1', 1700000000, { content: 'late' }, null);
-          yield buildChunk('id1', 1700000000, {}, 'stop');
-        }
-
-        mockAiService.chatStream.mockReturnValue(slowGenerator());
+        // Mock chatStream to capture the signal and create a signal-aware slow generator
+        mockAiService.chatStream.mockImplementation(
+          (_prompt: string, _imageId: string, _history: unknown[], signal?: AbortSignal) => {
+            async function* slowGenerator(): AsyncGenerator<OpenAiStreamChunk> {
+              yield buildChunk('id1', 1700000000, { role: 'assistant', content: '' }, null);
+              // Wait for abort or very long delay
+              try {
+                await new Promise<void>((resolve, reject) => {
+                  if (signal?.aborted) { reject(new DOMException('Aborted', 'AbortError')); return; }
+                  const timer = setTimeout(resolve, 60000);
+                  signal?.addEventListener('abort', () => {
+                    clearTimeout(timer);
+                    reject(new DOMException('Aborted', 'AbortError'));
+                  }, { once: true });
+                });
+              } catch {
+                return; // aborted — stop generating
+              }
+              yield buildChunk('id1', 1700000000, { content: 'late' }, null);
+              yield buildChunk('id1', 1700000000, {}, 'stop');
+            }
+            return slowGenerator();
+          },
+        );
 
         // Override SSE_TIMEOUT_MS for test (controller reads from env)
         process.env.SSE_TIMEOUT_MS = '200';
