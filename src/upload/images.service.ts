@@ -1,10 +1,13 @@
 import {
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { Repository } from 'typeorm';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
@@ -12,6 +15,7 @@ import * as path from 'path';
 import { ImageEntity } from './entities/image.entity';
 import { HistoryService } from '@/history/history.service';
 import { GalleryImageResponse } from './dto/gallery-response.dto';
+import { CACHE_KEYS } from '@/cache/cache-keys';
 
 const ALLOWED_MIME_TYPES = new Set([
   'image/png',
@@ -19,6 +23,8 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/gif',
   'image/webp',
 ]);
+
+const IMAGE_CACHE_TTL = 600_000; // 10 minutes
 
 interface ErrnoException extends Error {
   code?: string;
@@ -34,6 +40,7 @@ export class ImagesService {
     private readonly imageRepository: Repository<ImageEntity>,
     private readonly historyService: HistoryService,
     private readonly configService: ConfigService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {
     this.uploadDir = path.resolve(
       this.configService.get<string>('UPLOAD_DIR', 'uploads'),
@@ -94,18 +101,52 @@ export class ImagesService {
 
     // CASCADE on FK handles message deletion
     await this.imageRepository.remove(image);
+
+    // Invalidate all cache entries for this image
+    try {
+      await this.cacheManager.del(CACHE_KEYS.image(imageId));
+    } catch (err) {
+      this.logger.warn(
+        `Cache invalidation failed for image:${imageId}: ${err instanceof Error ? err.message : 'Unknown'}`,
+      );
+    }
+    await this.historyService.invalidateCache(imageId);
   }
 
   async getImageForServing(
     imageId: string,
   ): Promise<{ stream: fs.ReadStream; image: ImageEntity }> {
-    const image = await this.imageRepository.findOneBy({ id: imageId });
+    const cacheKey = CACHE_KEYS.image(imageId);
+    let image: ImageEntity | null = null;
+
+    // Try cache first
+    try {
+      const cached = await this.cacheManager.get<ImageEntity>(cacheKey);
+      if (cached) {
+        this.logger.debug(`Cache HIT for ${cacheKey}`);
+        image = cached;
+      }
+    } catch (err) {
+      this.logger.warn(`Cache get failed for ${cacheKey}: ${err instanceof Error ? err.message : 'Unknown'}`);
+    }
+
+    // Cache miss — query DB
     if (!image) {
-      throw new NotFoundException({
-        statusCode: 404,
-        message: 'Image not found',
-        code: 'IMAGE_NOT_FOUND',
-      });
+      this.logger.debug(`Cache MISS for ${cacheKey}`);
+      image = await this.imageRepository.findOneBy({ id: imageId });
+      if (!image) {
+        throw new NotFoundException({
+          statusCode: 404,
+          message: 'Image not found',
+          code: 'IMAGE_NOT_FOUND',
+        });
+      }
+
+      try {
+        await this.cacheManager.set(cacheKey, image, IMAGE_CACHE_TTL);
+      } catch (err) {
+        this.logger.warn(`Cache set failed for ${cacheKey}: ${err instanceof Error ? err.message : 'Unknown'}`);
+      }
     }
 
     this.assertPathContainment(image.uploadPath);
