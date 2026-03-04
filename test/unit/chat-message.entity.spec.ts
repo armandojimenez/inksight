@@ -55,30 +55,19 @@ describe('ChatMessageEntity', () => {
     expect(imageRelation!.options.onDelete).toBe('CASCADE');
   });
 
-  it('should have @Index on imageId', () => {
+  it('should have composite @Index on (imageId, createdAt)', () => {
     const indices = storage.indices.filter(
       (i) => i.target === ChatMessageEntity,
     );
 
-    const imageIdIndex = indices.find(
+    const compositeIndex = indices.find(
       (i) =>
         Array.isArray(i.columns) &&
-        i.columns.includes('imageId'),
-    );
-    expect(imageIdIndex).toBeDefined();
-  });
-
-  it('should have @Index on createdAt', () => {
-    const indices = storage.indices.filter(
-      (i) => i.target === ChatMessageEntity,
-    );
-
-    const createdAtIndex = indices.find(
-      (i) =>
-        Array.isArray(i.columns) &&
+        i.columns.includes('imageId') &&
         i.columns.includes('createdAt'),
     );
-    expect(createdAtIndex).toBeDefined();
+    expect(compositeIndex).toBeDefined();
+    expect(compositeIndex!.name).toBe('idx_chat_messages_image_created');
   });
 
   it('should have tokenCount as nullable integer', () => {

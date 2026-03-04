@@ -28,8 +28,8 @@ export class CreateChatMessagesTable1709700000000
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX "idx_chat_messages_created_at"`);
-    await queryRunner.query(`DROP INDEX "idx_chat_messages_image_id"`);
-    await queryRunner.query(`DROP TABLE "chat_messages"`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "idx_chat_messages_created_at"`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "idx_chat_messages_image_id"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "chat_messages"`);
   }
 }

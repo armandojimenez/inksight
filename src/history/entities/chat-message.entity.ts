@@ -11,8 +11,7 @@ import {
 import { ImageEntity } from '@/upload/entities/image.entity';
 
 @Entity('chat_messages')
-@Index('idx_chat_messages_image_id', ['imageId'])
-@Index('idx_chat_messages_created_at', ['createdAt'])
+@Index('idx_chat_messages_image_created', ['imageId', 'createdAt'])
 export class ChatMessageEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -29,10 +28,10 @@ export class ChatMessageEntity {
   @Column({ type: 'integer', nullable: true })
   tokenCount!: number | null;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt!: Date;
 
   @ManyToOne(() => ImageEntity, (img) => img.messages, { onDelete: 'CASCADE' })

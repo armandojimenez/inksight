@@ -41,6 +41,6 @@ export class ImageEntity {
   @VersionColumn()
   version!: number;
 
-  @OneToMany(() => ChatMessageEntity, (msg) => msg.image, { cascade: true })
+  @OneToMany(() => ChatMessageEntity, (msg) => msg.image)
   messages!: ChatMessageEntity[];
 }
