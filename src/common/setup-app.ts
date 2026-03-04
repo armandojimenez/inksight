@@ -1,5 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
+import * as express from 'express';
 import { ConfigService } from '@nestjs/config';
 import { HttpExceptionFilter } from './filters/http-exception.filter';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
@@ -10,6 +11,7 @@ export function setupApp(app: INestApplication): void {
 
   app.setGlobalPrefix('api');
   app.use(helmet());
+  app.use(express.json({ limit: '1mb' }));
 
   const nodeEnv = config.get<string>('NODE_ENV');
   app.enableCors(

@@ -474,6 +474,16 @@ curl -s -N http://localhost:3000/api/chat-stream/$IMAGE_ID \
 git tag v0.4-streaming -m "SSE streaming with OpenAI chunk format, disconnect detection, backpressure"
 ```
 
+### Review Findings Deferred to Later Phases
+
+The following findings from the Phase 4 code review are intentionally deferred. Each item is tracked as a task in its target phase.
+
+| Finding | Deferred To | Rationale |
+|---------|-------------|-----------|
+| Rate limiting on `/api/chat-stream` endpoint | Phase 8 (Task 1) | Already tracked: chat-stream shares the Chat rate limit tier (30 req/min) |
+| Concurrent SSE connection cap per client IP | Phase 8 (Task 14) | Requires rate-limiting infrastructure from Phase 8; cap prevents resource exhaustion from many open streams |
+| Helmet CSP nonce for SSE `connect-src` | Phase 10 (Task 17) | CSP only matters when a browser client exists; Phase 10 adds the React frontend |
+
 ---
 
 ## Phase 5: Conversation History, Gallery & Image Deletion
@@ -752,7 +762,7 @@ git tag v0.7-cache -m "In-memory caching with write-through invalidation, Redis-
 1. Install and configure `@nestjs/throttler`
    - Global: 100 req/min, 3 req/sec
    - Upload: 10 req/min (stricter)
-   - Chat: 30 req/min
+   - Chat + Chat-Stream: 30 req/min (shared tier)
    - Health: exempt
 2. ~~Install and configure `helmet` security headers~~ *(done in Phase 0)*
 3. ~~Configure CORS (permissive in dev, restrictive in prod)~~ *(done in Phase 0)*
@@ -764,15 +774,18 @@ git tag v0.7-cache -m "In-memory caching with write-through invalidation, Redis-
 9. Set `trust proxy` in main.ts so rate limiting uses real client IPs: `app.getHttpAdapter().getInstance().set('trust proxy', 1)`
 10. Add `RATE_LIMIT_TTL`, `RATE_LIMIT_MAX`, and `ALLOWED_ORIGIN` to ConfigModule Joi validation schema
 11. Migrate HttpExceptionFilter and LoggingInterceptor from `new` instantiation to `APP_FILTER`/`APP_INTERCEPTOR` DI provider tokens
-12. Add JSON body size limit (`app.use(json({ limit: '1mb' }))`) to prevent oversized request payloads — NestJS has no default limit
+12. ~~Add JSON body size limit (`app.use(json({ limit: '1mb' }))`)~~ *(done in Phase 4 hardening)*
 13. Add message content sanitization: strip control characters (U+0000–U+001F except whitespace), validate no null bytes — prevents log injection and storage corruption
+14. Add concurrent SSE connection cap per client IP (e.g., max 5 open streams) — prevents resource exhaustion from many simultaneous streaming connections. Implement as a NestJS guard on `StreamController`
 
 ### Tests to Write First
 - [ ] `rate-limiting.spec.ts`
   - Exceeding global rate limit → 429
   - Exceeding upload rate limit → 429
+  - Exceeding chat-stream rate limit → 429
   - Health endpoint not rate-limited
   - Rate limit headers present in response
+  - Concurrent SSE connection cap exceeded → 429 (max 5 per client IP)
 - [ ] `security.spec.ts`
   - Helmet headers present (X-Content-Type-Options, X-Frame-Options, etc.)
   - CORS headers correct for configured origin
@@ -939,6 +952,7 @@ git tag v0.9-api-docs -m "Swagger, Postman collection, and API test script"
 14. Add loading skeletons for initial data fetches
 15. Implement image deletion from sidebar (confirmation dialog → `DELETE /api/images/:id` → remove from list)
 16. Test accessibility: tab navigation, screen reader, focus management
+17. Configure Helmet CSP `connect-src` directive to allow SSE connections from the React client origin — required for `fetch`-based streaming to work under a Content Security Policy
 
 ### Component Test Plan
 - [ ] `client/src/__tests__/UploadView.test.tsx` — renders dropzone, handles drag events, shows progress, shows errors, rejects invalid file types client-side

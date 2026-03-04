@@ -11,6 +11,7 @@ import { setupApp } from '@/common/setup-app';
 import { OpenAiStreamChunk } from '@/ai/interfaces/openai-stream-chunk.interface';
 
 const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
+const VALID_UUID_2 = '660e8400-e29b-41d4-a716-446655440001';
 
 function buildChunk(
   id: string,
@@ -42,11 +43,19 @@ async function* asyncDefaultChunks(): AsyncGenerator<OpenAiStreamChunk> {
   }
 }
 
+/**
+ * Parse SSE data from raw response body.
+ * Extracts data field values from each SSE event block.
+ * Assumes single-line data fields (current implementation).
+ */
 function parseSSE(raw: string): string[] {
   return raw
     .split('\n\n')
-    .map((block) => block.replace(/^data: /, ''))
-    .filter((block) => block.length > 0);
+    .flatMap((block) => {
+      const lines = block.split('\n').filter((l) => l.startsWith('data: '));
+      return lines.map((l) => l.slice('data: '.length));
+    })
+    .filter(Boolean);
 }
 
 /**
@@ -108,12 +117,28 @@ describe('StreamController (integration)', () => {
     chatStream: jest.Mock;
   };
 
+  const savedEnv: Record<string, string | undefined> = {};
+
+  function setEnv(key: string, value: string) {
+    if (!(key in savedEnv)) savedEnv[key] = process.env[key];
+    process.env[key] = value;
+  }
+
   beforeAll(() => {
-    process.env.STREAM_CHUNK_DELAY_MS = '0';
+    setEnv('STREAM_CHUNK_DELAY_MS', '0');
   });
 
   afterAll(() => {
-    delete process.env.STREAM_CHUNK_DELAY_MS;
+    for (const [key, val] of Object.entries(savedEnv)) {
+      if (val === undefined) delete process.env[key];
+      else process.env[key] = val;
+    }
+  });
+
+  afterEach(async () => {
+    // Restore any per-test env overrides
+    delete process.env.SSE_TIMEOUT_MS;
+    await app.close();
   });
 
   beforeEach(async () => {
@@ -140,10 +165,6 @@ describe('StreamController (integration)', () => {
     setupApp(app);
     await app.init();
     await app.listen(0); // bind to random port for sseRequest
-  });
-
-  afterEach(async () => {
-    await app.close();
   });
 
   describe('POST /api/chat-stream/:imageId', () => {
@@ -176,7 +197,6 @@ describe('StreamController (integration)', () => {
 
         const events = parseSSE(res.body);
         expect(events.length).toBeGreaterThan(0);
-        // Each non-[DONE] event should be valid JSON
         for (const event of events) {
           if (event !== '[DONE]') {
             expect(() => JSON.parse(event)).not.toThrow();
@@ -302,7 +322,6 @@ describe('StreamController (integration)', () => {
         );
 
         expect(res.headers['x-request-id']).toBeDefined();
-        // Should be a UUID format
         expect(res.headers['x-request-id']).toMatch(
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
         );
@@ -329,11 +348,8 @@ describe('StreamController (integration)', () => {
           { message: 'test' },
         );
 
-        // Verify complete response was received with multiple SSE events
         const events = parseSSE(res.body);
         expect(events.length).toBeGreaterThan(2);
-
-        // Transfer-Encoding should be chunked (no Content-Length)
         expect(res.headers['content-length']).toBeUndefined();
       });
     });
@@ -403,7 +419,6 @@ describe('StreamController (integration)', () => {
           id: VALID_UUID,
         } as ImageEntity);
 
-        // chatStream itself rejects (before generator iteration)
         mockAiService.chatStream.mockImplementation(() => {
           throw new Error('AI initialization failed');
         });
@@ -416,7 +431,7 @@ describe('StreamController (integration)', () => {
         expect(res.headers['content-type']).toMatch(/json/);
       });
 
-      it('should send SSE error event when AI service throws after yielding chunks', async () => {
+      it('should send SSE error event when AI service throws after yielding chunks and no [DONE] sentinel', async () => {
         mockRepository.findOneBy.mockResolvedValue({
           id: VALID_UUID,
         } as ImageEntity);
@@ -437,34 +452,52 @@ describe('StreamController (integration)', () => {
         );
 
         expect(res.status).toBe(200); // headers already sent
-        expect(res.body).toContain('"error"');
-        expect(res.body).toContain('Stream failed');
+
+        // Parse SSE events and verify error structure
+        const events = parseSSE(res.body);
+        const errorEvent = events.find((e) => {
+          try {
+            return JSON.parse(e).error !== undefined;
+          } catch {
+            return false;
+          }
+        });
+        expect(errorEvent).toBeDefined();
+        expect(JSON.parse(errorEvent!).error).toBe('Stream failed');
+
+        // [DONE] must NOT follow a mid-stream error
+        expect(events).not.toContain('[DONE]');
       });
     });
 
     describe('timeout', () => {
-      it('should close stream when timeout fires', async () => {
+      it('should close stream when timeout fires within expected time', async () => {
         mockRepository.findOneBy.mockResolvedValue({
           id: VALID_UUID,
         } as ImageEntity);
 
-        // Mock chatStream to capture the signal and create a signal-aware slow generator
         mockAiService.chatStream.mockImplementation(
           (_prompt: string, _imageId: string, _history: unknown[], signal?: AbortSignal) => {
             async function* slowGenerator(): AsyncGenerator<OpenAiStreamChunk> {
               yield buildChunk('id1', 1700000000, { role: 'assistant', content: '' }, null);
-              // Wait for abort or very long delay
               try {
                 await new Promise<void>((resolve, reject) => {
-                  if (signal?.aborted) { reject(new DOMException('Aborted', 'AbortError')); return; }
-                  const timer = setTimeout(resolve, 60000);
-                  signal?.addEventListener('abort', () => {
-                    clearTimeout(timer);
+                  if (signal?.aborted) {
                     reject(new DOMException('Aborted', 'AbortError'));
-                  }, { once: true });
+                    return;
+                  }
+                  const timer = setTimeout(resolve, 60000);
+                  signal?.addEventListener(
+                    'abort',
+                    () => {
+                      clearTimeout(timer);
+                      reject(new DOMException('Aborted', 'AbortError'));
+                    },
+                    { once: true },
+                  );
                 });
               } catch {
-                return; // aborted — stop generating
+                return;
               }
               yield buildChunk('id1', 1700000000, { content: 'late' }, null);
               yield buildChunk('id1', 1700000000, {}, 'stop');
@@ -473,8 +506,38 @@ describe('StreamController (integration)', () => {
           },
         );
 
-        // Override SSE_TIMEOUT_MS for test (controller reads from env)
         process.env.SSE_TIMEOUT_MS = '200';
+
+        const server = app.getHttpServer();
+        const start = Date.now();
+        const res = await sseRequest(
+          server,
+          `/api/chat-stream/${VALID_UUID}`,
+          { message: 'test' },
+        );
+        const elapsed = Date.now() - start;
+
+        // Stream should have closed — no [DONE] sentinel for timeout
+        expect(res.body).not.toContain('[DONE]');
+        // But we should have the first chunk
+        expect(res.body).toContain('assistant');
+        // Elapsed time should be close to 200ms, not 30s or 60s
+        expect(elapsed).toBeLessThan(5000);
+        expect(elapsed).toBeGreaterThanOrEqual(150);
+      }, 10000);
+    });
+
+    describe('edge cases', () => {
+      it('should handle empty generator (zero yields) with [DONE]', async () => {
+        mockRepository.findOneBy.mockResolvedValue({
+          id: VALID_UUID,
+        } as ImageEntity);
+
+        async function* emptyGenerator(): AsyncGenerator<OpenAiStreamChunk> {
+          // yields nothing
+        }
+
+        mockAiService.chatStream.mockReturnValue(emptyGenerator());
 
         const server = app.getHttpServer();
         const res = await sseRequest(
@@ -483,13 +546,64 @@ describe('StreamController (integration)', () => {
           { message: 'test' },
         );
 
-        delete process.env.SSE_TIMEOUT_MS;
+        expect(res.status).toBe(200);
+        const events = parseSSE(res.body);
+        expect(events).toContain('[DONE]');
+      });
 
-        // Stream should have closed — no [DONE] sentinel for timeout
-        expect(res.body).not.toContain('[DONE]');
-        // But we should have the first chunk
-        expect(res.body).toContain('assistant');
-      }, 10000);
+      it('should handle role-only generator (1 yield then stop)', async () => {
+        mockRepository.findOneBy.mockResolvedValue({
+          id: VALID_UUID,
+        } as ImageEntity);
+
+        async function* roleOnlyGenerator(): AsyncGenerator<OpenAiStreamChunk> {
+          yield buildChunk('id1', 1700000000, { role: 'assistant', content: '' }, null);
+        }
+
+        mockAiService.chatStream.mockReturnValue(roleOnlyGenerator());
+
+        const server = app.getHttpServer();
+        const res = await sseRequest(
+          server,
+          `/api/chat-stream/${VALID_UUID}`,
+          { message: 'test' },
+        );
+
+        expect(res.status).toBe(200);
+        const events = parseSSE(res.body);
+        const jsonEvents = events.filter((e) => e !== '[DONE]');
+        expect(jsonEvents).toHaveLength(1);
+        expect(JSON.parse(jsonEvents[0]!).choices[0].delta.role).toBe('assistant');
+        expect(events).toContain('[DONE]');
+      });
+
+      it('should isolate concurrent requests — aborting one does not affect another', async () => {
+        mockRepository.findOneBy.mockResolvedValue({
+          id: VALID_UUID,
+        } as ImageEntity);
+
+        // First request: returns normally
+        mockAiService.chatStream
+          .mockReturnValueOnce(asyncDefaultChunks())
+          // Second request: also returns normally
+          .mockReturnValueOnce(asyncDefaultChunks());
+
+        const server = app.getHttpServer();
+
+        // Fire both requests concurrently
+        const [res1, res2] = await Promise.all([
+          sseRequest(server, `/api/chat-stream/${VALID_UUID}`, {
+            message: 'request 1',
+          }),
+          sseRequest(server, `/api/chat-stream/${VALID_UUID}`, {
+            message: 'request 2',
+          }),
+        ]);
+
+        // Both should complete successfully with [DONE]
+        expect(parseSSE(res1.body)).toContain('[DONE]');
+        expect(parseSSE(res2.body)).toContain('[DONE]');
+      });
     });
   });
 });

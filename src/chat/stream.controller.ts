@@ -5,43 +5,35 @@ import {
   Body,
   Req,
   Res,
-  HttpException,
-  HttpStatus,
+  Logger,
 } from '@nestjs/common';
-import { STATUS_CODES } from 'http';
+import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { ChatService } from './chat.service';
 import { ChatRequestDto } from './dto/chat-request.dto';
+import { drainOrAbort } from './drain-or-abort';
 import { UuidValidationPipe } from '@/common/pipes/uuid-validation.pipe';
 import { RequestWithCorrelation } from '@/common/interfaces/request.interface';
+import { buildErrorResponse } from '@/common/utils/build-error-response';
 
 const DEFAULT_SSE_TIMEOUT_MS = 30_000;
+const MAX_SSE_TIMEOUT_MS = 120_000;
 
-async function drainOrAbort(
-  res: Response,
-  signal: AbortSignal,
-): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    if (signal.aborted) {
-      reject(new DOMException('Aborted', 'AbortError'));
-      return;
-    }
-    const onDrain = () => {
-      signal.removeEventListener('abort', onAbort);
-      resolve();
-    };
-    const onAbort = () => {
-      res.removeListener('drain', onDrain);
-      reject(new DOMException('Aborted', 'AbortError'));
-    };
-    res.once('drain', onDrain);
-    signal.addEventListener('abort', onAbort, { once: true });
-  });
+function clampTimeout(raw: number): number {
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return DEFAULT_SSE_TIMEOUT_MS;
+  }
+  return Math.min(raw, MAX_SSE_TIMEOUT_MS);
 }
 
 @Controller('chat-stream')
 export class StreamController {
-  constructor(private readonly chatService: ChatService) {}
+  private readonly logger = new Logger(StreamController.name);
+
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Post(':imageId')
   async chatStream(
@@ -52,21 +44,30 @@ export class StreamController {
   ): Promise<void> {
     const abortController = new AbortController();
     const { signal } = abortController;
+    const correlatedReq = req as RequestWithCorrelation;
+    const requestId = correlatedReq.correlationId ?? 'unknown';
+    const startTime = Date.now();
 
-    // Wire disconnect detection
-    req.on('close', () => abortController.abort());
+    // Wire disconnect detection — res.on('close') is more appropriate for SSE
+    // since we are writing to the response stream
+    res.on('close', () => abortController.abort());
 
-    // Wire timeout — only calls abort(), never writes to res
-    const timeoutMs =
-      parseInt(process.env.SSE_TIMEOUT_MS ?? '', 10) ||
-      DEFAULT_SSE_TIMEOUT_MS;
-    const timeoutHandle = setTimeout(() => abortController.abort(), timeoutMs);
+    // Wire timeout — only calls abort(), never writes to res directly
+    const rawTimeout = parseInt(
+      String(this.configService.get('SSE_TIMEOUT_MS') ?? ''),
+      10,
+    );
+    const timeoutMs = clampTimeout(rawTimeout);
+    const timeoutHandle = setTimeout(() => {
+      this.logger.warn(`[${requestId}] SSE stream timed out after ${timeoutMs}ms`);
+      abortController.abort();
+    }, timeoutMs);
 
     let headersSent = false;
 
     try {
       // Phase 1: Validate image + get generator (pre-streaming)
-      // NotFoundException here → headers not sent → rethrow → HttpExceptionFilter
+      // NotFoundException here → headers not sent → manual JSON error below
       const generator = await this.chatService.chatStream(
         imageId,
         dto.message,
@@ -110,56 +111,25 @@ export class StreamController {
       if (!headersSent) {
         // Headers not sent — produce JSON error matching HttpExceptionFilter shape.
         // @Res() puts NestJS in library-specific mode, so we handle errors manually.
-        const correlatedReq = req as RequestWithCorrelation;
-        const requestId = correlatedReq.correlationId ?? 'unknown';
-
-        if (err instanceof HttpException) {
-          const status = err.getStatus();
-          const exceptionResponse = err.getResponse();
-          const errorLabel = STATUS_CODES[status] ?? 'Internal Server Error';
-
-          let message: string;
-          let code: string;
-          if (typeof exceptionResponse === 'string') {
-            message = exceptionResponse;
-            code = errorLabel.toUpperCase().replace(/\s+/g, '_');
-          } else {
-            const obj = exceptionResponse as { message?: string | string[]; code?: string };
-            const rawMsg = obj.message ?? err.message;
-            message = Array.isArray(rawMsg) ? rawMsg.join('; ') : rawMsg;
-            code = obj.code ?? errorLabel.toUpperCase().replace(/\s+/g, '_');
-          }
-
-          res.status(status).json({
-            statusCode: status,
-            error: errorLabel,
-            code,
-            message,
-            timestamp: new Date().toISOString(),
-            path: req.url,
-            requestId,
-          });
-        } else {
-          res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-            statusCode: 500,
-            error: 'Internal Server Error',
-            code: 'INTERNAL_ERROR',
-            message: 'Internal Server Error',
-            timestamp: new Date().toISOString(),
-            path: req.url,
-            requestId,
-          });
-        }
+        const body = buildErrorResponse(err, req.url, requestId);
+        res.status(body.statusCode).json(body);
         return;
       }
 
       if (!signal.aborted) {
         // Headers sent, stream still active — write SSE error event
+        this.logger.error(
+          `[${requestId}] SSE stream error after headers sent: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        );
         res.write(`data: ${JSON.stringify({ error: 'Stream failed' })}\n\n`);
       }
       // NEVER rethrow after headers sent (causes ERR_HTTP_HEADERS_SENT)
     } finally {
       clearTimeout(timeoutHandle);
+      const duration = Date.now() - startTime;
+      this.logger.log(
+        `[${requestId}] SSE stream ended — ${duration}ms${signal.aborted ? ' (aborted)' : ''}`,
+      );
       if (!res.writableEnded) {
         res.end();
       }

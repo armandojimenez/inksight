@@ -62,6 +62,36 @@ describe('MockAiService — chatStream streaming', () => {
       );
       expect(elapsed).toBeGreaterThanOrEqual(contentChunks.length * 15); // allow some tolerance
     });
+
+    it('should fall back to 0 delay when STREAM_CHUNK_DELAY_MS is invalid (NaN)', async () => {
+      process.env.STREAM_CHUNK_DELAY_MS = 'abc';
+
+      const start = Date.now();
+      const gen = service.chatStream(PROMPT, IMAGE_ID, []);
+      const chunks = await collectChunks(gen);
+      const elapsed = Date.now() - start;
+
+      expect(chunks.length).toBeGreaterThan(2);
+      expect(elapsed).toBeLessThan(100); // no delay — NaN clamped to 0
+    });
+
+    it('should clamp STREAM_CHUNK_DELAY_MS to 1000ms maximum', async () => {
+      process.env.STREAM_CHUNK_DELAY_MS = '5000';
+
+      const start = Date.now();
+      const gen = service.chatStream(PROMPT, IMAGE_ID, []);
+      // Just get first 2 chunks to verify the delay is capped
+      const iter = gen[Symbol.asyncIterator]();
+      await iter.next(); // role (no delay before this)
+      await iter.next(); // first content word (1 delay)
+      const elapsed = Date.now() - start;
+
+      // With max clamp of 1000ms, first delay should be ~1000ms, not 5000ms
+      expect(elapsed).toBeLessThan(2000);
+
+      // Clean up generator
+      await iter.return!(undefined);
+    });
   });
 
   describe('abort signal', () => {

@@ -2,17 +2,10 @@ import {
   ExceptionFilter,
   Catch,
   ArgumentsHost,
-  HttpException,
-  HttpStatus,
 } from '@nestjs/common';
-import { STATUS_CODES } from 'http';
 import { Response } from 'express';
 import { RequestWithCorrelation } from '../interfaces/request.interface';
-
-interface ExceptionResponseObject {
-  message?: string | string[];
-  code?: string;
-}
+import { buildErrorResponse } from '../utils/build-error-response';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -21,52 +14,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const request = ctx.getRequest<RequestWithCorrelation>();
     const response = ctx.getResponse<Response>();
 
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
-
-    const error = STATUS_CODES[status] ?? 'Internal Server Error';
-
-    let message = 'Internal Server Error';
-    let code = 'INTERNAL_ERROR';
-
-    if (exception instanceof HttpException) {
-      const exceptionResponse = exception.getResponse();
-      if (typeof exceptionResponse === 'string') {
-        message = exceptionResponse;
-      } else {
-        const responseObj = exceptionResponse as ExceptionResponseObject;
-        const rawMessage = responseObj.message ?? exception.message;
-        message = Array.isArray(rawMessage)
-          ? rawMessage.join('; ')
-          : rawMessage;
-        if (responseObj.code) {
-          code = responseObj.code;
-        } else {
-          code = error.toUpperCase().replace(/\s+/g, '_');
-        }
-      }
-    } else if (exception instanceof Error) {
-      message =
-        process.env.NODE_ENV === 'development'
-          ? exception.message
-          : 'Internal Server Error';
-    }
-
     const requestId =
       request.correlationId ??
       (request.headers?.['x-request-id'] as string | undefined) ??
       'unknown';
 
-    response.status(status).json({
-      statusCode: status,
-      error,
-      code,
-      message,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-      requestId,
-    });
+    const body = buildErrorResponse(exception, request.url, requestId);
+
+    response.status(body.statusCode).json(body);
   }
 }
