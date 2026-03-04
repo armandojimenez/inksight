@@ -52,7 +52,7 @@ import { DatabaseModule } from './database/database.module';
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'client', 'dist'),
       serveRoot: '/',
-      exclude: ['/api*'],
+      exclude: ['/api/{*any}'],
     }),
     HealthModule,
     UploadModule,
