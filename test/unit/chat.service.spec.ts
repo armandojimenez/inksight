@@ -6,6 +6,7 @@ import { ChatService } from '@/chat/chat.service';
 import { ImageEntity } from '@/upload/entities/image.entity';
 import { IAiService } from '@/ai/interfaces/ai-service.interface';
 import { AI_SERVICE_TOKEN } from '@/common/constants';
+import { HistoryService } from '@/history/history.service';
 import { OpenAiChatCompletion } from '@/ai/interfaces/openai-chat-completion.interface';
 import { OpenAiStreamChunk } from '@/ai/interfaces/openai-stream-chunk.interface';
 
@@ -13,6 +14,9 @@ describe('ChatService', () => {
   let service: ChatService;
   let imageRepository: jest.Mocked<Pick<Repository<ImageEntity>, 'findOneBy'>>;
   let aiService: jest.Mocked<Pick<IAiService, 'chat' | 'chatStream'>>;
+  let historyService: jest.Mocked<
+    Pick<HistoryService, 'addMessage' | 'getRecentMessages'>
+  >;
 
   const TEST_IMAGE_ID = '550e8400-e29b-41d4-a716-446655440000';
 
@@ -41,6 +45,11 @@ describe('ChatService', () => {
       chatStream: jest.fn(),
     };
 
+    historyService = {
+      addMessage: jest.fn().mockResolvedValue({ id: 'msg-1' }),
+      getRecentMessages: jest.fn().mockResolvedValue([]),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ChatService,
@@ -51,6 +60,10 @@ describe('ChatService', () => {
         {
           provide: AI_SERVICE_TOKEN,
           useValue: aiService,
+        },
+        {
+          provide: HistoryService,
+          useValue: historyService,
         },
       ],
     }).compile();
@@ -64,7 +77,7 @@ describe('ChatService', () => {
       imageRepository.findOneBy.mockResolvedValue(image);
       aiService.chat.mockResolvedValue(mockCompletion);
 
-      const result = await service.chat(TEST_IMAGE_ID, 'What is this?', []);
+      const result = await service.chat(TEST_IMAGE_ID, 'What is this?');
 
       expect(imageRepository.findOneBy).toHaveBeenCalledWith({
         id: TEST_IMAGE_ID,
@@ -77,37 +90,18 @@ describe('ChatService', () => {
       expect(result).toBe(mockCompletion);
     });
 
-    it('should pass conversation history to AI service', async () => {
-      const image = { id: TEST_IMAGE_ID } as ImageEntity;
-      imageRepository.findOneBy.mockResolvedValue(image);
-      aiService.chat.mockResolvedValue(mockCompletion);
-
-      const history = [
-        { role: 'user' as const, content: 'Previous question' },
-        { role: 'assistant' as const, content: 'Previous answer' },
-      ];
-
-      await service.chat(TEST_IMAGE_ID, 'Follow up', history);
-
-      expect(aiService.chat).toHaveBeenCalledWith(
-        'Follow up',
-        TEST_IMAGE_ID,
-        history,
-      );
-    });
-
     it('should throw NotFoundException with IMAGE_NOT_FOUND when image does not exist', async () => {
       imageRepository.findOneBy.mockResolvedValue(null);
 
       await expect(
-        service.chat(TEST_IMAGE_ID, 'What is this?', []),
+        service.chat(TEST_IMAGE_ID, 'What is this?'),
       ).rejects.toThrow(NotFoundException);
 
       expect(aiService.chat).not.toHaveBeenCalled();
 
       // Verify error code
       const error = await service
-        .chat(TEST_IMAGE_ID, 'What is this?', [])
+        .chat(TEST_IMAGE_ID, 'What is this?')
         .catch((e) => e);
       const response = (error as NotFoundException).getResponse() as Record<
         string,
@@ -117,28 +111,55 @@ describe('ChatService', () => {
       expect(response.message).toBe('Image not found');
     });
 
-    it('should default history to empty array when not provided', async () => {
-      const image = { id: TEST_IMAGE_ID } as ImageEntity;
-      imageRepository.findOneBy.mockResolvedValue(image);
-      aiService.chat.mockResolvedValue(mockCompletion);
-
-      await service.chat(TEST_IMAGE_ID, 'Hello');
-
-      expect(aiService.chat).toHaveBeenCalledWith(
-        'Hello',
-        TEST_IMAGE_ID,
-        [],
-      );
-    });
-
     it('should propagate AI service errors', async () => {
       const image = { id: TEST_IMAGE_ID } as ImageEntity;
       imageRepository.findOneBy.mockResolvedValue(image);
       aiService.chat.mockRejectedValue(new Error('AI service unavailable'));
 
       await expect(
-        service.chat(TEST_IMAGE_ID, 'Hello', []),
+        service.chat(TEST_IMAGE_ID, 'Hello'),
       ).rejects.toThrow('AI service unavailable');
+    });
+
+    it('should call addMessage for user message before AI call', async () => {
+      const image = { id: TEST_IMAGE_ID } as ImageEntity;
+      imageRepository.findOneBy.mockResolvedValue(image);
+      aiService.chat.mockResolvedValue(mockCompletion);
+
+      await service.chat(TEST_IMAGE_ID, 'Hello');
+
+      expect(historyService.addMessage).toHaveBeenCalledWith(
+        TEST_IMAGE_ID,
+        'user',
+        'Hello',
+      );
+    });
+
+    it('should call addMessage for assistant message after AI call', async () => {
+      const image = { id: TEST_IMAGE_ID } as ImageEntity;
+      imageRepository.findOneBy.mockResolvedValue(image);
+      aiService.chat.mockResolvedValue(mockCompletion);
+
+      await service.chat(TEST_IMAGE_ID, 'Hello');
+
+      expect(historyService.addMessage).toHaveBeenCalledWith(
+        TEST_IMAGE_ID,
+        'assistant',
+        'Test response',
+        5, // completion_tokens from usage
+      );
+    });
+
+    it('should call getRecentMessages before AI call', async () => {
+      const image = { id: TEST_IMAGE_ID } as ImageEntity;
+      imageRepository.findOneBy.mockResolvedValue(image);
+      aiService.chat.mockResolvedValue(mockCompletion);
+
+      await service.chat(TEST_IMAGE_ID, 'Hello');
+
+      expect(historyService.getRecentMessages).toHaveBeenCalledWith(
+        TEST_IMAGE_ID,
+      );
     });
   });
 
@@ -155,7 +176,7 @@ describe('ChatService', () => {
       yield mockChunk;
     }
 
-    it('should validate image exists and return async generator from AI service', async () => {
+    it('should validate image exists and return async generator', async () => {
       const image = { id: TEST_IMAGE_ID } as ImageEntity;
       imageRepository.findOneBy.mockResolvedValue(image);
       aiService.chatStream.mockReturnValue(mockGenerator());
@@ -165,12 +186,6 @@ describe('ChatService', () => {
       expect(imageRepository.findOneBy).toHaveBeenCalledWith({
         id: TEST_IMAGE_ID,
       });
-      expect(aiService.chatStream).toHaveBeenCalledWith(
-        'What is this?',
-        TEST_IMAGE_ID,
-        [],
-        undefined,
-      );
 
       // Should be an async generator
       const chunks = [];
@@ -200,18 +215,29 @@ describe('ChatService', () => {
       expect(response.code).toBe('IMAGE_NOT_FOUND');
     });
 
-    it('should pass empty history array (Phase 5 placeholder)', async () => {
+    it('should persist user message before streaming', async () => {
       const image = { id: TEST_IMAGE_ID } as ImageEntity;
       imageRepository.findOneBy.mockResolvedValue(image);
       aiService.chatStream.mockReturnValue(mockGenerator());
 
       await service.chatStream(TEST_IMAGE_ID, 'Hello');
 
-      expect(aiService.chatStream).toHaveBeenCalledWith(
-        'Hello',
+      expect(historyService.addMessage).toHaveBeenCalledWith(
         TEST_IMAGE_ID,
-        [],
-        undefined,
+        'user',
+        'Hello',
+      );
+    });
+
+    it('should load history before streaming', async () => {
+      const image = { id: TEST_IMAGE_ID } as ImageEntity;
+      imageRepository.findOneBy.mockResolvedValue(image);
+      aiService.chatStream.mockReturnValue(mockGenerator());
+
+      await service.chatStream(TEST_IMAGE_ID, 'Hello');
+
+      expect(historyService.getRecentMessages).toHaveBeenCalledWith(
+        TEST_IMAGE_ID,
       );
     });
 
@@ -228,6 +254,40 @@ describe('ChatService', () => {
         TEST_IMAGE_ID,
         [],
         ac.signal,
+      );
+    });
+
+    it('should persist assistant message after stream completes', async () => {
+      const image = { id: TEST_IMAGE_ID } as ImageEntity;
+      imageRepository.findOneBy.mockResolvedValue(image);
+
+      const contentChunk: OpenAiStreamChunk = {
+        id: 'chatcmpl-test',
+        object: 'chat.completion.chunk',
+        created: 1700000000,
+        model: 'gpt-4o',
+        choices: [
+          { index: 0, delta: { content: 'Hello World' }, finish_reason: null },
+        ],
+      };
+
+      async function* gen(): AsyncGenerator<OpenAiStreamChunk> {
+        yield contentChunk;
+      }
+
+      aiService.chatStream.mockReturnValue(gen());
+
+      const generator = await service.chatStream(TEST_IMAGE_ID, 'Test');
+
+      // Consume the generator
+      for await (const _chunk of generator) {
+        // drain
+      }
+
+      expect(historyService.addMessage).toHaveBeenCalledWith(
+        TEST_IMAGE_ID,
+        'assistant',
+        'Hello World',
       );
     });
   });
