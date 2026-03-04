@@ -764,6 +764,8 @@ git tag v0.7-cache -m "In-memory caching with write-through invalidation, Redis-
 9. Set `trust proxy` in main.ts so rate limiting uses real client IPs: `app.getHttpAdapter().getInstance().set('trust proxy', 1)`
 10. Add `RATE_LIMIT_TTL`, `RATE_LIMIT_MAX`, and `ALLOWED_ORIGIN` to ConfigModule Joi validation schema
 11. Migrate HttpExceptionFilter and LoggingInterceptor from `new` instantiation to `APP_FILTER`/`APP_INTERCEPTOR` DI provider tokens
+12. Add JSON body size limit (`app.use(json({ limit: '1mb' }))`) to prevent oversized request payloads — NestJS has no default limit
+13. Add message content sanitization: strip control characters (U+0000–U+001F except whitespace), validate no null bytes — prevents log injection and storage corruption
 
 ### Tests to Write First
 - [ ] `rate-limiting.spec.ts`
@@ -776,6 +778,8 @@ git tag v0.7-cache -m "In-memory caching with write-through invalidation, Redis-
   - CORS headers correct for configured origin
   - Error responses don't contain stack traces
   - Unknown routes return 404 (not framework default page)
+  - JSON body larger than 1MB → 413
+  - Message with control characters is sanitized or rejected
 - [ ] `logging.spec.ts`
   - Requests are logged with correlation ID
   - Response time is logged
