@@ -79,6 +79,24 @@ function buildCompletion(
   };
 }
 
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('The operation was aborted', 'AbortError'));
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    function onAbort() {
+      clearTimeout(timer);
+      reject(new DOMException('The operation was aborted', 'AbortError'));
+    }
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
 function buildStreamChunk(
   id: string,
   created: number,
@@ -120,6 +138,7 @@ export class MockAiService implements IAiService {
     prompt: string,
     _imageId: string,
     history: ConversationMessage[],
+    signal?: AbortSignal,
   ): AsyncGenerator<OpenAiStreamChunk> {
     const responses =
       history.length > 2 ? FOLLOWUP_CHAT_RESPONSES : DEFAULT_CHAT_RESPONSES;
@@ -127,17 +146,28 @@ export class MockAiService implements IAiService {
     const id = generateId();
     const created = Math.floor(Date.now() / 1000);
 
-    // First chunk: role announcement
-    yield buildStreamChunk(id, created, { role: 'assistant', content: '' }, null);
+    const delayMs = parseInt(process.env.STREAM_CHUNK_DELAY_MS ?? '0', 10) || 0;
 
-    // Content chunks: word-by-word to simulate real token streaming
-    const words = fullResponse.split(' ');
-    for (let i = 0; i < words.length; i++) {
-      const word = i < words.length - 1 ? words[i]! + ' ' : words[i]!;
-      yield buildStreamChunk(id, created, { content: word }, null);
+    try {
+      if (signal?.aborted) return;
+
+      // First chunk: role announcement
+      yield buildStreamChunk(id, created, { role: 'assistant', content: '' }, null);
+
+      // Content chunks: word-by-word to simulate real token streaming
+      const words = fullResponse.split(' ');
+      for (let i = 0; i < words.length; i++) {
+        if (signal?.aborted) return;
+        if (delayMs > 0) await delay(delayMs, signal);
+        const word = i < words.length - 1 ? words[i]! + ' ' : words[i]!;
+        yield buildStreamChunk(id, created, { content: word }, null);
+      }
+
+      // Final chunk: stop signal
+      yield buildStreamChunk(id, created, {}, 'stop');
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      throw err;
     }
-
-    // Final chunk: stop signal
-    yield buildStreamChunk(id, created, {}, 'stop');
   }
 }

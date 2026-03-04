@@ -66,7 +66,7 @@ describe('MockAiService — chatStream streaming', () => {
 
   describe('abort signal', () => {
     it('should terminate stream mid-generation when aborted', async () => {
-      process.env.STREAM_CHUNK_DELAY_MS = '50';
+      process.env.STREAM_CHUNK_DELAY_MS = '10';
       const ac = new AbortController();
 
       const gen = service.chatStream(PROMPT, IMAGE_ID, [], ac.signal);

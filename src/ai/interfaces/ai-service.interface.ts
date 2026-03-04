@@ -15,5 +15,6 @@ export interface IAiService {
     prompt: string,
     imageId: string,
     history: ConversationMessage[],
+    signal?: AbortSignal,
   ): AsyncGenerator<OpenAiStreamChunk>;
 }
