@@ -41,6 +41,7 @@ describe('Gallery Controller (integration)', () => {
     getRecentMessages: jest.Mock;
     getHistory: jest.Mock;
     getMessageCount: jest.Mock;
+    getMessageCountBatch: jest.Mock;
     deleteByImageId: jest.Mock;
     enforceHistoryCap: jest.Mock;
   };
@@ -59,6 +60,7 @@ describe('Gallery Controller (integration)', () => {
       getRecentMessages: jest.fn().mockResolvedValue([]),
       getHistory: jest.fn().mockResolvedValue({ messages: [], total: 0 }),
       getMessageCount: jest.fn().mockResolvedValue(0),
+      getMessageCountBatch: jest.fn().mockResolvedValue(new Map()),
       deleteByImageId: jest.fn(),
       enforceHistoryCap: jest.fn().mockResolvedValue(undefined),
     };
@@ -102,7 +104,9 @@ describe('Gallery Controller (integration)', () => {
     it('should return PRD gallery format', async () => {
       const img = mockImage();
       mockImageRepo.findAndCount.mockResolvedValue([[img], 1]);
-      mockHistoryService.getMessageCount.mockResolvedValue(5);
+      mockHistoryService.getMessageCountBatch.mockResolvedValue(
+        new Map([[img.id, 5]]),
+      );
 
       const res = await request(app.getHttpServer()).get('/api/images');
 
@@ -117,7 +121,9 @@ describe('Gallery Controller (integration)', () => {
     it('should include messageCount in each image', async () => {
       const img = mockImage();
       mockImageRepo.findAndCount.mockResolvedValue([[img], 1]);
-      mockHistoryService.getMessageCount.mockResolvedValue(7);
+      mockHistoryService.getMessageCountBatch.mockResolvedValue(
+        new Map([[img.id, 7]]),
+      );
 
       const res = await request(app.getHttpServer()).get('/api/images');
 
@@ -129,7 +135,9 @@ describe('Gallery Controller (integration)', () => {
       const img1 = mockImage({ id: 'img-1' });
       const img2 = mockImage({ id: 'img-2' });
       mockImageRepo.findAndCount.mockResolvedValue([[img2, img1], 2]);
-      mockHistoryService.getMessageCount.mockResolvedValue(0);
+      mockHistoryService.getMessageCountBatch.mockResolvedValue(
+        new Map([['img-1', 0], ['img-2', 0]]),
+      );
 
       const res = await request(app.getHttpServer()).get('/api/images');
 
@@ -178,7 +186,9 @@ describe('Gallery Controller (integration)', () => {
     it('should not expose uploadPath or storedFilename', async () => {
       const img = mockImage();
       mockImageRepo.findAndCount.mockResolvedValue([[img], 1]);
-      mockHistoryService.getMessageCount.mockResolvedValue(0);
+      mockHistoryService.getMessageCountBatch.mockResolvedValue(
+        new Map([[img.id, 0]]),
+      );
 
       const res = await request(app.getHttpServer()).get('/api/images');
 
@@ -195,7 +205,9 @@ describe('Gallery Controller (integration)', () => {
         size: 2048,
       });
       mockImageRepo.findAndCount.mockResolvedValue([[img], 1]);
-      mockHistoryService.getMessageCount.mockResolvedValue(0);
+      mockHistoryService.getMessageCountBatch.mockResolvedValue(
+        new Map([[img.id, 0]]),
+      );
 
       const res = await request(app.getHttpServer()).get('/api/images');
 

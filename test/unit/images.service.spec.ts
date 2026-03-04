@@ -18,7 +18,7 @@ describe('ImagesService', () => {
     Pick<Repository<ImageEntity>, 'findAndCount' | 'findOneBy' | 'remove'>
   >;
   let historyService: jest.Mocked<
-    Pick<HistoryService, 'getMessageCount' | 'deleteByImageId'>
+    Pick<HistoryService, 'getMessageCount' | 'getMessageCountBatch' | 'deleteByImageId'>
   >;
 
   const IMAGE_ID = '550e8400-e29b-41d4-a716-446655440000';
@@ -49,6 +49,7 @@ describe('ImagesService', () => {
 
     historyService = {
       getMessageCount: jest.fn().mockResolvedValue(0),
+      getMessageCountBatch: jest.fn().mockResolvedValue(new Map()),
       deleteByImageId: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -85,9 +86,9 @@ describe('ImagesService', () => {
       const img1 = mockImage({ id: 'img-1' });
       const img2 = mockImage({ id: 'img-2' });
       imageRepo.findAndCount.mockResolvedValue([[img1, img2], 2]);
-      historyService.getMessageCount
-        .mockResolvedValueOnce(5)
-        .mockResolvedValueOnce(3);
+      historyService.getMessageCountBatch.mockResolvedValue(
+        new Map([['img-1', 5], ['img-2', 3]]),
+      );
 
       const result = await service.listImages(1, 20);
 
@@ -96,6 +97,10 @@ describe('ImagesService', () => {
         skip: 0,
         take: 20,
       });
+      expect(historyService.getMessageCountBatch).toHaveBeenCalledWith([
+        'img-1',
+        'img-2',
+      ]);
       expect(result.images).toHaveLength(2);
       expect(result.images[0]!.messageCount).toBe(5);
       expect(result.images[1]!.messageCount).toBe(3);

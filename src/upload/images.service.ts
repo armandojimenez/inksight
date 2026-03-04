@@ -50,19 +50,18 @@ export class ImagesService {
       take: limit,
     });
 
-    const galleryImages: GalleryImageResponse[] = await Promise.all(
-      images.map(async (img) => {
-        const messageCount = await this.historyService.getMessageCount(img.id);
-        return {
-          id: img.id,
-          originalFilename: img.originalFilename,
-          mimeType: img.mimeType,
-          size: img.size,
-          messageCount,
-          createdAt: img.createdAt.toISOString(),
-        };
-      }),
-    );
+    const imageIds = images.map((img) => img.id);
+    const messageCounts =
+      await this.historyService.getMessageCountBatch(imageIds);
+
+    const galleryImages: GalleryImageResponse[] = images.map((img) => ({
+      id: img.id,
+      originalFilename: img.originalFilename,
+      mimeType: img.mimeType,
+      size: img.size,
+      messageCount: messageCounts.get(img.id) ?? 0,
+      createdAt: img.createdAt.toISOString(),
+    }));
 
     return { images: galleryImages, total };
   }
