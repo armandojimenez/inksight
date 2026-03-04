@@ -285,6 +285,59 @@ describe('StreamController (integration)', () => {
       });
     });
 
+    describe('LoggingInterceptor compatibility', () => {
+      beforeEach(() => {
+        mockRepository.findOneBy.mockResolvedValue({
+          id: VALID_UUID,
+        } as ImageEntity);
+        mockAiService.chatStream.mockReturnValue(asyncDefaultChunks());
+      });
+
+      it('should generate X-Request-Id automatically when not provided by client', async () => {
+        const server = app.getHttpServer();
+        const res = await sseRequest(
+          server,
+          `/api/chat-stream/${VALID_UUID}`,
+          { message: 'test' },
+        );
+
+        expect(res.headers['x-request-id']).toBeDefined();
+        // Should be a UUID format
+        expect(res.headers['x-request-id']).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        );
+      });
+
+      it('should echo back client-provided X-Request-Id', async () => {
+        const customId = 'my-custom-request-id-123';
+        const server = app.getHttpServer();
+        const res = await sseRequest(
+          server,
+          `/api/chat-stream/${VALID_UUID}`,
+          { message: 'test' },
+          { 'X-Request-Id': customId },
+        );
+
+        expect(res.headers['x-request-id']).toBe(customId);
+      });
+
+      it('should not buffer or interfere with chunked SSE responses', async () => {
+        const server = app.getHttpServer();
+        const res = await sseRequest(
+          server,
+          `/api/chat-stream/${VALID_UUID}`,
+          { message: 'test' },
+        );
+
+        // Verify complete response was received with multiple SSE events
+        const events = parseSSE(res.body);
+        expect(events.length).toBeGreaterThan(2);
+
+        // Transfer-Encoding should be chunked (no Content-Length)
+        expect(res.headers['content-length']).toBeUndefined();
+      });
+    });
+
     describe('invalid requests (JSON errors, pre-streaming)', () => {
       it('should return 400 INVALID_UUID for non-UUID param', async () => {
         const res = await request(app.getHttpServer())
