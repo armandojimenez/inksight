@@ -5,7 +5,9 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   VersionColumn,
+  OneToMany,
 } from 'typeorm';
+import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 
 @Entity('images')
 export class ImageEntity {
@@ -38,4 +40,7 @@ export class ImageEntity {
 
   @VersionColumn()
   version!: number;
+
+  @OneToMany(() => ChatMessageEntity, (msg) => msg.image, { cascade: true })
+  messages!: ChatMessageEntity[];
 }
