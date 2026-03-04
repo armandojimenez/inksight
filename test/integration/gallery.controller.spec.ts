@@ -175,6 +175,19 @@ describe('Gallery Controller (integration)', () => {
       expect(res.status).toBe(400);
     });
 
+    it('should not expose uploadPath or storedFilename', async () => {
+      const img = mockImage();
+      mockImageRepo.findAndCount.mockResolvedValue([[img], 1]);
+      mockHistoryService.getMessageCount.mockResolvedValue(0);
+
+      const res = await request(app.getHttpServer()).get('/api/images');
+
+      expect(res.status).toBe(200);
+      const image = res.body.images[0];
+      expect(image).not.toHaveProperty('uploadPath');
+      expect(image).not.toHaveProperty('storedFilename');
+    });
+
     it('should include image metadata fields', async () => {
       const img = mockImage({
         originalFilename: 'photo.png',

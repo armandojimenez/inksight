@@ -194,6 +194,20 @@ describe('Image File Controller (integration)', () => {
       expect(res.body).toHaveProperty('code', 'INVALID_UUID');
     });
 
+    it('should serve image/gif with correct Content-Type', async () => {
+      const image = mockImage({ mimeType: 'image/gif', uploadPath: 'test-uploads/abc123.gif' });
+      mockImageRepo.findOneBy.mockResolvedValue(image);
+      (fsPromises.access as jest.Mock).mockResolvedValue(undefined);
+      const mockStream = createMockReadStream(Buffer.from('fake-gif'));
+      (fs.createReadStream as jest.Mock).mockReturnValue(mockStream);
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/images/${VALID_UUID}/file`);
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toMatch(/image\/gif/);
+    });
+
     it('should return 404 when file is missing on disk', async () => {
       const image = mockImage();
       mockImageRepo.findOneBy.mockResolvedValue(image);

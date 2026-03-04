@@ -213,6 +213,22 @@ describe('HistoryController (integration)', () => {
       expect(res.body).toHaveProperty('requestId');
     });
 
+    it('should return timestamp in ISO 8601 format', async () => {
+      mockImageRepo.findOneBy.mockResolvedValue({ id: VALID_UUID });
+
+      const msg = createMockMessage({
+        createdAt: new Date('2024-06-15T14:30:00.000Z'),
+      });
+      mockMessageRepo.findAndCount.mockResolvedValue([[msg], 1]);
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/chat/${VALID_UUID}/history`);
+
+      expect(res.status).toBe(200);
+      const message = res.body.messages[0];
+      expect(message.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    });
+
     it('should default page=1 and limit=20 when not provided', async () => {
       mockImageRepo.findOneBy.mockResolvedValue({ id: VALID_UUID });
       mockMessageRepo.findAndCount.mockResolvedValue([[], 0]);
