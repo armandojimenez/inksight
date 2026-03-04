@@ -163,12 +163,14 @@ describe('ChatService', () => {
       );
     });
 
-    it('should call enforceHistoryCap once after both messages', async () => {
+    it('should fire-and-forget enforceHistoryCap after both messages', async () => {
       const image = { id: TEST_IMAGE_ID } as ImageEntity;
       imageRepository.findOneBy.mockResolvedValue(image);
       aiService.chat.mockResolvedValue(mockCompletion);
 
       await service.chat(TEST_IMAGE_ID, 'Hello');
+      // Flush microtasks so fire-and-forget promise resolves
+      await new Promise(process.nextTick);
 
       expect(historyService.enforceHistoryCap).toHaveBeenCalledTimes(1);
       expect(historyService.enforceHistoryCap).toHaveBeenCalledWith(
@@ -185,6 +187,8 @@ describe('ChatService', () => {
       );
 
       const result = await service.chat(TEST_IMAGE_ID, 'Hello');
+      // Flush microtasks so fire-and-forget .catch() runs
+      await new Promise(process.nextTick);
 
       expect(result).toBe(mockCompletion);
       expect(historyService.enforceHistoryCap).toHaveBeenCalledWith(
@@ -400,6 +404,40 @@ describe('ChatService', () => {
       }
 
       expect(historyService.enforceHistoryCap).toHaveBeenCalledTimes(1);
+      expect(historyService.enforceHistoryCap).toHaveBeenCalledWith(
+        TEST_IMAGE_ID,
+      );
+    });
+
+    it('should still yield all chunks when enforceHistoryCap throws', async () => {
+      const image = { id: TEST_IMAGE_ID } as ImageEntity;
+      imageRepository.findOneBy.mockResolvedValue(image);
+      historyService.enforceHistoryCap.mockRejectedValue(
+        new Error('DB transient failure'),
+      );
+
+      async function* gen(): AsyncGenerator<OpenAiStreamChunk> {
+        yield {
+          id: 'chatcmpl-test',
+          object: 'chat.completion.chunk',
+          created: 1700000000,
+          model: 'gpt-4o',
+          choices: [
+            { index: 0, delta: { content: 'streamed' }, finish_reason: null },
+          ],
+        };
+      }
+
+      aiService.chatStream.mockReturnValue(gen());
+
+      const generator = await service.chatStream(TEST_IMAGE_ID, 'Test');
+      const chunks: OpenAiStreamChunk[] = [];
+      for await (const chunk of generator) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0]!.choices[0]!.delta.content).toBe('streamed');
       expect(historyService.enforceHistoryCap).toHaveBeenCalledWith(
         TEST_IMAGE_ID,
       );

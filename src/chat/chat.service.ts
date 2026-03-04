@@ -54,13 +54,12 @@ export class ChatService {
       tokenCount,
     );
 
-    try {
-      await this.historyService.enforceHistoryCap(imageId);
-    } catch (err) {
+    // Fire-and-forget: cap enforcement is non-critical housekeeping
+    this.historyService.enforceHistoryCap(imageId).catch((err) => {
       this.logger.error(
         `Failed to enforce history cap for image ${imageId}: ${err instanceof Error ? err.message : 'Unknown error'}`,
       );
-    }
+    });
 
     return completion;
   }
