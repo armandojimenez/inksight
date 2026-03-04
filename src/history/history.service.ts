@@ -35,7 +35,10 @@ export class HistoryService {
       content,
       tokenCount,
     });
-    return withRetry(() => this.messageRepository.save(entity));
+    return withRetry(() => this.messageRepository.save(entity), {
+      attempts: 2,
+      delayMs: 200,
+    });
   }
 
   async getHistory(

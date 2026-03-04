@@ -18,6 +18,13 @@ describe('withRetry', () => {
     expect(operation).toHaveBeenCalledTimes(1);
   });
 
+  it('should succeed with attempts: 1 and no delay', async () => {
+    const operation = jest.fn().mockResolvedValue('ok');
+    const result = await withRetry(operation, { attempts: 1 });
+    expect(result).toBe('ok');
+    expect(operation).toHaveBeenCalledTimes(1);
+  });
+
   it('should retry on transient error then succeed', async () => {
     const operation = jest
       .fn()
@@ -36,7 +43,6 @@ describe('withRetry', () => {
     const operation = jest.fn().mockRejectedValue(new Error('persistent failure'));
 
     const promise = withRetry(operation, { attempts: 3 });
-    // Attach rejection handler before advancing timers to avoid unhandled rejection
     const expectation = expect(promise).rejects.toThrow('persistent failure');
 
     await jest.advanceTimersByTimeAsync(500);  // delay after attempt 1
@@ -119,9 +125,56 @@ describe('withRetry', () => {
 
     await expectation;
 
-    // Total elapsed should be ~500ms (one delay), not 1500ms (two delays)
     const elapsed = Date.now() - start;
     expect(elapsed).toBe(500);
+    expect(operation).toHaveBeenCalledTimes(2);
+  });
+
+  it('should throw when attempts is less than 1', async () => {
+    const operation = jest.fn().mockResolvedValue('never');
+
+    await expect(
+      withRetry(operation, { attempts: 0 }),
+    ).rejects.toThrow('withRetry: attempts must be at least 1');
+    expect(operation).not.toHaveBeenCalled();
+  });
+
+  it('should wrap non-Error rejections as Error', async () => {
+    const operation = jest.fn().mockRejectedValue('raw string rejection');
+
+    const promise = withRetry(operation, { attempts: 1 });
+    const error = await promise.catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe('raw string rejection');
+  });
+
+  it('should skip retry for non-transient errors via shouldRetry', async () => {
+    const constraintError = Object.assign(new Error('unique violation'), {
+      code: '23505', // PostgreSQL unique_violation
+    });
+    const operation = jest.fn().mockRejectedValue(constraintError);
+
+    // Default shouldRetry skips 23xxx codes — should throw immediately, no delay
+    await expect(
+      withRetry(operation, { attempts: 3 }),
+    ).rejects.toThrow('unique violation');
+    expect(operation).toHaveBeenCalledTimes(1);
+  });
+
+  it('should respect custom shouldRetry predicate', async () => {
+    const operation = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('retry-me'))
+      .mockRejectedValueOnce(new Error('stop-here'));
+
+    const shouldRetry = (err: Error) => err.message === 'retry-me';
+
+    const promise = withRetry(operation, { attempts: 3, shouldRetry });
+    const expectation = expect(promise).rejects.toThrow('stop-here');
+    await jest.advanceTimersByTimeAsync(500);
+
+    await expectation;
     expect(operation).toHaveBeenCalledTimes(2);
   });
 });
