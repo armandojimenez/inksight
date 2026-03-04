@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
-import { PaginationQueryDto } from '@/chat/dto/pagination-query.dto';
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 
 function toDto(plain: Record<string, unknown>): PaginationQueryDto {
   return plainToInstance(PaginationQueryDto, plain);
