@@ -155,6 +155,21 @@ describe('HttpExceptionFilter', () => {
     process.env.NODE_ENV = originalEnv;
   });
 
+  it('should hide raw error message when NODE_ENV is unset (fail-closed)', () => {
+    const originalEnv = process.env.NODE_ENV;
+    delete process.env.NODE_ENV;
+
+    const exception = new Error('Connection refused at postgres://...');
+
+    filter.catch(exception, mockHost);
+
+    const body = mockJson.mock.calls[0][0];
+    expect(body.message).toBe('Internal Server Error');
+    expect(body.message).not.toContain('postgres');
+
+    process.env.NODE_ENV = originalEnv;
+  });
+
   it('should flatten message arrays from ValidationPipe into a single string', () => {
     const exception = new HttpException(
       {

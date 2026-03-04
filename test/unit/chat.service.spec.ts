@@ -56,35 +56,6 @@ describe('ChatService', () => {
     service = module.get<ChatService>(ChatService);
   });
 
-  describe('findImage', () => {
-    it('should return the image entity when found', async () => {
-      const image = { id: TEST_IMAGE_ID } as ImageEntity;
-      imageRepository.findOneBy.mockResolvedValue(image);
-
-      const result = await service.findImage(TEST_IMAGE_ID);
-      expect(result).toBe(image);
-      expect(imageRepository.findOneBy).toHaveBeenCalledWith({
-        id: TEST_IMAGE_ID,
-      });
-    });
-
-    it('should throw NotFoundException with IMAGE_NOT_FOUND code when image not found', async () => {
-      imageRepository.findOneBy.mockResolvedValue(null);
-
-      try {
-        await service.findImage(TEST_IMAGE_ID);
-        fail('Expected NotFoundException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NotFoundException);
-        const response = (error as NotFoundException).getResponse() as Record<
-          string,
-          unknown
-        >;
-        expect(response.code).toBe('IMAGE_NOT_FOUND');
-      }
-    });
-  });
-
   describe('chat', () => {
     it('should validate image exists and call AI service', async () => {
       const image = { id: TEST_IMAGE_ID } as ImageEntity;
@@ -123,7 +94,7 @@ describe('ChatService', () => {
       );
     });
 
-    it('should throw NotFoundException when image does not exist', async () => {
+    it('should throw NotFoundException with IMAGE_NOT_FOUND when image does not exist', async () => {
       imageRepository.findOneBy.mockResolvedValue(null);
 
       await expect(
@@ -131,6 +102,17 @@ describe('ChatService', () => {
       ).rejects.toThrow(NotFoundException);
 
       expect(aiService.chat).not.toHaveBeenCalled();
+
+      // Verify error code
+      const error = await service
+        .chat(TEST_IMAGE_ID, 'What is this?', [])
+        .catch((e) => e);
+      const response = (error as NotFoundException).getResponse() as Record<
+        string,
+        unknown
+      >;
+      expect(response.code).toBe('IMAGE_NOT_FOUND');
+      expect(response.message).toBe('Image not found');
     });
 
     it('should default history to empty array when not provided', async () => {
@@ -145,6 +127,16 @@ describe('ChatService', () => {
         TEST_IMAGE_ID,
         [],
       );
+    });
+
+    it('should propagate AI service errors', async () => {
+      const image = { id: TEST_IMAGE_ID } as ImageEntity;
+      imageRepository.findOneBy.mockResolvedValue(image);
+      aiService.chat.mockRejectedValue(new Error('AI service unavailable'));
+
+      await expect(
+        service.chat(TEST_IMAGE_ID, 'Hello', []),
+      ).rejects.toThrow('AI service unavailable');
     });
   });
 });

@@ -80,4 +80,25 @@ describe('validationExceptionFactory', () => {
     const response = exception.getResponse() as Record<string, unknown>;
     expect(response.code).toBe('VALIDATION_ERROR');
   });
+
+  it('should handle empty errors array', () => {
+    const exception = validationExceptionFactory([]);
+    const response = exception.getResponse() as Record<string, unknown>;
+    expect(response.code).toBe('VALIDATION_ERROR');
+    expect(response.message).toBe('');
+  });
+
+  it('should handle errors with undefined constraints', () => {
+    const errors: ValidationError[] = [
+      {
+        property: 'nested',
+        children: [],
+      } as ValidationError,
+    ];
+
+    const exception = validationExceptionFactory(errors);
+    const response = exception.getResponse() as Record<string, unknown>;
+    expect(response.code).toBe('VALIDATION_ERROR');
+    expect(response.message).toBe('');
+  });
 });

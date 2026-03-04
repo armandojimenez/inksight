@@ -10,7 +10,7 @@ export class UuidValidationPipe implements PipeTransform<string, string> {
     if (!UUID_V4_REGEX.test(value)) {
       throw new BadRequestException({
         statusCode: 400,
-        message: `Invalid UUID format: ${value}`,
+        message: 'Invalid UUID format',
         code: 'INVALID_UUID',
       });
     }

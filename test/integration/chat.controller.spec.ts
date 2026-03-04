@@ -74,7 +74,7 @@ describe('ChatController (integration)', () => {
 
   describe('POST /api/chat/:imageId', () => {
     describe('valid requests', () => {
-      it('should return 201 with OpenAI chat completion format', async () => {
+      it('should return 200 with OpenAI chat completion format', async () => {
         mockRepository.findOneBy.mockResolvedValue({
           id: VALID_UUID,
         } as ImageEntity);
@@ -83,7 +83,7 @@ describe('ChatController (integration)', () => {
           .post(`/api/chat/${VALID_UUID}`)
           .send({ message: 'What is in this image?' });
 
-        expect(res.status).toBe(201);
+        expect(res.status).toBe(200);
         expect(res.body).toHaveProperty('id');
         expect(res.body).toHaveProperty('object', 'chat.completion');
         expect(res.body).toHaveProperty('model');
@@ -203,7 +203,7 @@ describe('ChatController (integration)', () => {
           .post(`/api/chat/${VALID_UUID}`)
           .send({ message: 'a'.repeat(2000) });
 
-        expect(res.status).toBe(201);
+        expect(res.status).toBe(200);
       });
     });
 
@@ -229,6 +229,39 @@ describe('ChatController (integration)', () => {
         expect(res.status).toBe(404);
         expect(res.body).toHaveProperty('code', 'IMAGE_NOT_FOUND');
         expect(res.body).toHaveProperty('statusCode', 404);
+      });
+    });
+
+    describe('AI service failure', () => {
+      it('should return 500 with consistent error shape when AI service throws', async () => {
+        mockRepository.findOneBy.mockResolvedValue({
+          id: VALID_UUID,
+        } as ImageEntity);
+        mockAiService.chat.mockRejectedValue(new Error('AI service down'));
+
+        const res = await request(app.getHttpServer())
+          .post(`/api/chat/${VALID_UUID}`)
+          .send({ message: 'What is this?' });
+
+        expect(res.status).toBe(500);
+        expect(res.body).toHaveProperty('statusCode', 500);
+        expect(res.body).toHaveProperty('code', 'INTERNAL_ERROR');
+        expect(res.body).toHaveProperty('error');
+        expect(res.body).toHaveProperty('message');
+        expect(res.body).toHaveProperty('timestamp');
+        expect(res.body).toHaveProperty('path');
+        expect(res.body).toHaveProperty('requestId');
+      });
+    });
+
+    describe('non-string message type', () => {
+      it('should return 400 with INVALID_MESSAGE for numeric message', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/chat/${VALID_UUID}`)
+          .send({ message: 123 });
+
+        expect(res.status).toBe(400);
+        expect(res.body).toHaveProperty('code', 'INVALID_MESSAGE');
       });
     });
 

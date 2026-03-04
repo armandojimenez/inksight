@@ -1,4 +1,11 @@
-import { Controller, Post, Param, Body } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Param,
+  Body,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { ChatRequestDto } from './dto/chat-request.dto';
 import { UuidValidationPipe } from '@/common/pipes/uuid-validation.pipe';
@@ -9,6 +16,7 @@ export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
   @Post(':imageId')
+  @HttpCode(HttpStatus.OK)
   async chat(
     @Param('imageId', UuidValidationPipe) imageId: string,
     @Body() dto: ChatRequestDto,

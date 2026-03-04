@@ -16,12 +16,12 @@ export class ChatService {
     private readonly aiService: IAiService,
   ) {}
 
-  async findImage(imageId: string): Promise<ImageEntity> {
+  private async findImage(imageId: string): Promise<ImageEntity> {
     const image = await this.imageRepository.findOneBy({ id: imageId });
     if (!image) {
       throw new NotFoundException({
         statusCode: 404,
-        message: `Image not found: ${imageId}`,
+        message: 'Image not found',
         code: 'IMAGE_NOT_FOUND',
       });
     }

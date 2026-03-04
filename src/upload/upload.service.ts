@@ -29,9 +29,8 @@ export class UploadService {
     const id = uuidv4();
     const ext = extname(file.originalname).toLowerCase();
     const storedFilename = `${id}${ext}`;
-    const finalPath = join(this.uploadDir, storedFilename);
-    const tempPath = join(this.uploadDir, `.tmp-${id}${ext}`);
     const uploadPath = join(this.uploadDir, storedFilename);
+    const tempPath = join(this.uploadDir, `.tmp-${id}${ext}`);
 
     // Ensure upload directory exists
     await mkdir(this.uploadDir, { recursive: true });
@@ -39,7 +38,7 @@ export class UploadService {
     try {
       // Atomic write: temp file then rename
       await writeFile(tempPath, file.buffer);
-      await rename(tempPath, finalPath);
+      await rename(tempPath, uploadPath);
 
       // Attempt AI analysis — failure does not block upload
       let initialAnalysis: Record<string, unknown> | null = null;
@@ -74,7 +73,7 @@ export class UploadService {
     } catch (error) {
       // Clean up both temp and final paths on any failure
       await unlink(tempPath).catch(() => {});
-      await unlink(finalPath).catch(() => {});
+      await unlink(uploadPath).catch(() => {});
       throw error;
     }
   }

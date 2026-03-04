@@ -6,7 +6,9 @@ import * as request from 'supertest';
 import * as fs from 'fs/promises';
 import { UploadModule } from '@/upload/upload.module';
 import { ImageEntity } from '@/upload/entities/image.entity';
+import { AI_SERVICE_TOKEN } from '@/common/constants';
 import { setupApp } from '@/common/setup-app';
+import { OpenAiChatCompletion } from '@/ai/interfaces/openai-chat-completion.interface';
 import {
   createMinimalPng,
   createMinimalJpeg,
@@ -17,11 +19,31 @@ import {
 
 const UPLOAD_DIR = 'test-uploads';
 
+const mockAnalysisCompletion: OpenAiChatCompletion = {
+  id: 'chatcmpl-integration-test',
+  object: 'chat.completion',
+  created: 1234567890,
+  model: 'gpt-4o',
+  choices: [
+    {
+      index: 0,
+      message: { role: 'assistant', content: 'Test analysis of uploaded image.' },
+      finish_reason: 'stop',
+    },
+  ],
+  usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+};
+
 describe('UploadController (integration)', () => {
   let app: INestApplication;
   let mockRepository: {
     create: jest.Mock;
     save: jest.Mock;
+  };
+  let mockAiService: {
+    analyzeImage: jest.Mock;
+    chat: jest.Mock;
+    chatStream: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -36,6 +58,12 @@ describe('UploadController (integration)', () => {
       save: jest.fn((entity) =>
         Promise.resolve({ ...entity, id: 'test-uuid-1234' }),
       ),
+    };
+
+    mockAiService = {
+      analyzeImage: jest.fn().mockResolvedValue(mockAnalysisCompletion),
+      chat: jest.fn(),
+      chatStream: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -54,6 +82,8 @@ describe('UploadController (integration)', () => {
     })
       .overrideProvider(getRepositoryToken(ImageEntity))
       .useValue(mockRepository)
+      .overrideProvider(AI_SERVICE_TOKEN)
+      .useValue(mockAiService)
       .compile();
 
     app = module.createNestApplication();
@@ -80,7 +110,7 @@ describe('UploadController (integration)', () => {
       expect(res.body).toHaveProperty('size');
       expect(res.body.size).toBeGreaterThan(0);
       expect(res.body).toHaveProperty('analysis');
-      expect(res.body.analysis).not.toBeNull();
+      expect(res.body.analysis).toEqual(mockAnalysisCompletion);
     });
 
     it('should upload a valid JPEG and return 201', async () => {

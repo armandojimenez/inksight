@@ -1,6 +1,15 @@
 import { BadRequestException } from '@nestjs/common';
 import { UuidValidationPipe } from '@/common/pipes/uuid-validation.pipe';
 
+function captureError(fn: () => void): Error {
+  try {
+    fn();
+    throw new Error('Expected function to throw');
+  } catch (error) {
+    return error as Error;
+  }
+}
+
 describe('UuidValidationPipe', () => {
   let pipe: UuidValidationPipe;
 
@@ -18,21 +27,19 @@ describe('UuidValidationPipe', () => {
     expect(pipe.transform(validUuid)).toBe(validUuid);
   });
 
-  it('should reject a non-UUID string', () => {
+  it('should reject a non-UUID string with INVALID_UUID code', () => {
     expect(() => pipe.transform('not-a-uuid')).toThrow(BadRequestException);
-    try {
-      pipe.transform('not-a-uuid');
-    } catch (error) {
-      const response = (error as BadRequestException).getResponse() as Record<
-        string,
-        unknown
-      >;
-      expect(response.code).toBe('INVALID_UUID');
-    }
+
+    const error = captureError(() => pipe.transform('not-a-uuid'));
+    const response = (error as BadRequestException).getResponse() as Record<
+      string,
+      unknown
+    >;
+    expect(response.code).toBe('INVALID_UUID');
+    expect(response.message).toBe('Invalid UUID format');
   });
 
   it('should reject a UUID v1', () => {
-    // UUID v1: version nibble = 1 (third group starts with 1)
     const uuidV1 = '550e8400-e29b-11d4-a716-446655440000';
     expect(() => pipe.transform(uuidV1)).toThrow(BadRequestException);
   });
@@ -41,18 +48,14 @@ describe('UuidValidationPipe', () => {
     expect(() => pipe.transform('')).toThrow(BadRequestException);
   });
 
-  it('should include INVALID_UUID code in error response', () => {
-    try {
-      pipe.transform('invalid');
-      fail('Expected BadRequestException');
-    } catch (error) {
-      expect(error).toBeInstanceOf(BadRequestException);
-      const response = (error as BadRequestException).getResponse() as Record<
-        string,
-        unknown
-      >;
-      expect(response.code).toBe('INVALID_UUID');
-      expect(response.message).toBeDefined();
-    }
+  it('should not reflect user input in error message', () => {
+    const maliciousInput = '<script>alert("xss")</script>';
+    const error = captureError(() => pipe.transform(maliciousInput));
+    const response = (error as BadRequestException).getResponse() as Record<
+      string,
+      unknown
+    >;
+    expect(response.message).toBe('Invalid UUID format');
+    expect(String(response.message)).not.toContain(maliciousInput);
   });
 });
