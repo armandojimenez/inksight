@@ -34,12 +34,13 @@ export class ImageEntity {
   @Column({ type: 'jsonb', nullable: true, default: null })
   initialAnalysis!: Record<string, unknown> | null;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt!: Date;
 
+  /** Passive audit column — TypeORM auto-increments on every save(). */
   @VersionColumn()
   version!: number;
 

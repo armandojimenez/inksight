@@ -69,20 +69,22 @@ describe('ImageEntity', () => {
     expect(versionCol!.mode).toBe('version');
   });
 
-  it('should have createdAt as CreateDateColumn', () => {
+  it('should have createdAt as CreateDateColumn with timestamptz', () => {
     const createdAtCol = storage.columns.find(
       (c) => c.target === ImageEntity && c.propertyName === 'createdAt',
     );
     expect(createdAtCol).toBeDefined();
     expect(createdAtCol!.mode).toBe('createDate');
+    expect(createdAtCol!.options.type).toBe('timestamptz');
   });
 
-  it('should have updatedAt as UpdateDateColumn', () => {
+  it('should have updatedAt as UpdateDateColumn with timestamptz', () => {
     const updatedAtCol = storage.columns.find(
       (c) => c.target === ImageEntity && c.propertyName === 'updatedAt',
     );
     expect(updatedAtCol).toBeDefined();
     expect(updatedAtCol!.mode).toBe('updateDate');
+    expect(updatedAtCol!.options.type).toBe('timestamptz');
   });
 
   it('should have IDX_images_createdAt index', () => {
