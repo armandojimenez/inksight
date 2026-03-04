@@ -6,10 +6,12 @@ import {
   UpdateDateColumn,
   VersionColumn,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 
 @Entity('images')
+@Index('IDX_images_createdAt', ['createdAt'])
 export class ImageEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

@@ -85,6 +85,15 @@ describe('ImageEntity', () => {
     expect(updatedAtCol!.mode).toBe('updateDate');
   });
 
+  it('should have IDX_images_createdAt index', () => {
+    const indexes = storage.indices.filter((i) => i.target === ImageEntity);
+    const createdAtIndex = indexes.find(
+      (i) => i.name === 'IDX_images_createdAt',
+    );
+    expect(createdAtIndex).toBeDefined();
+    expect(createdAtIndex!.columns).toEqual(['createdAt']);
+  });
+
   it('should have correct column types and lengths', () => {
     const findCol = (name: string) =>
       storage.columns.find(
