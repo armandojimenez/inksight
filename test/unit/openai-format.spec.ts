@@ -3,8 +3,10 @@ import addFormats from 'ajv-formats';
 import { MockAiService } from '@/ai/mock-ai.service';
 import { IAiService } from '@/ai/interfaces/ai-service.interface';
 import { OpenAiStreamChunk } from '@/ai/interfaces/openai-stream-chunk.interface';
-import chatCompletionSchema from '../schemas/chat-completion.schema.json';
-import streamChunkSchema from '../schemas/stream-chunk.schema.json';
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+const chatCompletionSchema = require('../schemas/chat-completion.schema.json') as Record<string, unknown>;
+const streamChunkSchema = require('../schemas/stream-chunk.schema.json') as Record<string, unknown>;
 
 describe('OpenAI Format Validation', () => {
   let service: IAiService;
