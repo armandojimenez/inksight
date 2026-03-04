@@ -6,12 +6,14 @@ export interface IAiService {
   analyzeImage(imagePath: string): Promise<OpenAiChatCompletion>;
 
   chat(
-    message: string,
+    prompt: string,
+    imageId: string,
     history: ConversationMessage[],
   ): Promise<OpenAiChatCompletion>;
 
   chatStream(
-    message: string,
+    prompt: string,
+    imageId: string,
     history: ConversationMessage[],
   ): AsyncGenerator<OpenAiStreamChunk>;
 }

@@ -282,6 +282,17 @@ Manual integration verification happens in Phase 3 when the chat endpoint calls 
 git tag v0.2-mock-ai -m "Mock AI service with OpenAI-compatible format, JSON Schema validation"
 ```
 
+### Review Findings Deferred to Later Phases
+
+The following findings from the Phase 2 code review are intentionally deferred. Each item is tracked as a task in its target phase.
+
+| Finding | Deferred To | Rationale |
+|---------|-------------|-----------|
+| Add ~50ms inter-chunk delay to `chatStream` for realistic latency simulation | Phase 4 (Task 1) | Delays are an SSE transport concern; word-by-word chunking is already implemented |
+| Wire `AbortController` to client disconnect for streaming cancellation | Phase 4 (Task 3) | Requires HTTP controller context that doesn't exist until the SSE endpoint is built |
+| Implement backpressure handling at `res.write`/`drain` boundary | Phase 4 (Task 4) | Transport-layer concern; the AsyncGenerator protocol supports this but wiring requires the SSE controller |
+| Consider grapheme-safe chunking for Unicode/CJK content | Phase 4 (Task 1) | Current word-split is sufficient for English mock responses; real provider will emit its own token boundaries |
+
 ---
 
 ## Phase 3: Chat Endpoint
@@ -384,31 +395,28 @@ git tag v0.3-chat -m "Chat endpoint with input validation, OpenAI response forma
 **Reference Docs:** [PRD Sec 5.3](./PRD.md#53-real-time-streaming-chat) (requirements + SSE event format), [TDD Sec 5.3](./technical-design.md#53-openai-streaming-format) (OpenAiStreamChunk — exact field spec + event sequence), [TDD Sec 6.1–6.5](./technical-design.md#61-why-manual-sse-not-sse-decorator) (streaming implementation: manual SSE, backpressure, timeout, reconnection), [ADR-006](./adr/006-sse-streaming.md)
 
 ### Tasks
-1. Implement streaming in `MockAiService` (`chatStream` as AsyncGenerator)
-   - Split response into word-level tokens
-   - Yield chunks with 50ms delay
-   - First chunk: `{ delta: { role: "assistant" } }`
-   - Content chunks: `{ delta: { content: "word" } }`
-   - Final chunk: `{ delta: {}, finish_reason: "stop" }`
+1. Add ~50ms inter-chunk delay to `MockAiService.chatStream` for realistic latency simulation
+   - Word-by-word chunking already implemented in Phase 2
+   - Add configurable delay between yields (0ms in test, ~50ms in dev)
+   - Consider grapheme-safe chunking if Unicode/CJK content is needed (use `Intl.Segmenter`)
 2. Implement streaming controller method (`POST /api/chat-stream/:imageId`)
    - Set SSE headers (`text/event-stream`, `no-cache`, `keep-alive`)
    - Write `data: {chunk}\n\n` for each chunk
    - Write `data: [DONE]\n\n` at end
-3. Implement client disconnect detection (`req.on('close')`)
-4. Implement backpressure handling (drain event)
+3. Implement client disconnect detection (`req.on('close')`) with `AbortController`
+   - Wire `AbortSignal` to generator consumption loop
+   - Ensure generator cleanup via `try/finally` on abort
+4. Implement backpressure handling (`res.write` / `drain` event)
+   - Pause generator consumption when write buffer is full
+   - Resume on `drain` event
 5. Implement connection timeout (30 seconds)
 6. Verify LoggingInterceptor compatibility with SSE streams (must not buffer or interfere with chunked responses)
 
 ### Tests to Write First
-- [ ] `mock-ai.service.streaming.spec.ts`
-  - `chatStream` yields chunks as AsyncGenerator
-  - All chunks share the same `id`
-  - All chunks share the same `created` timestamp
-  - First chunk has `delta.role = "assistant"`
-  - Middle chunks have `delta.content` (non-empty string)
-  - Last chunk has `delta = {}` and `finish_reason = "stop"`
-  - `object` is `"chat.completion.chunk"` for all chunks
-  - Each chunk validates against `stream-chunk.schema.json`
+- [ ] `mock-ai.service.streaming.spec.ts` (delay-specific tests; structural streaming tests already in Phase 2's `mock-ai.service.spec.ts`)
+  - `chatStream` yields chunks with configurable delay between them
+  - Abort signal terminates stream mid-generation
+  - Generator cleanup runs on abort (no resource leaks)
 - [ ] `stream.controller.spec.ts` (integration)
   - `POST /api/chat-stream/:imageId` → 200 with `text/event-stream`
   - Response contains SSE-formatted events (`data: {...}\n\n`)

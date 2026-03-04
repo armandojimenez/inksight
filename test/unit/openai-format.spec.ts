@@ -1,20 +1,29 @@
-import Ajv from 'ajv';
+import Ajv, { ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 import { MockAiService } from '@/ai/mock-ai.service';
 import { IAiService } from '@/ai/interfaces/ai-service.interface';
 import { OpenAiStreamChunk } from '@/ai/interfaces/openai-stream-chunk.interface';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-const chatCompletionSchema = require('../schemas/chat-completion.schema.json') as Record<string, unknown>;
-const streamChunkSchema = require('../schemas/stream-chunk.schema.json') as Record<string, unknown>;
+const chatCompletionSchema = require('../schemas/chat-completion.schema.json') as Record<
+  string,
+  unknown
+>;
+const streamChunkSchema = require('../schemas/stream-chunk.schema.json') as Record<
+  string,
+  unknown
+>;
 
 describe('OpenAI Format Validation', () => {
   let service: IAiService;
-  let ajv: Ajv;
+  let validateCompletion: ValidateFunction;
+  let validateChunk: ValidateFunction;
 
   beforeAll(() => {
-    ajv = new Ajv({ strict: true, allErrors: true });
+    const ajv = new Ajv({ strict: true, allErrors: true });
     addFormats(ajv);
+    validateCompletion = ajv.compile(chatCompletionSchema);
+    validateChunk = ajv.compile(streamChunkSchema);
   });
 
   beforeEach(() => {
@@ -24,20 +33,18 @@ describe('OpenAI Format Validation', () => {
   describe('Non-streaming (chat.completion)', () => {
     it('should validate analyzeImage response against schema', async () => {
       const result = await service.analyzeImage('uploads/test.png');
-      const validate = ajv.compile(chatCompletionSchema);
-      const valid = validate(result);
+      const valid = validateCompletion(result);
 
-      expect(valid).toBe(true);
       if (!valid) {
         // eslint-disable-next-line no-console
-        console.error('Validation errors:', validate.errors);
+        console.error('Validation errors:', validateCompletion.errors);
       }
+      expect(valid).toBe(true);
     });
 
     it('should validate chat response against schema', async () => {
-      const result = await service.chat('What do you see?', []);
-      const validate = ajv.compile(chatCompletionSchema);
-      const valid = validate(result);
+      const result = await service.chat('What do you see?', 'img-1', []);
+      const valid = validateCompletion(result);
 
       expect(valid).toBe(true);
     });
@@ -61,31 +68,142 @@ describe('OpenAI Format Validation', () => {
       );
     });
 
-    it('should reject response with missing required field', () => {
-      const validate = ajv.compile(chatCompletionSchema);
+    it('should reject response with missing choices field', () => {
       const invalid = {
-        id: 'chatcmpl-abc',
+        id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         object: 'chat.completion',
         created: 1234567890,
         model: 'gpt-4o',
-        // missing choices and usage
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
       };
 
-      expect(validate(invalid)).toBe(false);
+      expect(validateCompletion(invalid)).toBe(false);
     });
 
-    it('should reject response with wrong type', () => {
-      const validate = ajv.compile(chatCompletionSchema);
+    it('should reject response with missing usage field', () => {
       const invalid = {
-        id: 'chatcmpl-abc',
+        id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         object: 'chat.completion',
-        created: 'not-a-number', // wrong type
+        created: 1234567890,
+        model: 'gpt-4o',
+        choices: [
+          {
+            index: 0,
+            message: { role: 'assistant', content: 'test' },
+            finish_reason: 'stop',
+          },
+        ],
+      };
+
+      expect(validateCompletion(invalid)).toBe(false);
+    });
+
+    it('should reject response with missing id field', () => {
+      const invalid = {
+        object: 'chat.completion',
+        created: 1234567890,
+        model: 'gpt-4o',
+        choices: [
+          {
+            index: 0,
+            message: { role: 'assistant', content: 'test' },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      };
+
+      expect(validateCompletion(invalid)).toBe(false);
+    });
+
+    it('should reject response with wrong created type', () => {
+      const invalid = {
+        id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        object: 'chat.completion',
+        created: 'not-a-number',
+        model: 'gpt-4o',
+        choices: [
+          {
+            index: 0,
+            message: { role: 'assistant', content: 'test' },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      };
+
+      expect(validateCompletion(invalid)).toBe(false);
+    });
+
+    it('should reject response with wrong object value', () => {
+      const invalid = {
+        id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        object: 'chat.completion.chunk',
+        created: 1234567890,
+        model: 'gpt-4o',
+        choices: [
+          {
+            index: 0,
+            message: { role: 'assistant', content: 'test' },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      };
+
+      expect(validateCompletion(invalid)).toBe(false);
+    });
+
+    it('should reject response with empty choices array', () => {
+      const invalid = {
+        id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        object: 'chat.completion',
+        created: 1234567890,
         model: 'gpt-4o',
         choices: [],
         usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
       };
 
-      expect(validate(invalid)).toBe(false);
+      expect(validateCompletion(invalid)).toBe(false);
+    });
+
+    it('should reject response with invalid finish_reason value', () => {
+      const invalid = {
+        id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        object: 'chat.completion',
+        created: 1234567890,
+        model: 'gpt-4o',
+        choices: [
+          {
+            index: 0,
+            message: { role: 'assistant', content: 'test' },
+            finish_reason: 'content_filter',
+          },
+        ],
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      };
+
+      expect(validateCompletion(invalid)).toBe(false);
+    });
+
+    it('should reject response with additional properties', () => {
+      const invalid = {
+        id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        object: 'chat.completion',
+        created: 1234567890,
+        model: 'gpt-4o',
+        choices: [
+          {
+            index: 0,
+            message: { role: 'assistant', content: 'test' },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+        extra_field: true,
+      };
+
+      expect(validateCompletion(invalid)).toBe(false);
     });
   });
 
@@ -101,22 +219,20 @@ describe('OpenAI Format Validation', () => {
     }
 
     it('should validate each stream chunk against schema', async () => {
-      const gen = service.chatStream('Hello', []);
+      const gen = service.chatStream('Hello', 'img-1', []);
       const chunks = await collectChunks(gen);
-      const validate = ajv.compile(streamChunkSchema);
 
       for (const chunk of chunks) {
-        const valid = validate(chunk);
+        const valid = validateChunk(chunk);
         if (!valid) {
           // eslint-disable-next-line no-console
-          console.error('Chunk validation errors:', validate.errors, chunk);
+          console.error('Chunk validation errors:', validateChunk.errors, chunk);
         }
         expect(valid).toBe(true);
       }
     });
 
     it('should reject chunk with missing delta', () => {
-      const validate = ajv.compile(streamChunkSchema);
       const invalid = {
         id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         object: 'chat.completion.chunk',
@@ -125,20 +241,18 @@ describe('OpenAI Format Validation', () => {
         choices: [
           {
             index: 0,
-            // missing delta
             finish_reason: null,
           },
         ],
       };
 
-      expect(validate(invalid)).toBe(false);
+      expect(validateChunk(invalid)).toBe(false);
     });
 
     it('should reject chunk with wrong object value', () => {
-      const validate = ajv.compile(streamChunkSchema);
       const invalid = {
         id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-        object: 'chat.completion', // wrong — should be chat.completion.chunk
+        object: 'chat.completion',
         created: 1234567890,
         model: 'gpt-4o',
         choices: [
@@ -150,7 +264,55 @@ describe('OpenAI Format Validation', () => {
         ],
       };
 
-      expect(validate(invalid)).toBe(false);
+      expect(validateChunk(invalid)).toBe(false);
+    });
+
+    it('should reject chunk with invalid finish_reason value', () => {
+      const invalid = {
+        id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        object: 'chat.completion.chunk',
+        created: 1234567890,
+        model: 'gpt-4o',
+        choices: [
+          {
+            index: 0,
+            delta: {},
+            finish_reason: 'length',
+          },
+        ],
+      };
+
+      expect(validateChunk(invalid)).toBe(false);
+    });
+
+    it('should reject chunk with empty choices array', () => {
+      const invalid = {
+        id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        object: 'chat.completion.chunk',
+        created: 1234567890,
+        model: 'gpt-4o',
+        choices: [],
+      };
+
+      expect(validateChunk(invalid)).toBe(false);
+    });
+
+    it('should reject chunk with additional properties in delta', () => {
+      const invalid = {
+        id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        object: 'chat.completion.chunk',
+        created: 1234567890,
+        model: 'gpt-4o',
+        choices: [
+          {
+            index: 0,
+            delta: { content: 'test', tool_calls: [] },
+            finish_reason: null,
+          },
+        ],
+      };
+
+      expect(validateChunk(invalid)).toBe(false);
     });
   });
 });

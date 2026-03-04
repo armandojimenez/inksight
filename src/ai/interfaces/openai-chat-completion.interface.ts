@@ -3,16 +3,14 @@ export interface OpenAiChatCompletion {
   object: 'chat.completion';
   created: number;
   model: string;
-  choices: [
-    {
-      index: 0;
-      message: {
-        role: 'assistant';
-        content: string;
-      };
-      finish_reason: 'stop';
-    },
-  ];
+  choices: Array<{
+    index: number;
+    message: {
+      role: 'assistant';
+      content: string;
+    };
+    finish_reason: 'stop' | 'length';
+  }>;
   usage: {
     prompt_tokens: number;
     completion_tokens: number;
