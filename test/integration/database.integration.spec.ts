@@ -211,6 +211,20 @@ describe('Database integration', () => {
     expect(await imageRepo.count()).toBe(10);
   });
 
+  it('should reject chat_message with non-existent imageId (FK constraint)', async () => {
+    if (!dbAvailable) return;
+
+    const fakeImageId = '00000000-0000-4000-a000-000000000000';
+    const message = messageRepo.create({
+      imageId: fakeImageId,
+      role: 'user',
+      content: 'orphan message',
+      tokenCount: null,
+    });
+
+    await expect(messageRepo.save(message)).rejects.toThrow();
+  });
+
   describe('Optimistic locking', () => {
     function createTestImage(suffix: string) {
       return imageRepo.create({
