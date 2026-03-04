@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import * as fs from 'fs';
@@ -62,6 +63,12 @@ describe('ImagesService', () => {
           provide: HistoryService,
           useValue: historyService,
         },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn().mockReturnValue('uploads'),
+          },
+        },
       ],
     }).compile();
 
@@ -69,6 +76,7 @@ describe('ImagesService', () => {
   });
 
   afterEach(() => {
+    jest.clearAllMocks();
     jest.restoreAllMocks();
   });
 
@@ -113,6 +121,18 @@ describe('ImagesService', () => {
 
       expect(result).toEqual({ images: [], total: 0 });
     });
+
+    it('should not expose uploadPath or storedFilename', async () => {
+      const img = mockImage();
+      imageRepo.findAndCount.mockResolvedValue([[img], 1]);
+      historyService.getMessageCount.mockResolvedValue(0);
+
+      const result = await service.listImages();
+
+      const gallery = result.images[0]!;
+      expect(gallery).not.toHaveProperty('uploadPath');
+      expect(gallery).not.toHaveProperty('storedFilename');
+    });
   });
 
   describe('deleteImage', () => {
@@ -136,7 +156,7 @@ describe('ImagesService', () => {
       );
     });
 
-    it('should handle missing file gracefully', async () => {
+    it('should handle missing file (ENOENT) gracefully', async () => {
       const image = mockImage();
       imageRepo.findOneBy.mockResolvedValue(image);
       (fsPromises.unlink as jest.Mock).mockRejectedValue(
@@ -147,6 +167,27 @@ describe('ImagesService', () => {
       // Should not throw — file missing is acceptable
       await expect(service.deleteImage(IMAGE_ID)).resolves.not.toThrow();
       expect(imageRepo.remove).toHaveBeenCalledWith(image);
+    });
+
+    it('should rethrow non-ENOENT errors during unlink', async () => {
+      const image = mockImage();
+      imageRepo.findOneBy.mockResolvedValue(image);
+      (fsPromises.unlink as jest.Mock).mockRejectedValue(
+        Object.assign(new Error('EPERM'), { code: 'EPERM' }),
+      );
+
+      await expect(service.deleteImage(IMAGE_ID)).rejects.toThrow('EPERM');
+      expect(imageRepo.remove).not.toHaveBeenCalled();
+    });
+
+    it('should reject path traversal in uploadPath', async () => {
+      const image = mockImage({ uploadPath: '../../../etc/passwd' });
+      imageRepo.findOneBy.mockResolvedValue(image);
+
+      await expect(service.deleteImage(IMAGE_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(fsPromises.unlink).not.toHaveBeenCalled();
     });
   });
 
@@ -179,6 +220,36 @@ describe('ImagesService', () => {
       (fsPromises.access as jest.Mock).mockRejectedValue(
         Object.assign(new Error('ENOENT'), { code: 'ENOENT' }),
       );
+
+      await expect(service.getImageForServing(IMAGE_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should reject disallowed MIME type', async () => {
+      const image = mockImage({ mimeType: 'application/pdf' });
+      imageRepo.findOneBy.mockResolvedValue(image);
+
+      await expect(service.getImageForServing(IMAGE_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should accept image/jpeg MIME type', async () => {
+      const image = mockImage({ mimeType: 'image/jpeg' });
+      imageRepo.findOneBy.mockResolvedValue(image);
+      (fsPromises.access as jest.Mock).mockResolvedValue(undefined);
+      const mockStream = { pipe: jest.fn() };
+      (fs.createReadStream as jest.Mock).mockReturnValue(mockStream);
+
+      const result = await service.getImageForServing(IMAGE_ID);
+
+      expect(result.image.mimeType).toBe('image/jpeg');
+    });
+
+    it('should reject path traversal in uploadPath', async () => {
+      const image = mockImage({ uploadPath: '../../../etc/passwd' });
+      imageRepo.findOneBy.mockResolvedValue(image);
 
       await expect(service.getImageForServing(IMAGE_ID)).rejects.toThrow(
         NotFoundException,

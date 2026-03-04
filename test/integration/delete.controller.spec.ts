@@ -23,7 +23,7 @@ function mockImage(): ImageEntity {
     storedFilename: 'abc123.png',
     mimeType: 'image/png',
     size: 1024,
-    uploadPath: 'uploads/abc123.png',
+    uploadPath: 'test-uploads/abc123.png',
     initialAnalysis: null,
     createdAt: new Date(),
     updatedAt: new Date(),

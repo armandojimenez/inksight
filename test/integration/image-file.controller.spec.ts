@@ -26,7 +26,7 @@ function mockImage(overrides: Partial<ImageEntity> = {}): ImageEntity {
     storedFilename: 'abc123.png',
     mimeType: 'image/png',
     size: 1024,
-    uploadPath: 'uploads/abc123.png',
+    uploadPath: 'test-uploads/abc123.png',
     initialAnalysis: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -125,7 +125,7 @@ describe('Image File Controller (integration)', () => {
       expect(res.headers['content-type']).toMatch(/image\/jpeg/);
     });
 
-    it('should include Content-Disposition: inline header', async () => {
+    it('should include Content-Disposition with filename', async () => {
       const image = mockImage();
       mockImageRepo.findOneBy.mockResolvedValue(image);
       (fsPromises.access as jest.Mock).mockResolvedValue(undefined);
@@ -136,10 +136,11 @@ describe('Image File Controller (integration)', () => {
         .get(`/api/images/${VALID_UUID}/file`);
 
       expect(res.status).toBe(200);
-      expect(res.headers['content-disposition']).toBe('inline');
+      expect(res.headers['content-disposition']).toContain('inline');
+      expect(res.headers['content-disposition']).toContain('test.png');
     });
 
-    it('should include Cache-Control header', async () => {
+    it('should include immutable Cache-Control header', async () => {
       const image = mockImage();
       mockImageRepo.findOneBy.mockResolvedValue(image);
       (fsPromises.access as jest.Mock).mockResolvedValue(undefined);
@@ -150,7 +151,7 @@ describe('Image File Controller (integration)', () => {
         .get(`/api/images/${VALID_UUID}/file`);
 
       expect(res.status).toBe(200);
-      expect(res.headers['cache-control']).toBe('public, max-age=3600');
+      expect(res.headers['cache-control']).toBe('public, max-age=31536000, immutable');
     });
 
     it('should return binary data', async () => {

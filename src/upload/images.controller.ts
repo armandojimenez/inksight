@@ -60,15 +60,25 @@ export class ImagesController {
       );
 
       res.setHeader('Content-Type', image.mimeType);
-      res.setHeader('Content-Disposition', 'inline');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="${encodeURIComponent(image.originalFilename)}"`,
+      );
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
 
       stream.on('error', (err) => {
         this.logger.error(
           `Stream error serving image ${imageId}: ${err.message}`,
         );
         if (!res.headersSent) {
-          res.status(500).json({ error: 'Stream failed' });
+          const req = res.req as unknown as RequestWithCorrelation;
+          const requestId = req.correlationId ?? 'unknown';
+          const body = buildErrorResponse(
+            new Error('Stream failed'),
+            req.url,
+            requestId,
+          );
+          res.status(body.statusCode).json(body);
         } else {
           res.end();
         }
