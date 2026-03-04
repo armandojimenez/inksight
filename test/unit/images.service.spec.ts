@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
@@ -19,7 +20,13 @@ describe('ImagesService', () => {
   >;
   let historyService: jest.Mocked<
     Pick<HistoryService, 'getMessageCount' | 'getMessageCountBatch' | 'deleteByImageId'>
-  >;
+  > & { invalidateCache: jest.Mock };
+  let mockCache: {
+    get: jest.Mock;
+    set: jest.Mock;
+    del: jest.Mock;
+    reset: jest.Mock;
+  };
 
   const IMAGE_ID = '550e8400-e29b-41d4-a716-446655440000';
 
@@ -51,6 +58,7 @@ describe('ImagesService', () => {
       getMessageCount: jest.fn().mockResolvedValue(0),
       getMessageCountBatch: jest.fn().mockResolvedValue(new Map()),
       deleteByImageId: jest.fn().mockResolvedValue(undefined),
+      invalidateCache: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -68,6 +76,15 @@ describe('ImagesService', () => {
           provide: ConfigService,
           useValue: {
             get: jest.fn().mockReturnValue('uploads'),
+          },
+        },
+        {
+          provide: CACHE_MANAGER,
+          useValue: mockCache = {
+            get: jest.fn().mockResolvedValue(undefined),
+            set: jest.fn().mockResolvedValue(undefined),
+            del: jest.fn().mockResolvedValue(undefined),
+            reset: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
@@ -259,6 +276,47 @@ describe('ImagesService', () => {
       await expect(service.getImageForServing(IMAGE_ID)).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('cache behavior', () => {
+    it('getImageForServing should call cache get/set', async () => {
+      const image = mockImage();
+      imageRepo.findOneBy.mockResolvedValue(image);
+      (fsPromises.access as jest.Mock).mockResolvedValue(undefined);
+      (fs.createReadStream as jest.Mock).mockReturnValue({ pipe: jest.fn() });
+
+      await service.getImageForServing(IMAGE_ID);
+
+      expect(mockCache.get).toHaveBeenCalledWith(`image:${IMAGE_ID}`);
+      expect(mockCache.set).toHaveBeenCalledWith(
+        `image:${IMAGE_ID}`,
+        image,
+        600_000,
+      );
+    });
+
+    it('getImageForServing should skip DB on cache hit', async () => {
+      const image = mockImage();
+      mockCache.get.mockResolvedValue(image);
+      (fsPromises.access as jest.Mock).mockResolvedValue(undefined);
+      (fs.createReadStream as jest.Mock).mockReturnValue({ pipe: jest.fn() });
+
+      await service.getImageForServing(IMAGE_ID);
+
+      expect(imageRepo.findOneBy).not.toHaveBeenCalled();
+    });
+
+    it('deleteImage should invalidate image cache and history cache', async () => {
+      const image = mockImage();
+      imageRepo.findOneBy.mockResolvedValue(image);
+      (fsPromises.unlink as jest.Mock).mockResolvedValue(undefined);
+      imageRepo.remove.mockResolvedValue(image);
+
+      await service.deleteImage(IMAGE_ID);
+
+      expect(mockCache.del).toHaveBeenCalledWith(`image:${IMAGE_ID}`);
+      expect(historyService.invalidateCache).toHaveBeenCalledWith(IMAGE_ID);
     });
   });
 });

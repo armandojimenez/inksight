@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import * as request from 'supertest';
 import * as http from 'http';
 import { ChatModule } from '@/chat/chat.module';
+import { CacheModule } from '@/cache/cache.module';
 import { HistoryModule } from '@/history/history.module';
 import { ImageEntity } from '@/upload/entities/image.entity';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
@@ -169,6 +170,7 @@ describe('Chat with History (integration)', () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ isGlobal: true, load: [() => ({})] }),
+        CacheModule,
         ChatModule,
       ],
     })

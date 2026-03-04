@@ -16,7 +16,7 @@ describe('ChatService', () => {
   let aiService: jest.Mocked<Pick<IAiService, 'chat' | 'chatStream'>>;
   let historyService: jest.Mocked<
     Pick<HistoryService, 'addMessage' | 'getRecentMessages' | 'enforceHistoryCap'>
-  >;
+  > & { invalidateCache: jest.Mock };
 
   const TEST_IMAGE_ID = '550e8400-e29b-41d4-a716-446655440000';
 
@@ -49,6 +49,7 @@ describe('ChatService', () => {
       addMessage: jest.fn().mockResolvedValue({ id: 'msg-1' }),
       getRecentMessages: jest.fn().mockResolvedValue([]),
       enforceHistoryCap: jest.fn().mockResolvedValue(undefined),
+      invalidateCache: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({

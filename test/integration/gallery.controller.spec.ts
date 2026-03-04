@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as request from 'supertest';
 import { UploadModule } from '@/upload/upload.module';
+import { CacheModule } from '@/cache/cache.module';
 import { ImageEntity } from '@/upload/entities/image.entity';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { AI_SERVICE_TOKEN } from '@/common/constants';
@@ -44,6 +45,7 @@ describe('Gallery Controller (integration)', () => {
     getMessageCountBatch: jest.Mock;
     deleteByImageId: jest.Mock;
     enforceHistoryCap: jest.Mock;
+    invalidateCache: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -63,6 +65,7 @@ describe('Gallery Controller (integration)', () => {
       getMessageCountBatch: jest.fn().mockResolvedValue(new Map()),
       deleteByImageId: jest.fn(),
       enforceHistoryCap: jest.fn().mockResolvedValue(undefined),
+      invalidateCache: jest.fn().mockResolvedValue(undefined),
     };
 
     const mockMessageRepo = {
@@ -78,6 +81,7 @@ describe('Gallery Controller (integration)', () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ isGlobal: true, load: [() => ({})] }),
+        CacheModule,
         UploadModule,
       ],
     })

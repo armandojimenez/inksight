@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Repository } from 'typeorm';
 import { HistoryService } from '@/history/history.service';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
@@ -12,6 +13,12 @@ describe('HistoryService', () => {
       'save' | 'create' | 'findAndCount' | 'find' | 'count' | 'remove' | 'delete' | 'createQueryBuilder'
     >
   >;
+  let mockCache: {
+    get: jest.Mock;
+    set: jest.Mock;
+    del: jest.Mock;
+    reset: jest.Mock;
+  };
   let mockQueryBuilder: {
     delete: jest.Mock;
     select: jest.Mock;
@@ -47,12 +54,23 @@ describe('HistoryService', () => {
       createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder) as jest.Mock,
     };
 
+    mockCache = {
+      get: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn().mockResolvedValue(undefined),
+      del: jest.fn().mockResolvedValue(undefined),
+      reset: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         HistoryService,
         {
           provide: getRepositoryToken(ChatMessageEntity),
           useValue: repo,
+        },
+        {
+          provide: CACHE_MANAGER,
+          useValue: mockCache,
         },
       ],
     }).compile();
@@ -391,6 +409,87 @@ describe('HistoryService', () => {
       await service.deleteByImageId(IMAGE_ID_A);
 
       expect(repo.delete).toHaveBeenCalledWith({ imageId: IMAGE_ID_A });
+    });
+
+    it('should invalidate cache after deleting', async () => {
+      repo.delete.mockResolvedValue({ affected: 5, raw: [] });
+
+      await service.deleteByImageId(IMAGE_ID_A);
+
+      expect(mockCache.del).toHaveBeenCalledWith(`history:${IMAGE_ID_A}`);
+      expect(mockCache.del).toHaveBeenCalledWith(`recent:${IMAGE_ID_A}`);
+    });
+  });
+
+  describe('cache behavior', () => {
+    it('addMessage should invalidate cache after DB write', async () => {
+      const entity = { id: 'msg-1' } as ChatMessageEntity;
+      repo.create.mockReturnValue(entity);
+      repo.save.mockResolvedValue(entity);
+
+      await service.addMessage(IMAGE_ID_A, 'user', 'Hello');
+
+      expect(mockCache.del).toHaveBeenCalledWith(`history:${IMAGE_ID_A}`);
+      expect(mockCache.del).toHaveBeenCalledWith(`recent:${IMAGE_ID_A}`);
+    });
+
+    it('getHistory should call cache get/set for default params', async () => {
+      repo.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.getHistory(IMAGE_ID_A);
+
+      expect(mockCache.get).toHaveBeenCalledWith(`history:${IMAGE_ID_A}`);
+      expect(mockCache.set).toHaveBeenCalledWith(
+        `history:${IMAGE_ID_A}`,
+        { messages: [], total: 0 },
+      );
+    });
+
+    it('getHistory should NOT cache non-default pagination', async () => {
+      repo.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.getHistory(IMAGE_ID_A, 2, 20);
+
+      expect(mockCache.get).not.toHaveBeenCalled();
+      expect(mockCache.set).not.toHaveBeenCalled();
+    });
+
+    it('getRecentMessages should call cache get/set for default count', async () => {
+      repo.find.mockResolvedValue([]);
+
+      await service.getRecentMessages(IMAGE_ID_A);
+
+      expect(mockCache.get).toHaveBeenCalledWith(`recent:${IMAGE_ID_A}`);
+      expect(mockCache.set).toHaveBeenCalledWith(
+        `recent:${IMAGE_ID_A}`,
+        [],
+      );
+    });
+
+    it('getRecentMessages should NOT cache non-default count', async () => {
+      repo.find.mockResolvedValue([]);
+
+      await service.getRecentMessages(IMAGE_ID_A, 10);
+
+      expect(mockCache.get).not.toHaveBeenCalled();
+      expect(mockCache.set).not.toHaveBeenCalled();
+    });
+
+    it('enforceHistoryCap should invalidate cache when deleting messages', async () => {
+      repo.count.mockResolvedValue(53);
+
+      await service.enforceHistoryCap(IMAGE_ID_A);
+
+      expect(mockCache.del).toHaveBeenCalledWith(`history:${IMAGE_ID_A}`);
+      expect(mockCache.del).toHaveBeenCalledWith(`recent:${IMAGE_ID_A}`);
+    });
+
+    it('enforceHistoryCap should NOT invalidate when count is within cap', async () => {
+      repo.count.mockResolvedValue(50);
+
+      await service.enforceHistoryCap(IMAGE_ID_A);
+
+      expect(mockCache.del).not.toHaveBeenCalled();
     });
   });
 });

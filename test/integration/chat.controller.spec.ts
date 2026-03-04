@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as request from 'supertest';
 import { ChatModule } from '@/chat/chat.module';
+import { CacheModule } from '@/cache/cache.module';
 import { ImageEntity } from '@/upload/entities/image.entity';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { AI_SERVICE_TOKEN } from '@/common/constants';
@@ -67,6 +68,7 @@ describe('ChatController (integration)', () => {
       getMessageCount: jest.fn().mockResolvedValue(0),
       deleteByImageId: jest.fn(),
       enforceHistoryCap: jest.fn().mockResolvedValue(undefined),
+      invalidateCache: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -75,6 +77,7 @@ describe('ChatController (integration)', () => {
           isGlobal: true,
           load: [() => ({})],
         }),
+        CacheModule,
         ChatModule,
       ],
     })

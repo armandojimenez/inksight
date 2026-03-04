@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as request from 'supertest';
 import { HistoryModule } from '@/history/history.module';
+import { CacheModule } from '@/cache/cache.module';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { ImageEntity } from '@/upload/entities/image.entity';
 import { setupApp } from '@/common/setup-app';
@@ -55,6 +56,7 @@ describe('HistoryController (integration)', () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ isGlobal: true, load: [() => ({})] }),
+        CacheModule,
         HistoryModule,
       ],
     })

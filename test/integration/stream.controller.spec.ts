@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import * as request from 'supertest';
 import * as http from 'http';
 import { ChatModule } from '@/chat/chat.module';
+import { CacheModule } from '@/cache/cache.module';
 import { ImageEntity } from '@/upload/entities/image.entity';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { AI_SERVICE_TOKEN } from '@/common/constants';
@@ -168,11 +169,13 @@ describe('StreamController (integration)', () => {
       getMessageCount: jest.fn().mockResolvedValue(0),
       deleteByImageId: jest.fn(),
       enforceHistoryCap: jest.fn().mockResolvedValue(undefined),
+      invalidateCache: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ isGlobal: true, load: [() => ({})] }),
+        CacheModule,
         ChatModule,
       ],
     })

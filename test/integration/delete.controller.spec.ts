@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import * as request from 'supertest';
 import * as fsPromises from 'fs/promises';
 import { UploadModule } from '@/upload/upload.module';
+import { CacheModule } from '@/cache/cache.module';
 import { ImageEntity } from '@/upload/entities/image.entity';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { AI_SERVICE_TOKEN } from '@/common/constants';
@@ -58,6 +59,7 @@ describe('Delete Controller (integration)', () => {
       getMessageCount: jest.fn().mockResolvedValue(0),
       deleteByImageId: jest.fn(),
       enforceHistoryCap: jest.fn().mockResolvedValue(undefined),
+      invalidateCache: jest.fn().mockResolvedValue(undefined),
     };
 
     const mockMessageRepo = {
@@ -73,6 +75,7 @@ describe('Delete Controller (integration)', () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ isGlobal: true, load: [() => ({})] }),
+        CacheModule,
         UploadModule,
       ],
     })
