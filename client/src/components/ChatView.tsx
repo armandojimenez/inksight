@@ -42,6 +42,7 @@ export function ChatView({ image }: ChatViewProps) {
         <span className="truncate text-sm font-medium text-neutral-600">
           {image.originalFilename}
         </span>
+        <h2 className="sr-only">Chat</h2>
       </div>
 
       {/* Messages area */}

@@ -48,7 +48,11 @@ export function ChatInput({ onSend, isStreaming, disabled }: ChatInputProps) {
 
   return (
     <div className="flex items-end gap-2 border-t border-neutral-100 bg-neutral-0 p-3">
+      <label htmlFor="chat-message-input" className="sr-only">
+        Message input
+      </label>
       <textarea
+        id="chat-message-input"
         ref={textareaRef}
         value={value}
         onChange={handleChange}
@@ -56,7 +60,6 @@ export function ChatInput({ onSend, isStreaming, disabled }: ChatInputProps) {
         disabled={isDisabled}
         maxLength={MAX_MESSAGE_LENGTH}
         placeholder="Ask about this image..."
-        aria-label="Message input"
         rows={1}
         className={cn(
           'min-w-0 flex-1 resize-none rounded bg-neutral-0 px-4 py-3',

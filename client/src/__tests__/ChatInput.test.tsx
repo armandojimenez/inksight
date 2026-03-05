@@ -117,11 +117,12 @@ describe('ChatInput', () => {
     expect(textarea).toBeDisabled();
   });
 
-  it('has aria-label on textarea', () => {
+  it('has associated label on textarea', () => {
     render(<ChatInput onSend={onSend} isStreaming={false} />);
 
-    const textarea = screen.getByRole('textbox');
-    expect(textarea).toHaveAttribute('aria-label', 'Message input');
+    const textarea = screen.getByLabelText('Message input');
+    expect(textarea).toBeInTheDocument();
+    expect(textarea.tagName).toBe('TEXTAREA');
   });
 
   it('send button has aria-label', () => {
