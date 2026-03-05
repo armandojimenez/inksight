@@ -6,6 +6,20 @@ export interface MessageBubbleProps {
   isStreaming?: boolean;
 }
 
+function formatRelativeTime(timestamp: string): string {
+  const now = Date.now();
+  const then = new Date(timestamp).getTime();
+  const diffSeconds = Math.floor((now - then) / 1000);
+
+  if (diffSeconds < 60) return 'just now';
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
+}
+
 export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
   const isUser = message.role === 'user';
 
@@ -37,6 +51,15 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
         >
           {message.content}
         </p>
+        <time
+          dateTime={message.timestamp}
+          className={cn(
+            'mt-1 block text-xs',
+            isUser ? 'text-white/70' : 'text-neutral-300',
+          )}
+        >
+          {formatRelativeTime(message.timestamp)}
+        </time>
       </article>
     </div>
   );
