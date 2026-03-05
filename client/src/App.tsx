@@ -1,42 +1,19 @@
-import { useState } from 'react';
-import { Toaster, toast } from 'sonner';
-import { UploadView } from '@/components/UploadView';
-import type { UploadResponse } from '@/types';
+import { Toaster } from 'sonner';
+import { AppLayout } from '@/components/AppLayout';
 
 function App() {
-  const [uploaded, setUploaded] = useState<UploadResponse | null>(null);
-
   return (
     <>
-      {uploaded ? (
-        <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-neutral-25 p-4 sm:p-8">
-          <div className="max-w-lg rounded border border-success-500 bg-success-50 p-6 text-center">
-            <p className="font-display text-xl font-semibold text-neutral-700">
-              Upload successful!
-            </p>
-            <p className="mt-2 break-all text-sm text-neutral-500">
-              ID: {uploaded.id}
-            </p>
-            <p className="truncate text-sm text-neutral-500">
-              File: {uploaded.filename} ({(uploaded.size / 1024).toFixed(1)} KB)
-            </p>
-          </div>
-          <button
-            className="rounded bg-primary-500 px-4 py-2 text-sm font-bold text-white hover:bg-primary-600 focus-visible:outline-none focus-visible:[box-shadow:var(--shadow-focus)]"
-            onClick={() => setUploaded(null)}
-          >
-            Upload another
-          </button>
-        </div>
-      ) : (
-        <UploadView
-          onUploadComplete={(image) => {
-            setUploaded(image);
-            toast.success(`Uploaded ${image.filename}`);
-          }}
-        />
-      )}
-      <Toaster position="bottom-right" />
+      <AppLayout />
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          classNames: {
+            success: 'border-l-4 border-l-success-500',
+            error: 'border-l-4 border-l-error-500',
+          },
+        }}
+      />
     </>
   );
 }
