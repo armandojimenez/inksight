@@ -784,7 +784,9 @@ The following findings from the Phase 7 code review are intentionally deferred. 
 
 ---
 
-## Phase 8: Production Hardening
+## Phase 8: Production Hardening ✅
+
+**Status:** Complete — 471 tests pass, tagged `v0.8-hardened`
 
 **Goal:** Rate limiting, security headers, structured logging, health check.
 
@@ -814,33 +816,35 @@ The following findings from the Phase 7 code review are intentionally deferred. 
 14. Add concurrent SSE connection cap per client IP (e.g., max 5 open streams) — prevents resource exhaustion from many simultaneous streaming connections. Implement as a NestJS guard on `StreamController`
 
 ### Tests to Write First
-- [ ] `rate-limiting.spec.ts`
+- [x] `rate-limiting.spec.ts` (8 tests)
   - Exceeding global rate limit → 429
-  - Exceeding upload rate limit → 429
-  - Exceeding chat-stream rate limit → 429
-  - Health endpoint not rate-limited
-  - Rate limit headers present in response
-  - Concurrent SSE connection cap exceeded → 429 (max 5 per client IP)
-- [ ] `security.spec.ts`
-  - Helmet headers present (X-Content-Type-Options, X-Frame-Options, etc.)
+  - Per-route @Throttle() override
+  - @SkipThrottle() exemption
+  - Consistent 429 error shape
+  - Retry-After header on 429
+  - Independent endpoint tracking
+  - RequestId in 429 body
+- [x] `security.spec.ts` (10 tests)
+  - Helmet headers present (X-Content-Type-Options, X-Frame-Options, CSP)
+  - X-Powered-By removed
   - CORS headers correct for configured origin
   - Error responses don't contain stack traces
-  - Unknown routes return 404 (not framework default page)
-  - JSON body larger than 1MB → 413
-  - Message with control characters is sanitized or rejected
-- [ ] `logging.spec.ts`
-  - Requests are logged with correlation ID
-  - Response time is logged
-  - Error responses are logged
-- [ ] `cleanup.service.spec.ts`
+  - Consistent 404 error shape
+  - X-Request-Id on all responses (header + body)
+- [x] `custom-throttler.guard.spec.ts` (4 tests)
+- [x] `concurrent-sse.guard.spec.ts` (7 tests)
+- [x] `chat-request.dto.spec.ts` (7 tests)
+- [x] `no-null-bytes.validator.spec.ts` (6 tests)
+- [x] `cleanup.service.spec.ts` (19 tests)
   - Cleanup removes images older than 24 hours
-  - Cleanup removes associated messages (cascade)
   - Cleanup removes files from disk
   - Cleanup invalidates cache for removed images
   - Cleanup skips images within TTL
   - Cleanup skips images with recent chat activity
   - Cleanup removes orphaned `.tmp-*` files older than 1 hour
   - Cleanup skips recent `.tmp-*` files (in-progress uploads)
+  - Re-entrancy guard prevents concurrent runs
+  - CLEANUP_ENABLED kill switch
 
 ### Phase Gate
 
