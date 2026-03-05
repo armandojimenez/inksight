@@ -864,7 +864,7 @@ export class AppModule {}
 |------|-------------------|-----|---------------------|
 | Image metadata | `image:{imageId}` | 10 min | Image delete |
 | Chat history | `history:{imageId}` | 5 min | New message added |
-| Last 10 messages | `recent:{imageId}` | 5 min | New message added |
+| Recent messages (last 50, default cap) | `recent:{imageId}` | 5 min | New message added |
 
 ### 8.4 Write-Through Invalidation
 
@@ -878,50 +878,45 @@ export class HistoryService {
     @InjectRepository(ChatMessageEntity) private msgRepo: Repository<ChatMessageEntity>,
   ) {}
 
-  async addMessage(imageId: string, role: string, content: string) {
-    // Write to DB
-    await this.msgRepo.save({ imageId, role, content });
-
-    // Enforce 50-message cap per image (FIFO retention)
-    const count = await this.msgRepo.count({ where: { imageId } });
-    if (count > 50) {
-      const oldest = await this.msgRepo.find({
-        where: { imageId },
-        order: { createdAt: 'ASC' },
-        take: count - 50,
-      });
-      await this.msgRepo.remove(oldest);
-    }
-
-    // Invalidate cache
-    await this.cacheManager.del(`history:${imageId}`);
-    await this.cacheManager.del(`recent:${imageId}`);
+  async addMessage(imageId: string, role: MessageRole, content: string, tokenCount?: number) {
+    const entity = this.msgRepo.create({ imageId, role, content, tokenCount });
+    // Retry once on transient DB failure
+    const saved = await withRetry(() => this.msgRepo.save(entity), { attempts: 2, delayMs: 200 });
+    // Invalidate both history and recent caches via single method
+    await this.invalidateCache(imageId);
+    return saved;
+    // Note: enforceHistoryCap() is called by ChatService after the full
+    // request (user + assistant) — not inline here.
   }
 
-  async getHistory(
-    imageId: string,
-    page = 1,
-    limit = 20,
-  ): Promise<{ messages: ChatMessageEntity[]; total: number }> {
-    const cacheKey = `history:${imageId}:${page}:${limit}`;
+  async getHistory(imageId: string, page = 1, limit = DEFAULT_PAGE_SIZE) {
+    // Flat cache key — only caches page 1 with default limit (see ADR-007)
+    const useCache = page === 1 && limit === DEFAULT_PAGE_SIZE;
+    const cacheKey = CACHE_KEYS.history(imageId);
 
-    // Check cache first
-    const cached = await this.cacheManager.get<{ messages: ChatMessageEntity[]; total: number }>(cacheKey);
-    if (cached) return cached;
+    if (useCache) {
+      const cached = await this.cacheManager.get(cacheKey);
+      if (cached) return cached;
+    }
 
-    // Cache miss — query DB with pagination
     const [messages, total] = await this.msgRepo.findAndCount({
       where: { imageId },
       order: { createdAt: 'ASC' },
       skip: (page - 1) * limit,
-      take: Math.min(limit, 50), // Hard cap at 50 per page
+      take: limit,
     });
-
     const result = { messages, total };
 
-    // Store in cache
-    await this.cacheManager.set(cacheKey, result, 300_000);
+    if (useCache) await this.cacheManager.set(cacheKey, result);
     return result;
+  }
+
+  async invalidateCache(imageId: string) {
+    // Uses Promise.allSettled so both deletes are always attempted
+    await Promise.allSettled([
+      this.cacheManager.del(CACHE_KEYS.history(imageId)),
+      this.cacheManager.del(CACHE_KEYS.recent(imageId)),
+    ]);
   }
 }
 ```

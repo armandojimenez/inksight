@@ -778,6 +778,9 @@ The following findings from the Phase 7 code review are intentionally deferred. 
 | CleanupService cache invalidation (call `invalidateCache` + `del('image:{id}')` per deleted image) | Phase 8 (Task 8) | CleanupModule is still a stub; `invalidateCache()` method will be ready from Phase 7 |
 | `listImages()` / `getMessageCountBatch()` caching | Not planned | Volatile data (uploads/deletes), cache invalidation complexity for multi-entity paginated results not justified for MVP |
 | In-memory store serialization behavior (returns same object reference, no round-trip) | Redis upgrade path | When switching to Redis, cached data will be serialized — class instances become plain objects. Acceptable for MVP. |
+| `getHistory` caches full TypeORM entities (prototype lost on clone) | Redis upgrade | `useClone: true` handles mutation safety; entity-to-DTO in cache is a serialization concern |
+| `ImageEntity` cached with `uploadPath` (filesystem path) | Redis upgrade | Needed for serving; Redis ACLs should restrict namespace access |
+| Cache stampede / singleflight on concurrent cold-cache reads | Redis upgrade | In-memory single-process, duplicate DB reads sub-ms; Redis network hops make it worth solving |
 
 ---
 
