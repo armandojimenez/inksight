@@ -5,12 +5,13 @@ export interface ChatInputProps {
   onSend: (message: string) => void;
   isStreaming: boolean;
   disabled?: boolean;
+  errorId?: string;
 }
 
 const MAX_MESSAGE_LENGTH = 4000;
 const MAX_TEXTAREA_HEIGHT = 160; // ~4 lines at 16px/24px line-height
 
-export function ChatInput({ onSend, isStreaming, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, isStreaming, disabled, errorId }: ChatInputProps) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -60,10 +61,12 @@ export function ChatInput({ onSend, isStreaming, disabled }: ChatInputProps) {
         disabled={isDisabled}
         maxLength={MAX_MESSAGE_LENGTH}
         placeholder="Ask about this image..."
+        aria-describedby={errorId}
         rows={1}
+        style={{ maxHeight: 'min(160px, 30vh)' }}
         className={cn(
           'min-w-0 flex-1 resize-none rounded bg-neutral-0 px-4 py-3',
-          'text-base text-neutral-600 placeholder:text-neutral-300',
+          'text-base text-neutral-600 placeholder:text-neutral-400',
           'border border-neutral-200 transition-colors',
           'focus:border-primary-500 focus:outline-none focus-visible:[box-shadow:var(--shadow-focus)]',
           'disabled:cursor-not-allowed disabled:opacity-50',

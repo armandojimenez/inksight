@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useStreamingChat } from '@/hooks/useStreamingChat';
 import { getImageFileUrl } from '@/lib/api';
 import { ChatInput } from '@/components/ChatInput';
@@ -17,13 +17,25 @@ const SUGGESTED_QUESTIONS = [
   'What text can you read?',
 ];
 
+const SCROLL_THRESHOLD = 100;
+const CHAT_ERROR_ID = 'chat-error';
+
 export function ChatView({ image }: ChatViewProps) {
   const { messages, sendMessage, isStreaming, error } = useStreamingChat(image.id);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
 
-  // Auto-scroll to bottom on new messages
+  const handleScroll = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    isNearBottomRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_THRESHOLD;
+  }, []);
+
+  // Smart auto-scroll: only when user is near bottom
   useEffect(() => {
-    if (typeof scrollRef.current?.scrollIntoView === 'function') {
+    if (isNearBottomRef.current && typeof scrollRef.current?.scrollIntoView === 'function') {
       scrollRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
@@ -47,8 +59,11 @@ export function ChatView({ image }: ChatViewProps) {
 
       {/* Messages area */}
       <div
+        ref={containerRef}
+        onScroll={handleScroll}
         role="log"
         aria-label="Chat messages"
+        aria-live="polite"
         aria-busy={isStreaming}
         className="flex-1 overflow-y-auto py-4 pl-6 pr-4"
       >
@@ -101,6 +116,7 @@ export function ChatView({ image }: ChatViewProps) {
       {/* Error display */}
       {error && (
         <div
+          id={CHAT_ERROR_ID}
           role="alert"
           className="border-t border-error-500 bg-error-50 px-4 py-2 text-sm text-error-500"
         >
@@ -112,6 +128,7 @@ export function ChatView({ image }: ChatViewProps) {
       <ChatInput
         onSend={sendMessage}
         isStreaming={isStreaming}
+        errorId={error ? CHAT_ERROR_ID : undefined}
       />
     </div>
   );

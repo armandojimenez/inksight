@@ -11,7 +11,7 @@ import type { ImageData, UploadResponse } from '@/types';
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(() =>
-    typeof window !== 'undefined' ? window.matchMedia(query).matches : false,
+    window.matchMedia(query).matches,
   );
 
   useEffect(() => {
@@ -38,11 +38,11 @@ export function AppLayout() {
     const controller = new AbortController();
     getImages(undefined, controller.signal)
       .then((res) => {
-        setImages(res.images as ImageData[]);
+        setImages([...res.images]);
       })
       .catch(() => {
         if (!controller.signal.aborted) {
-          toast.error('Failed to load images');
+          toast.error('Failed to load images', { duration: Infinity });
         }
       })
       .finally(() => {
@@ -70,18 +70,20 @@ export function AppLayout() {
   }, []);
 
   const handleDeleteImage = useCallback(async (imageId: string) => {
-    const imageToDelete = images.find((img) => img.id === imageId);
     try {
       await apiDeleteImage(imageId);
-      setImages((prev) => prev.filter((img) => img.id !== imageId));
-      if (selectedImageId === imageId) {
-        setSelectedImageId(null);
-      }
-      toast.success(`Deleted ${imageToDelete?.originalFilename ?? 'image'}`);
+      let deletedName = 'image';
+      setImages((prev) => {
+        const target = prev.find((img) => img.id === imageId);
+        if (target) deletedName = target.originalFilename;
+        return prev.filter((img) => img.id !== imageId);
+      });
+      setSelectedImageId((prev) => (prev === imageId ? null : prev));
+      toast.success(`Deleted ${deletedName}`);
     } catch {
-      toast.error('Failed to delete image');
+      toast.error('Failed to delete image', { duration: Infinity });
     }
-  }, [images, selectedImageId]);
+  }, []);
 
   const handleSelectImage = useCallback((id: string) => {
     setSelectedImageId(id);
@@ -119,22 +121,32 @@ export function AppLayout() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isDesktop, sidebarOpen]);
 
-  // Focus trap in mobile sidebar overlay
+  // Dynamic focus trap in mobile sidebar overlay — re-queries on each Tab
   useEffect(() => {
     if (isDesktop || !sidebarOpen || !sidebarRef.current) return;
 
     const sidebar = sidebarRef.current;
-    const focusables = sidebar.querySelectorAll<HTMLElement>(
+
+    // Focus the first focusable element when opening
+    const initialFocusables = sidebar.querySelectorAll<HTMLElement>(
       'a, button, input, textarea, select, [tabindex]:not([tabindex="-1"])',
     );
-    if (focusables.length === 0) return;
-
-    const first = focusables[0]!;
-    const last = focusables[focusables.length - 1]!;
-    first.focus();
+    if (initialFocusables.length > 0) {
+      initialFocusables[0]!.focus();
+    }
 
     function handleTab(e: KeyboardEvent) {
       if (e.key !== 'Tab') return;
+
+      // Re-query on every Tab press to handle dynamic DOM changes (e.g., AlertDialog)
+      const focusables = sidebar.querySelectorAll<HTMLElement>(
+        'a, button, input, textarea, select, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+
+      const first = focusables[0]!;
+      const last = focusables[focusables.length - 1]!;
+
       if (e.shiftKey) {
         if (document.activeElement === first) {
           e.preventDefault();
@@ -159,8 +171,7 @@ export function AppLayout() {
       onSelectImage={handleSelectImage}
       onDeleteImage={handleDeleteImage}
       onNewUpload={handleNewUpload}
-      isOpen={sidebarOpen || isDesktop}
-      onToggle={handleToggleSidebar}
+      isLoading={isLoadingImages}
     />
   );
 
@@ -173,6 +184,9 @@ export function AppLayout() {
       >
         Skip to main content
       </a>
+
+      {/* App-wide h1 — visible to screen readers on all viewports */}
+      <h1 className="sr-only">Inksight</h1>
 
       {/* Mobile header — hidden on desktop */}
       {!isDesktop && (
@@ -190,7 +204,6 @@ export function AppLayout() {
             aria-hidden="true"
             className="h-[var(--logo-height-mobile)] w-auto text-primary-500"
           />
-          <h1 className="sr-only">Inksight</h1>
         </header>
       )}
 
@@ -198,17 +211,20 @@ export function AppLayout() {
         {/* Desktop sidebar — always visible */}
         {isDesktop && sidebarNode}
 
-        {/* Mobile sidebar overlay */}
+        {/* Mobile sidebar overlay with backdrop animation */}
         {!isDesktop && sidebarOpen && (
           <>
             <div
-              className="fixed inset-0 z-[var(--z-overlay)] bg-neutral-900/50"
+              className="fixed inset-0 z-[var(--z-overlay)] bg-neutral-900/50 animate-in fade-in-0 duration-200"
               onClick={handleCloseSidebar}
               aria-hidden="true"
             />
             <div
               ref={sidebarRef}
-              className="fixed inset-y-0 left-0 z-[var(--z-modal)] w-[var(--sidebar-width)] shadow-lg"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Image gallery"
+              className="fixed inset-y-0 left-0 z-[var(--z-modal)] w-[var(--sidebar-width)] shadow-lg animate-in slide-in-from-left duration-200"
             >
               {sidebarNode}
             </div>

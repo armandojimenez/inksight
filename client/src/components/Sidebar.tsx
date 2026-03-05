@@ -4,13 +4,15 @@ import { getImageFileUrl } from '@/lib/api';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Plus, Trash2 } from 'lucide-react';
 
 export interface SidebarProps {
@@ -19,14 +21,12 @@ export interface SidebarProps {
   onSelectImage: (id: string) => void;
   onDeleteImage: (id: string) => void;
   onNewUpload: () => void;
-  isOpen: boolean;
-  onToggle: () => void;
   isLoading?: boolean;
 }
 
 function SidebarSkeleton() {
   return (
-    <div className="py-2" aria-hidden="true">
+    <div className="py-2" aria-hidden="true" data-testid="sidebar-skeleton">
       {[1, 2, 3].map((i) => (
         <div key={i} className="flex items-center gap-3 px-4 py-2">
           <div className="h-10 w-10 rounded bg-neutral-100 animate-pulse flex-shrink-0" />
@@ -91,7 +91,7 @@ export function Sidebar({
             {images.map((image) => {
               const isActive = image.id === selectedImageId;
               return (
-                <li key={image.id} role="listitem">
+                <li key={image.id}>
                   <div
                     data-image-item
                     data-active={isActive || undefined}
@@ -99,7 +99,7 @@ export function Sidebar({
                       isActive
                         ? 'bg-primary-50 border-l-[3px] border-l-primary-500'
                         : 'border-l-[3px] border-l-transparent hover:bg-neutral-50'
-                    }`}
+                    } focus-visible:outline-none focus-visible:[box-shadow:var(--shadow-focus)]`}
                     onClick={() => onSelectImage(image.id)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -128,11 +128,11 @@ export function Sidebar({
                       </p>
                     </div>
 
-                    {/* Delete button */}
+                    {/* Delete button — visible on touch/mobile, hover on desktop */}
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex-shrink-0"
+                      className="h-8 w-8 flex-shrink-0 lg:opacity-0 lg:group-hover:opacity-100 focus-visible:opacity-100"
                       aria-label={`Delete ${image.originalFilename}`}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -161,26 +161,26 @@ export function Sidebar({
         </Button>
       </div>
 
-      {/* Delete confirmation dialog */}
-      <Dialog open={deleteTarget !== null} onOpenChange={(open) => !open && handleCancelDelete()}>
-        <DialogContent role="alertdialog">
-          <DialogHeader>
-            <DialogTitle>Are you sure?</DialogTitle>
-            <DialogDescription>
+      {/* Delete confirmation dialog — uses AlertDialog for correct alertdialog semantics */}
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && handleCancelDelete()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
               This will permanently delete &ldquo;{deleteTarget?.originalFilename}&rdquo; and all its
               chat messages. This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCancelDelete}>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDelete}>
               Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete}>
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete}>
               Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </nav>
   );
 }

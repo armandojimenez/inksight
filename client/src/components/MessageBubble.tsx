@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { MessageData } from '@/types';
 
@@ -6,10 +7,11 @@ export interface MessageBubbleProps {
   isStreaming?: boolean;
 }
 
-function formatRelativeTime(timestamp: string): string {
+export function formatRelativeTime(timestamp: string): string {
   const now = Date.now();
   const then = new Date(timestamp).getTime();
-  const diffSeconds = Math.floor((now - then) / 1000);
+  if (Number.isNaN(then)) return '';
+  const diffSeconds = Math.max(0, Math.floor((now - then) / 1000));
 
   if (diffSeconds < 60) return 'just now';
   const diffMinutes = Math.floor(diffSeconds / 60);
@@ -20,15 +22,26 @@ function formatRelativeTime(timestamp: string): string {
   return `${diffDays}d ago`;
 }
 
+function useRelativeTime(timestamp: string): string {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return formatRelativeTime(timestamp);
+}
+
 export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
   const isUser = message.role === 'user';
+  const relativeTime = useRelativeTime(message.timestamp);
 
   return (
     <div
       className={cn('flex', isUser ? 'justify-end' : 'justify-start')}
     >
       <article
-        role="article"
         aria-label={isUser ? 'Your message' : 'Assistant response'}
         data-role={message.role}
         className={cn(
@@ -55,10 +68,10 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
           dateTime={message.timestamp}
           className={cn(
             'mt-1 block text-xs',
-            isUser ? 'text-white/70' : 'text-neutral-300',
+            isUser ? 'text-white/70' : 'text-neutral-400',
           )}
         >
-          {formatRelativeTime(message.timestamp)}
+          {relativeTime}
         </time>
       </article>
     </div>
