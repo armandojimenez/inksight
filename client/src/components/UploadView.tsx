@@ -1,9 +1,208 @@
+import { useCallback, useRef, useState } from 'react';
+import { uploadImage } from '@/lib/api';
 import type { UploadResponse } from '@/types';
 
 export interface UploadViewProps {
   onUploadComplete: (image: UploadResponse) => void;
 }
 
-export function UploadView(_props: UploadViewProps) {
+const ALLOWED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif']);
+const MAX_FILE_SIZE = 16 * 1024 * 1024; // 16MB
+
+type UploadState =
+  | { status: 'idle' }
+  | { status: 'dragover' }
+  | { status: 'uploading' }
+  | { status: 'error'; message: string };
+
+function getExtension(filename: string): string {
+  const dot = filename.lastIndexOf('.');
+  return dot >= 0 ? filename.slice(dot).toLowerCase() : '';
+}
+
+function validateFile(file: File): string | null {
+  const ext = getExtension(file.name);
+  if (!ALLOWED_EXTENSIONS.has(ext)) {
+    return `File type not allowed. Accepted types: ${[...ALLOWED_EXTENSIONS].join(', ')}`;
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    return `File size exceeds the maximum allowed size of 16 MB`;
+  }
   return null;
+}
+
+export function UploadView({ onUploadComplete }: UploadViewProps) {
+  const [state, setState] = useState<UploadState>({ status: 'idle' });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const dragCounterRef = useRef(0);
+
+  const handleUpload = useCallback(
+    async (file: File) => {
+      const error = validateFile(file);
+      if (error) {
+        setState({ status: 'error', message: error });
+        return;
+      }
+
+      setState({ status: 'uploading' });
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const result = await uploadImage(file, controller.signal);
+        setState({ status: 'idle' });
+        onUploadComplete(result);
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        const message =
+          err instanceof Error ? err.message : 'Upload failed';
+        setState({ status: 'error', message });
+      }
+    },
+    [onUploadComplete],
+  );
+
+  const openFilePicker = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const onDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    setState((prev) =>
+      prev.status === 'uploading' ? prev : { status: 'dragover' },
+    );
+  }, []);
+
+  const onDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const onDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setState((prev) =>
+        prev.status === 'uploading' ? prev : { status: 'idle' },
+      );
+    }
+  }, []);
+
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current = 0;
+
+      const file = e.dataTransfer.files[0];
+      if (file) handleUpload(file);
+    },
+    [handleUpload],
+  );
+
+  const onFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) handleUpload(file);
+      // Reset so the same file can be re-selected
+      e.target.value = '';
+    },
+    [handleUpload],
+  );
+
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openFilePicker();
+      }
+    },
+    [openFilePicker],
+  );
+
+  const isDragover = state.status === 'dragover';
+  const isUploading = state.status === 'uploading';
+  const isError = state.status === 'error';
+
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center p-8"
+      style={{ background: 'var(--gradient-hero)' }}
+    >
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label="Upload image. Drag and drop or press Enter to browse. Accepts PNG, JPG, and GIF up to 16 megabytes."
+        data-dragover={isDragover ? 'true' : undefined}
+        onDragEnter={onDragEnter}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        onClick={openFilePicker}
+        onKeyDown={onKeyDown}
+        className={`
+          flex w-full max-w-lg cursor-pointer flex-col items-center gap-4 rounded p-12
+          transition-colors duration-[var(--transition-fast)]
+          focus-visible:outline-none focus-visible:[box-shadow:var(--shadow-focus)]
+          ${isDragover
+            ? 'border-2 border-solid border-primary-500 bg-primary-50'
+            : isError
+              ? 'border-2 border-solid border-error-500 bg-error-50'
+              : isUploading
+                ? 'border-2 border-solid border-primary-500 bg-neutral-25'
+                : 'border-2 border-dashed border-neutral-200 bg-neutral-25'
+          }
+        `}
+      >
+        <img
+          src="/inksight-icon.svg"
+          alt="Inksight"
+          className="text-neutral-300"
+          style={{ height: 'var(--logo-height-hero)' }}
+        />
+
+        {isUploading ? (
+          <div className="flex flex-col items-center gap-2">
+            <div className="h-1 w-48 overflow-hidden rounded-full bg-neutral-100">
+              <div className="h-full animate-pulse rounded-full bg-primary-500" style={{ width: '60%' }} />
+            </div>
+            <p className="text-sm text-neutral-500">Uploading...</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-center text-neutral-500">
+              Drop an image here, or{' '}
+              <span className="font-semibold text-primary-500 underline">
+                browse
+              </span>
+            </p>
+            <p className="text-sm text-neutral-400">
+              PNG, JPG, GIF — up to 16 MB
+            </p>
+          </>
+        )}
+
+        {isError && (
+          <p role="alert" className="text-sm text-error-500">
+            {state.message}
+          </p>
+        )}
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/gif"
+        className="hidden"
+        onChange={onFileChange}
+        aria-hidden="true"
+      />
+    </div>
+  );
 }
