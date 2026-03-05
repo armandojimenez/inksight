@@ -1,13 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { UploadView } from '@/components/UploadView';
 import type { UploadResponse } from '@/types';
 
-// Mock the API module
-vi.mock('@/lib/api', () => ({
-  uploadImage: vi.fn(),
-}));
+// Preserve all exports from the API module; only override uploadImage.
+vi.mock('@/lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api')>();
+  return { ...actual, uploadImage: vi.fn() };
+});
 
 import { uploadImage } from '@/lib/api';
 
@@ -38,6 +39,10 @@ describe('UploadView', () => {
     onUploadComplete = vi.fn<(image: UploadResponse) => void>();
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   it('renders drop zone with correct text', () => {
     render(<UploadView onUploadComplete={onUploadComplete} />);
 
@@ -50,8 +55,10 @@ describe('UploadView', () => {
   it('renders Inksight icon', () => {
     render(<UploadView onUploadComplete={onUploadComplete} />);
 
-    const icon = screen.getByAltText(/inksight/i);
-    expect(icon).toBeInTheDocument();
+    // InksightIcon is an inline SVG; query by role since there's no alt text
+    const icon = screen.getByRole('button', { name: /upload image/i });
+    const svg = icon.querySelector('svg');
+    expect(svg).toBeInTheDocument();
   });
 
   it('has correct aria-label on drop zone', () => {
@@ -68,7 +75,18 @@ describe('UploadView', () => {
     expect(dropZone).toHaveAttribute('tabIndex', '0');
   });
 
+  // fireEvent is used for drag events because userEvent v14 does not
+  // support the full DnD event sequence (dragenter/dragover/dragleave/drop).
+  // userEvent is used for click/keyboard interactions where it provides
+  // more realistic browser event simulation.
   describe('drag events', () => {
+    it('starts without dragover state', () => {
+      render(<UploadView onUploadComplete={onUploadComplete} />);
+
+      const dropZone = screen.getByRole('button', { name: /upload image/i });
+      expect(dropZone).not.toHaveAttribute('data-dragover');
+    });
+
     it('shows active state on dragenter', () => {
       render(<UploadView onUploadComplete={onUploadComplete} />);
 
@@ -89,7 +107,7 @@ describe('UploadView', () => {
       });
       fireEvent.dragLeave(dropZone);
 
-      expect(dropZone).not.toHaveAttribute('data-dragover', 'true');
+      expect(dropZone).not.toHaveAttribute('data-dragover');
     });
 
     it('triggers upload on drop', async () => {
@@ -110,28 +128,48 @@ describe('UploadView', () => {
   });
 
   describe('click to browse', () => {
-    it('triggers file input on click', async () => {
+    it('triggers file input click on click', async () => {
       const user = userEvent.setup();
       render(<UploadView onUploadComplete={onUploadComplete} />);
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const clickSpy = vi.spyOn(fileInput, 'click');
 
       const browseText = screen.getByText(/browse/i);
       await user.click(browseText);
 
-      // File input should exist in the DOM
-      const fileInput = document.querySelector('input[type="file"]');
-      expect(fileInput).toBeInTheDocument();
+      expect(clickSpy).toHaveBeenCalled();
+      clickSpy.mockRestore();
     });
 
-    it('triggers file input on Enter key', async () => {
+    it('triggers file input click on Enter key', async () => {
       const user = userEvent.setup();
       render(<UploadView onUploadComplete={onUploadComplete} />);
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const clickSpy = vi.spyOn(fileInput, 'click');
 
       const dropZone = screen.getByRole('button', { name: /upload image/i });
       dropZone.focus();
       await user.keyboard('{Enter}');
 
-      const fileInput = document.querySelector('input[type="file"]');
-      expect(fileInput).toBeInTheDocument();
+      expect(clickSpy).toHaveBeenCalled();
+      clickSpy.mockRestore();
+    });
+
+    it('triggers file input click on Space key', async () => {
+      const user = userEvent.setup();
+      render(<UploadView onUploadComplete={onUploadComplete} />);
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const clickSpy = vi.spyOn(fileInput, 'click');
+
+      const dropZone = screen.getByRole('button', { name: /upload image/i });
+      dropZone.focus();
+      await user.keyboard(' ');
+
+      expect(clickSpy).toHaveBeenCalled();
+      clickSpy.mockRestore();
     });
   });
 
@@ -183,11 +221,59 @@ describe('UploadView', () => {
         expect(screen.getByRole('alert')).toBeInTheDocument();
       });
     });
+
+    it('accepts .gif files', async () => {
+      const file = createFile('animation.gif', 1024, 'image/gif');
+      mockUploadImage.mockResolvedValue(mockUploadResponse);
+
+      render(<UploadView onUploadComplete={onUploadComplete} />);
+
+      const dropZone = screen.getByRole('button', { name: /upload image/i });
+      fireEvent.drop(dropZone, {
+        dataTransfer: { files: [file] },
+      });
+
+      await waitFor(() => {
+        expect(mockUploadImage).toHaveBeenCalledWith(file, expect.any(AbortSignal));
+      });
+    });
+
+    it('accepts .jpeg files', async () => {
+      const file = createFile('photo.jpeg', 1024, 'image/jpeg');
+      mockUploadImage.mockResolvedValue(mockUploadResponse);
+
+      render(<UploadView onUploadComplete={onUploadComplete} />);
+
+      const dropZone = screen.getByRole('button', { name: /upload image/i });
+      fireEvent.drop(dropZone, {
+        dataTransfer: { files: [file] },
+      });
+
+      await waitFor(() => {
+        expect(mockUploadImage).toHaveBeenCalledWith(file, expect.any(AbortSignal));
+      });
+    });
+
+    it('rejects multiple files with a helpful message', async () => {
+      const file1 = createFile('a.png', 1024, 'image/png');
+      const file2 = createFile('b.png', 1024, 'image/png');
+
+      render(<UploadView onUploadComplete={onUploadComplete} />);
+
+      const dropZone = screen.getByRole('button', { name: /upload image/i });
+      fireEvent.drop(dropZone, {
+        dataTransfer: { files: [file1, file2] },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent(/only one image/i);
+      });
+      expect(mockUploadImage).not.toHaveBeenCalled();
+    });
   });
 
   describe('upload progress', () => {
     it('shows uploading state during upload', async () => {
-      // Make uploadImage hang so we can observe the loading state
       mockUploadImage.mockImplementation(
         () => new Promise(() => {}), // never resolves
       );
@@ -204,6 +290,54 @@ describe('UploadView', () => {
       await waitFor(() => {
         expect(screen.getByText(/uploading/i)).toBeInTheDocument();
       });
+    });
+
+    it('sets aria-busy during upload', async () => {
+      mockUploadImage.mockImplementation(
+        () => new Promise(() => {}),
+      );
+
+      const file = createFile('photo.png', 1024, 'image/png');
+
+      render(<UploadView onUploadComplete={onUploadComplete} />);
+
+      const dropZone = screen.getByRole('button', { name: /upload image/i });
+      fireEvent.drop(dropZone, {
+        dataTransfer: { files: [file] },
+      });
+
+      await waitFor(() => {
+        expect(dropZone).toHaveAttribute('aria-busy', 'true');
+      });
+    });
+
+    it('blocks drop during active upload', async () => {
+      mockUploadImage.mockImplementation(
+        () => new Promise(() => {}),
+      );
+
+      const file1 = createFile('first.png', 1024, 'image/png');
+      const file2 = createFile('second.png', 1024, 'image/png');
+
+      render(<UploadView onUploadComplete={onUploadComplete} />);
+
+      const dropZone = screen.getByRole('button', { name: /upload image/i });
+
+      // Start first upload
+      fireEvent.drop(dropZone, {
+        dataTransfer: { files: [file1] },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText(/uploading/i)).toBeInTheDocument();
+      });
+
+      // Second drop is ignored
+      fireEvent.drop(dropZone, {
+        dataTransfer: { files: [file2] },
+      });
+
+      expect(mockUploadImage).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -271,6 +405,35 @@ describe('UploadView', () => {
       await waitFor(() => {
         expect(onUploadComplete).toHaveBeenCalledWith(mockUploadResponse);
       });
+
+      // Alert should be gone after successful retry
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('preserves error state through drag-then-leave without drop', async () => {
+      const file = createFile('doc.pdf', 1024, 'application/pdf');
+
+      render(<UploadView onUploadComplete={onUploadComplete} />);
+
+      const dropZone = screen.getByRole('button', { name: /upload image/i });
+
+      // Trigger an error
+      fireEvent.drop(dropZone, {
+        dataTransfer: { files: [file] },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toBeInTheDocument();
+      });
+
+      // Drag over and leave without dropping
+      fireEvent.dragEnter(dropZone, {
+        dataTransfer: { types: ['Files'] },
+      });
+      fireEvent.dragLeave(dropZone);
+
+      // Error should still be visible
+      expect(screen.getByRole('alert')).toBeInTheDocument();
     });
   });
 });

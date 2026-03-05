@@ -1205,7 +1205,7 @@ cd client && npm test -- --run UploadView
 7. **Implement `ChatView`**
    - Image preview thumbnail at top
    - Message list using `MessageBubble` components
-   - Empty state with Inksight icon + 3 suggested questions (`→ What objects are in this image?`, `→ Describe the colors and mood`, `→ What text can you read?`)
+   - Empty state with Inksight icon (reuse `InksightIcon` component from Phase 10b) + 3 suggested questions (`→ What objects are in this image?`, `→ Describe the colors and mood`, `→ What text can you read?`)
    - Auto-scroll via `scrollIntoView` on new messages — requires adding a `viewportRef` prop to `ScrollArea` (the default shadcn/ui ScrollArea does not forward a ref to the Radix `Viewport`, so extend it to accept one; deferred from Phase 10a review)
    - Streaming indicator (pulsing dots in `primary-400`)
    - Integrates `ChatInput` at bottom
@@ -1277,6 +1277,7 @@ cd client && npm test -- --run Sidebar
    - Right: `ChatView` (when image selected) or `UploadView` (when no image selected)
    - State management: `selectedImageId`, `images` list
    - Flow: Upload completes → image added to sidebar → auto-selected → ChatView shows with initial AI analysis
+   - **Callback stability (from 10b review):** Wrap `onUploadComplete` and other callbacks passed to child components in `useCallback` to prevent unnecessary re-creation of memoized handlers in children
 
 2. **Optimistic updates** — user message appears in chat immediately before server round-trip confirms
    - Add message to local state with `role: 'user'` immediately on send

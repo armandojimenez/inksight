@@ -1,5 +1,7 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { uploadImage } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { InksightIcon } from '@/components/InksightIcon';
 import type { UploadResponse } from '@/types';
 
 export interface UploadViewProps {
@@ -7,6 +9,7 @@ export interface UploadViewProps {
 }
 
 const ALLOWED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif']);
+const ALLOWED_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif']);
 const MAX_FILE_SIZE = 16 * 1024 * 1024; // 16MB
 
 type UploadState =
@@ -22,7 +25,7 @@ function getExtension(filename: string): string {
 
 function validateFile(file: File): string | null {
   const ext = getExtension(file.name);
-  if (!ALLOWED_EXTENSIONS.has(ext)) {
+  if (!ALLOWED_EXTENSIONS.has(ext) && !ALLOWED_MIME_TYPES.has(file.type)) {
     return `File type not allowed. Accepted types: ${[...ALLOWED_EXTENSIONS].join(', ')}`;
   }
   if (file.size > MAX_FILE_SIZE) {
@@ -36,6 +39,23 @@ export function UploadView({ onUploadComplete }: UploadViewProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const dragCounterRef = useRef(0);
+  const prevErrorRef = useRef<string | null>(null);
+
+  // Abort in-flight upload on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  // Track the most recent error so dragleave can restore it
+  useEffect(() => {
+    if (state.status === 'error') {
+      prevErrorRef.current = state.message;
+    } else if (state.status === 'uploading' || state.status === 'idle') {
+      prevErrorRef.current = null;
+    }
+  }, [state]);
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -88,9 +108,14 @@ export function UploadView({ onUploadComplete }: UploadViewProps) {
     dragCounterRef.current -= 1;
     if (dragCounterRef.current <= 0) {
       dragCounterRef.current = 0;
-      setState((prev) =>
-        prev.status === 'uploading' ? prev : { status: 'idle' },
-      );
+      setState((prev) => {
+        if (prev.status === 'uploading') return prev;
+        // Restore previous error if one existed before the drag interaction
+        if (prevErrorRef.current) {
+          return { status: 'error', message: prevErrorRef.current };
+        }
+        return { status: 'idle' };
+      });
     }
   }, []);
 
@@ -100,10 +125,22 @@ export function UploadView({ onUploadComplete }: UploadViewProps) {
       e.stopPropagation();
       dragCounterRef.current = 0;
 
-      const file = e.dataTransfer.files[0];
+      // Block drops while an upload is in progress
+      if (state.status === 'uploading') return;
+
+      const files = e.dataTransfer.files;
+      if (files.length > 1) {
+        setState({
+          status: 'error',
+          message: 'Only one image can be uploaded at a time.',
+        });
+        return;
+      }
+
+      const file = files[0];
       if (file) handleUpload(file);
     },
-    [handleUpload],
+    [handleUpload, state.status],
   );
 
   const onFileChange = useCallback(
@@ -139,6 +176,7 @@ export function UploadView({ onUploadComplete }: UploadViewProps) {
         role="button"
         tabIndex={0}
         aria-label="Upload image. Drag and drop or press Enter to browse. Accepts PNG, JPG, and GIF up to 16 megabytes."
+        aria-busy={isUploading}
         data-dragover={isDragover ? 'true' : undefined}
         onDragEnter={onDragEnter}
         onDragOver={onDragOver}
@@ -146,31 +184,32 @@ export function UploadView({ onUploadComplete }: UploadViewProps) {
         onDrop={onDrop}
         onClick={openFilePicker}
         onKeyDown={onKeyDown}
-        className={`
-          flex w-full max-w-lg cursor-pointer flex-col items-center gap-4 rounded p-12
-          transition-colors duration-[var(--transition-fast)]
-          focus-visible:outline-none focus-visible:[box-shadow:var(--shadow-focus)]
-          ${isDragover
-            ? 'border-2 border-solid border-primary-500 bg-primary-50'
-            : isError
-              ? 'border-2 border-solid border-error-500 bg-error-50'
-              : isUploading
-                ? 'border-2 border-solid border-primary-500 bg-neutral-25'
-                : 'border-2 border-dashed border-neutral-200 bg-neutral-25'
-          }
-        `}
+        className={cn(
+          'flex w-full max-w-lg cursor-pointer flex-col items-center gap-4 rounded p-12',
+          'transition-colors duration-150',
+          'focus-visible:outline-none focus-visible:[box-shadow:var(--shadow-focus)]',
+          isDragover && 'border-2 border-solid border-primary-500 bg-primary-50',
+          isError && 'border-2 border-solid border-error-500 bg-error-50',
+          isUploading && 'border-2 border-solid border-primary-500 bg-neutral-25',
+          !isDragover && !isError && !isUploading && [
+            'border-2 border-dashed border-neutral-200 bg-neutral-25',
+            'hover:border-primary-400 hover:bg-primary-50',
+          ],
+        )}
       >
-        <img
-          src="/inksight-icon.svg"
-          alt="Inksight"
+        <InksightIcon
+          aria-hidden="true"
           className="text-neutral-300"
-          style={{ height: 'var(--logo-height-hero)' }}
+          style={{ height: 'var(--logo-height-hero)', width: 'auto' }}
         />
 
         {isUploading ? (
-          <div className="flex flex-col items-center gap-2">
+          <div
+            className="flex flex-col items-center gap-2"
+            aria-live="polite"
+          >
             <div className="h-1 w-48 overflow-hidden rounded-full bg-neutral-100">
-              <div className="h-full animate-pulse rounded-full bg-primary-500" style={{ width: '60%' }} />
+              <div className="h-full rounded-full bg-primary-500 animate-indeterminate" />
             </div>
             <p className="text-sm text-neutral-500">Uploading...</p>
           </div>
