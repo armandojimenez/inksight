@@ -21,6 +21,23 @@ export interface SidebarProps {
   onNewUpload: () => void;
   isOpen: boolean;
   onToggle: () => void;
+  isLoading?: boolean;
+}
+
+function SidebarSkeleton() {
+  return (
+    <div className="py-2" aria-hidden="true">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center gap-3 px-4 py-2">
+          <div className="h-10 w-10 rounded bg-neutral-100 animate-pulse flex-shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3 w-3/4 rounded bg-neutral-100 animate-pulse" />
+            <div className="h-2 w-1/2 rounded bg-neutral-100 animate-pulse" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function Sidebar({
@@ -29,6 +46,7 @@ export function Sidebar({
   onSelectImage,
   onDeleteImage,
   onNewUpload,
+  isLoading = false,
 }: SidebarProps) {
   const [deleteTarget, setDeleteTarget] = useState<ImageData | null>(null);
 
@@ -55,11 +73,14 @@ export function Sidebar({
           alt="Inksight"
           className="h-[var(--logo-height-sidebar)]"
         />
+        <h2 className="sr-only">Image Gallery</h2>
       </div>
 
       {/* Image list */}
       <ScrollArea className="flex-1">
-        {images.length === 0 ? (
+        {isLoading ? (
+          <SidebarSkeleton />
+        ) : images.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
             <p className="text-sm text-neutral-400">
               Upload an image to get started
