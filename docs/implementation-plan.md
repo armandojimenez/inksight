@@ -982,28 +982,111 @@ git tag v0.9-api-docs -m "Swagger, Postman collection, and API test script"
 
 ## Phase 10: React Client
 
-**Goal:** Full web client with upload, chat, streaming, and image gallery.
+**Goal:** Full web client with upload, chat, streaming, and image gallery — visually aligned with the Inkit design system.
 
 **Reference Docs:** [TDD Sec 11.1–11.4](./technical-design.md#111-component-tree) (component tree, state management, SSE client with retry, build integration), [UI Design Spec](./ui-design-spec.md) (visual design, tokens, component specs, accessibility), [ADR-003](./adr/003-frontend-framework.md), [ADR-004](./adr/004-styling.md), [ADR-006](./adr/006-sse-streaming.md) (client-side SSE approach: `fetch` + `ReadableStream`, not `EventSource`)
 
+### Pre-Phase Status (already complete)
+
+The design system is fully aligned with Inkit's brand. The following are already in place — **do NOT change these, treat them as source of truth:**
+
+| Asset | Location | Notes |
+|-------|----------|-------|
+| Design tokens | `client/src/styles/tokens.css` | All CSS custom properties, imported by `globals.css` |
+| Tailwind config | `client/tailwind.config.ts` | Mirrors tokens exactly — colors, fonts, radius |
+| Logo (full) | `client/public/inksight-logo.png` | Icon + "INKSIGHT" wordmark, black, for sidebar header |
+| Logo (icon SVG) | `client/public/inksight-icon.svg` | `currentColor` fill, for favicon/mobile/loading/empty state |
+| Favicon | `client/public/favicon.svg` | Brand blue (#0024CC), eye-in-brackets icon |
+| Fonts loaded | `client/index.html` | Space Grotesk (headings), Archivo (body), Space Mono (code) |
+| shadcn/ui config | `client/components.json` | Already initialized |
+
+### Inkit Design Decisions (non-negotiable)
+
+These design choices were made to match Inkit's brand. Do NOT deviate:
+
+| Decision | Value | Rationale |
+|----------|-------|-----------|
+| **Button radius** | `4px` (`rounded` / `--radius-base`) | Inkit uses 4px universally |
+| **Button shadow** | `none` | Inkit flat design — no shadows on buttons |
+| **Button font weight** | `700` (bold) | Inkit uses bold on all buttons |
+| **Input radius** | `4px` | Inkit match |
+| **Chat bubble radius** | `8px 8px 2px 8px` (user) / `8px 8px 8px 2px` (assistant) | Professional, Inkit-restrained — NOT consumer-bubbly 16px |
+| **AI message background** | `#EEF0FF` (`primary-50`) | Blue family, no foreign teal — Inkit palette only |
+| **AI message border** | `1px solid #D9DEFF` (`primary-100`) | Blue family |
+| **AI indicator dot** | `#4D63FF` (`primary-400`) | Blue family |
+| **Page background** | `#F7F8FD` (`neutral-25`) | Inkit page background |
+| **Hero gradient** | `var(--gradient-hero)` — radial blue gradient | Mirrors Inkit's homepage hero |
+| **Suggested questions** | Arrow-link pattern (`→ What objects...`) | Matches Inkit's navigation link style |
+| **Fonts** | Space Grotesk (headings), Archivo (body), Space Mono (code) | Inkit's exact font stack |
+
 ### Tasks
-1. Set up component structure per UI Design Spec
-2. Import `tokens.css` as the design token source
-3. Configure Tailwind with token values
-4. Install shadcn/ui components: Button, Input, Toast, Dialog, ScrollArea
-5. Implement `UploadView` — drag-and-drop with progress and validation
-6. Implement `ChatView` — message list with streaming support
-7. Implement `Sidebar` — image gallery with selection
-8. Implement `useStreamingChat` hook (fetch + ReadableStream SSE parsing + exponential backoff retry on stream failure)
-9. Implement optimistic updates (user message appears before server confirms)
-10. Implement error handling with toast notifications
-11. Implement suggested questions for empty chat state
-12. Implement responsive layout (sidebar collapses on mobile)
-13. Implement keyboard shortcuts (Enter to send, Escape to close sidebar)
-14. Add loading skeletons for initial data fetches
-15. Implement image deletion from sidebar (confirmation dialog → `DELETE /api/images/:id` → remove from list)
-16. Test accessibility: tab navigation, screen reader, focus management
-17. Configure Helmet CSP `connect-src` directive to allow SSE connections from the React client origin — required for `fetch`-based streaming to work under a Content Security Policy
+
+**Setup (tasks 1–4):**
+1. Set up component structure per UI Design Spec § 6–7
+2. `tokens.css` and `globals.css` are already imported — verify `@import './tokens.css'` is first line in `globals.css`
+3. Tailwind config is already aligned — verify values match tokens, install any missing shadcn/ui deps
+4. Install shadcn/ui components: Button, Input, Toast, Dialog, ScrollArea. Configure components to use our design tokens (4px radius, Archivo font, Inkit colors)
+
+**Core components (tasks 5–7):**
+5. **`UploadView`** — drag-and-drop with progress and validation
+   - Full-page view when no image is selected
+   - Background: `var(--gradient-hero)` — the Inkit-inspired radial gradient
+   - Center: Inksight icon (`inksight-icon.svg`) at `--logo-height-hero` (48px), color `--color-neutral-300` (subtle)
+   - Drop zone: 4px radius, dashed border, states per UI Spec § 6.4
+   - On upload complete: transition to ChatView
+
+6. **`ChatView`** — message list with streaming support
+   - User bubbles: `bg-primary-500`, white text, radius `8px 8px 2px 8px`
+   - Assistant bubbles: `bg-ai-50` (#EEF0FF), `text-neutral-600`, `border border-ai-100`, radius `8px 8px 8px 2px`
+   - AI indicator: 8px dot, `bg-ai-500` (#4D63FF), left of first line
+   - Image preview at top of chat area (thumbnail with 4px radius)
+   - Empty state: Inksight icon + suggested questions with `→` arrow prefix in `text-primary-500`
+
+7. **`Sidebar`** — image gallery with selection
+   - Header: Inksight logo PNG (`inksight-logo.png`), height `--logo-height-sidebar` (28px), colored `text-primary-500`
+   - Width: 280px desktop, collapses on mobile
+   - Active item: `bg-primary-50`, `border-l-3 border-primary-500`
+   - Image thumbnails: 4px radius
+   - "+ New Image" button at bottom
+
+**Hooks & logic (tasks 8–10):**
+8. **`useStreamingChat` hook** — `fetch` + `ReadableStream` SSE parsing (NOT `EventSource` — we need POST support per ADR-006)
+   - Parse `data:` lines from SSE stream
+   - Accumulate tokens into assistant message
+   - Exponential backoff retry on stream failure (max 3 retries, 1s/2s/4s)
+   - Abort controller for cleanup on unmount
+
+9. **Optimistic updates** — user message appears in chat immediately before server round-trip confirms
+
+10. **Error handling** — toast notifications per UI Spec § 6.7
+    - Success: green left-border, auto-dismiss 5s
+    - Error: red left-border, persistent until dismissed
+    - Use `role="alert"` for errors, `role="status"` for success
+
+**UX polish (tasks 11–15):**
+11. **Suggested questions** in empty chat state — 3 presets with `→` arrow prefix, clickable to send
+12. **Responsive layout** — sidebar collapses below 1024px, hamburger menu, overlay with focus trap + Escape to close
+13. **Keyboard shortcuts** — Enter to send (Shift+Enter for newline), Escape to close sidebar
+14. **Loading skeletons** — for initial image list fetch and chat history load
+15. **Image deletion** — delete button on sidebar items → confirmation dialog → `DELETE /api/images/:id` → remove from list + select next image or show upload view
+
+**Backend integration (task 16):**
+16. **Helmet CSP `connect-src`** — allow SSE connections from React client origin for `fetch`-based streaming
+
+**Accessibility (task 17):**
+17. **Accessibility audit** — tab navigation, focus rings (`--shadow-focus`), screen reader announcements, `aria-live` regions, skip link, landmark regions, `prefers-reduced-motion` support. See UI Spec § 9 for full WCAG checklist.
+
+### API Endpoints (for reference)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/upload` | POST | Upload image (multipart/form-data) |
+| `/api/chat/:imageId` | POST | Send message, get full response |
+| `/api/chat-stream/:imageId` | POST | Send message, get SSE stream |
+| `/api/images` | GET | List all images (paginated) |
+| `/api/images/:imageId` | DELETE | Delete image + cascade messages |
+| `/api/images/:imageId/messages` | GET | Get chat history (paginated) |
+| `/api/health` | GET | Health check |
 
 ### Component Test Plan
 - [ ] `client/src/__tests__/UploadView.test.tsx` — renders dropzone, handles drag events, shows progress, shows errors, rejects invalid file types client-side
@@ -1026,46 +1109,56 @@ cd client && npm test
 Open http://localhost:3000 in Chrome and verify:
 
 Upload flow:
-  ✓ Drag-and-drop zone visible with instructions
-  ✓ Drag a PNG over the zone → visual feedback (border changes)
+  ✓ Drag-and-drop zone visible with Inksight icon and hero gradient background
+  ✓ Drag a PNG over the zone → visual feedback (border changes to solid primary-500)
   ✓ Drop the file → upload progress indicator appears
   ✓ Upload completes → initial AI analysis displayed
   ✓ Transition to chat view is smooth
 
 Chat flow:
-  ✓ Image thumbnail/preview visible at top
-  ✓ Suggested questions appear on empty state
+  ✓ Image thumbnail/preview visible at top (4px radius)
+  ✓ Suggested questions appear on empty state with → arrow prefix
   ✓ Type a message → send with Enter
-  ✓ User message appears immediately (optimistic update, right-aligned)
-  ✓ Streaming indicator shows (pulsing dots)
-  ✓ Assistant response streams in token-by-token (left-aligned, AI teal background)
+  ✓ User message appears immediately (solid blue bg, right-aligned, 8px radius)
+  ✓ Streaming indicator shows (pulsing dots in primary-400 blue)
+  ✓ Assistant response streams in token-by-token (light blue wash bg, left-aligned)
   ✓ Auto-scroll follows the streaming response
   ✓ After stream completes, message is fully rendered
 
 Sidebar & Gallery:
+  ✓ Inksight logo in sidebar header (primary-500 blue)
   ✓ Uploaded image appears in sidebar with filename and message count
   ✓ Upload a second image → appears in sidebar
   ✓ Click between images → chat view switches, history loads
+  ✓ Active item has primary-50 bg + 3px left border in primary-500
   ✓ Delete button → confirmation dialog → image removed from list
 
 Responsive:
   ✓ Resize to 375px width → sidebar collapses
   ✓ Hamburger menu → opens sidebar as overlay
   ✓ Escape closes sidebar overlay
+  ✓ Mobile header shows Inksight icon only (24px)
 
 Keyboard:
   ✓ Tab navigates through interactive elements
   ✓ Enter submits message
-  ✓ Focus ring visible on all interactive elements
+  ✓ Focus ring visible on all interactive elements (2px offset ring, primary-400)
 
 Error handling:
-  ✓ Upload invalid file → error toast appears
+  ✓ Upload invalid file → error toast appears (red left-border)
   ✓ Toast auto-dismisses for success, persists for errors
+
+Design system:
+  ✓ All buttons have 4px radius and no shadow (Inkit match)
+  ✓ All inputs have 4px radius (Inkit match)
+  ✓ Page background is #F7F8FD (Inkit match)
+  ✓ No teal/foreign colors anywhere — only blue family + neutrals
+  ✓ Fonts: Space Grotesk headings, Archivo body, Space Mono code
 ```
 
 **Git:**
 ```bash
-git tag v0.10-client -m "React client: upload, chat, streaming, gallery, responsive, accessible"
+git tag v0.10-client -m "React client: upload, chat, streaming, gallery, responsive, accessible, Inkit-aligned"
 ```
 
 ---
