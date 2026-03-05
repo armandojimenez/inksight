@@ -55,4 +55,25 @@ describe('ChatRequestDto', () => {
     const errors = await validate(dto);
     expect(errors.length).toBeGreaterThan(0);
   });
+
+  it('should accept exactly 2000 characters', async () => {
+    const dto = toDto({ message: 'a'.repeat(2000) });
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
+    expect(dto.message).toHaveLength(2000);
+  });
+
+  it('should preserve carriage return characters', async () => {
+    const dto = toDto({ message: 'line1\r\nline2' });
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
+    expect(dto.message).toBe('line1\r\nline2');
+  });
+
+  it('should strip DEL and C1 control characters', async () => {
+    const dto = toDto({ message: 'hello\x7Fworld\x80gone\x9Fend' });
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
+    expect(dto.message).toBe('helloworldgoneend');
+  });
 });

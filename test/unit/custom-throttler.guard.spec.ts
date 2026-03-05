@@ -20,12 +20,12 @@ describe('CustomThrottlerGuard', () => {
   });
 
   it('should use 429 status code', async () => {
+    expect.assertions(2);
     const context = {} as ExecutionContext;
     const detail = {} as ThrottlerLimitDetail;
 
     try {
       await (guard as any).throwThrottlingException(context, detail);
-      fail('Expected exception');
     } catch (err) {
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(
@@ -35,12 +35,12 @@ describe('CustomThrottlerGuard', () => {
   });
 
   it('should include RATE_LIMIT_EXCEEDED in the response body', async () => {
+    expect.assertions(2);
     const context = {} as ExecutionContext;
     const detail = {} as ThrottlerLimitDetail;
 
     try {
       await (guard as any).throwThrottlingException(context, detail);
-      fail('Expected exception');
     } catch (err) {
       const response = (err as HttpException).getResponse() as Record<
         string,

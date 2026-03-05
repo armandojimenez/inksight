@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { Cache } from 'cache-manager';
 import { Repository } from 'typeorm';
 import { CleanupService } from '@/cleanup/cleanup.service';
 import { ImageEntity } from '@/upload/entities/image.entity';
@@ -32,6 +33,7 @@ describe('CleanupService', () => {
   let imageRepo: Record<string, jest.Mock>;
   let messageRepo: Record<string, jest.Mock>;
   let historyService: Record<string, jest.Mock>;
+  let cacheManager: Record<string, jest.Mock>;
   let configService: Partial<ConfigService>;
   let configMap: Record<string, unknown>;
 
@@ -57,6 +59,10 @@ describe('CleanupService', () => {
       invalidateCache: jest.fn().mockResolvedValue(undefined),
     };
 
+    cacheManager = {
+      del: jest.fn().mockResolvedValue(undefined),
+    };
+
     configMap = {
       CLEANUP_ENABLED: true,
       CLEANUP_IMAGE_TTL_MS: 86400000,
@@ -75,6 +81,7 @@ describe('CleanupService', () => {
       messageRepo as unknown as Repository<ChatMessageEntity>,
       historyService as unknown as HistoryService,
       configService as ConfigService,
+      cacheManager as unknown as Cache,
     );
   });
 
@@ -108,6 +115,36 @@ describe('CleanupService', () => {
     it('should not throw on cleanup failure', async () => {
       imageRepo.find!.mockRejectedValue(new Error('DB error'));
       await expect(service.handleCleanup()).resolves.not.toThrow();
+    });
+
+    it('should loop cleanup batches until a partial batch is returned', async () => {
+      // First call returns 100 images (full batch), second returns 50 (partial → stop)
+      const fullBatch = Array.from({ length: 100 }, (_, i) =>
+        mockImage({ id: `img-${i}`, uploadPath: `uploads/${i}.png` }),
+      );
+      const partialBatch = Array.from({ length: 50 }, (_, i) =>
+        mockImage({ id: `img-${100 + i}`, uploadPath: `uploads/${100 + i}.png` }),
+      );
+
+      imageRepo.find!
+        .mockResolvedValueOnce(fullBatch)
+        .mockResolvedValueOnce(partialBatch);
+      mockFs.unlink.mockResolvedValue(undefined);
+
+      await service.handleCleanup();
+
+      // Should have called find twice (full batch → loop, partial → stop)
+      expect(imageRepo.find).toHaveBeenCalledTimes(2);
+    });
+
+    it('should reset isRunning after failure so next cycle runs', async () => {
+      imageRepo.find!.mockRejectedValueOnce(new Error('DB error'));
+      await service.handleCleanup(); // first call fails internally
+
+      imageRepo.find!.mockResolvedValue([]);
+      await service.handleCleanup(); // second call should run, not skip
+
+      expect(imageRepo.find).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -164,6 +201,16 @@ describe('CleanupService', () => {
       const result = await service.cleanupExpiredImages();
       // Only img2 succeeds
       expect(result).toBe(1);
+    });
+
+    it('should invalidate image cache entry on deletion', async () => {
+      const img = mockImage();
+      imageRepo.find!.mockResolvedValue([img]);
+      mockFs.unlink.mockResolvedValue(undefined);
+
+      await service.cleanupExpiredImages();
+
+      expect(cacheManager.del).toHaveBeenCalledWith('image:img-1');
     });
 
     it('should query with BATCH_SIZE limit', async () => {
