@@ -47,7 +47,7 @@ export class HistoryController {
         id: msg.id,
         role: msg.role,
         content: msg.content,
-        timestamp: msg.createdAt.toISOString(),
+        timestamp: msg.createdAt instanceof Date ? msg.createdAt.toISOString() : String(msg.createdAt),
       })),
       totalMessages: total,
       page: query.page,
