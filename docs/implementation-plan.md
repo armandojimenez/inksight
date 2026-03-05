@@ -1185,8 +1185,9 @@ cd client && npm test -- --run UploadView
    - Shows streaming indicator (pulsing dots) while streaming
 
 4. **Implement `useStreamingChat` hook**
-   - `fetch` + `ReadableStream` SSE parsing (NOT `EventSource` — POST required per ADR-006)
-   - Parse `data:` lines, accumulate tokens into assistant message
+   - Uses `streamMessage` + `parseSSEStream` from `@/lib/api.ts` (SSE infrastructure added in Phase 10a)
+   - NOT `EventSource` — POST required per ADR-006
+   - Accumulate tokens into assistant message
    - Exponential backoff retry on stream failure (max 3 retries, 1s/2s/4s)
    - `AbortController` for cleanup on unmount
    - Returns: `{ messages, sendMessage, isStreaming, error }`
@@ -1205,7 +1206,7 @@ cd client && npm test -- --run UploadView
    - Image preview thumbnail at top
    - Message list using `MessageBubble` components
    - Empty state with Inksight icon + 3 suggested questions (`→ What objects are in this image?`, `→ Describe the colors and mood`, `→ What text can you read?`)
-   - Auto-scroll via `scrollIntoView` on new messages
+   - Auto-scroll via `scrollIntoView` on new messages — requires adding a `viewportRef` prop to `ScrollArea` (the default shadcn/ui ScrollArea does not forward a ref to the Radix `Viewport`, so extend it to accept one; deferred from Phase 10a review)
    - Streaming indicator (pulsing dots in `primary-400`)
    - Integrates `ChatInput` at bottom
    - Uses `useStreamingChat` hook internally
