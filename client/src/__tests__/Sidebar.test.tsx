@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, within, cleanup } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Sidebar } from '@/components/Sidebar';
 import type { ImageData } from '@/types';
@@ -32,17 +32,17 @@ const sampleImages: ImageData[] = [
 ];
 
 describe('Sidebar', () => {
-  let onSelectImage: ReturnType<typeof vi.fn>;
-  let onDeleteImage: ReturnType<typeof vi.fn>;
-  let onNewUpload: ReturnType<typeof vi.fn>;
-  let onToggle: ReturnType<typeof vi.fn>;
+  let onSelectImage: ReturnType<typeof vi.fn<(id: string) => void>>;
+  let onDeleteImage: ReturnType<typeof vi.fn<(id: string) => void>>;
+  let onNewUpload: ReturnType<typeof vi.fn<() => void>>;
+  let onToggle: ReturnType<typeof vi.fn<() => void>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    onSelectImage = vi.fn();
-    onDeleteImage = vi.fn();
-    onNewUpload = vi.fn();
-    onToggle = vi.fn();
+    onSelectImage = vi.fn<(id: string) => void>();
+    onDeleteImage = vi.fn<(id: string) => void>();
+    onNewUpload = vi.fn<() => void>();
+    onToggle = vi.fn<() => void>();
   });
 
   afterEach(() => {
@@ -146,8 +146,8 @@ describe('Sidebar', () => {
       const user = userEvent.setup();
       renderSidebar();
 
-      const deleteButtons = screen.getAllByRole('button', { name: /delete/i });
-      await user.click(deleteButtons[0]);
+      const deleteButton = screen.getAllByRole('button', { name: /delete/i })[0]!;
+      await user.click(deleteButton);
 
       expect(screen.getByRole('alertdialog')).toBeInTheDocument();
       expect(screen.getByText(/are you sure/i)).toBeInTheDocument();
@@ -157,8 +157,8 @@ describe('Sidebar', () => {
       const user = userEvent.setup();
       renderSidebar();
 
-      const deleteButtons = screen.getAllByRole('button', { name: /delete/i });
-      await user.click(deleteButtons[0]);
+      const deleteButton = screen.getAllByRole('button', { name: /delete/i })[0]!;
+      await user.click(deleteButton);
 
       const confirmButton = screen.getByRole('button', { name: /confirm|yes|delete$/i });
       await user.click(confirmButton);
@@ -170,8 +170,8 @@ describe('Sidebar', () => {
       const user = userEvent.setup();
       renderSidebar();
 
-      const deleteButtons = screen.getAllByRole('button', { name: /delete/i });
-      await user.click(deleteButtons[0]);
+      const deleteButton = screen.getAllByRole('button', { name: /delete/i })[0]!;
+      await user.click(deleteButton);
 
       const cancelButton = screen.getByRole('button', { name: /cancel/i });
       await user.click(cancelButton);
