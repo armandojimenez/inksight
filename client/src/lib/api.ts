@@ -104,7 +104,10 @@ export async function streamMessage(
 export async function* parseSSEStream(
   response: Response,
 ): AsyncGenerator<StreamChunk> {
-  const reader = response.body!.getReader();
+  if (!response.body) {
+    throw new Error('Response body is null — streaming not supported');
+  }
+  const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
 

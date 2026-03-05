@@ -9,15 +9,13 @@ vi.mock('@/lib/api', async (importOriginal) => {
     ...actual,
     streamMessage: vi.fn(),
     parseSSEStream: vi.fn(),
-    getMessages: vi.fn(),
   };
 });
 
-import { streamMessage, parseSSEStream, getMessages } from '@/lib/api';
+import { streamMessage, parseSSEStream } from '@/lib/api';
 
 const mockStreamMessage = vi.mocked(streamMessage);
 const mockParseSSEStream = vi.mocked(parseSSEStream);
-const mockGetMessages = vi.mocked(getMessages);
 
 function makeChunk(content: string, finishReason: 'stop' | null = null): StreamChunk {
   return {
@@ -41,20 +39,22 @@ async function* fakeStream(chunks: StreamChunk[]): AsyncGenerator<StreamChunk> {
   }
 }
 
+async function* failingStream(
+  chunksBeforeError: StreamChunk[],
+  error: Error,
+): AsyncGenerator<StreamChunk> {
+  for (const chunk of chunksBeforeError) {
+    yield chunk;
+  }
+  throw error;
+}
+
 const IMAGE_ID = 'img-test-123';
 
 describe('useStreamingChat', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-    mockGetMessages.mockResolvedValue({
-      imageId: IMAGE_ID,
-      messages: [],
-      totalMessages: 0,
-      page: 1,
-      pageSize: 50,
-      totalPages: 0,
-    });
   });
 
   afterEach(() => {
@@ -100,7 +100,6 @@ describe('useStreamingChat', () => {
   });
 
   it('adds user message immediately (optimistic update)', async () => {
-    // Stream that never resolves — lets us check intermediate state
     let resolveStream: (value: Response) => void;
     const streamPromise = new Promise<Response>((resolve) => {
       resolveStream = resolve;
@@ -121,8 +120,11 @@ describe('useStreamingChat', () => {
     });
     expect(result.current.isStreaming).toBe(true);
 
-    // Clean up
-    resolveStream!(new Response());
+    // Clean up: resolve with empty stream to prevent hanging
+    mockParseSSEStream.mockReturnValue(fakeStream([]));
+    await act(async () => {
+      resolveStream!(new Response());
+    });
   });
 
   it('sets isStreaming to true during streaming and false after', async () => {
@@ -142,9 +144,6 @@ describe('useStreamingChat', () => {
   });
 
   it('handles [DONE] sentinel to finalize message', async () => {
-    // parseSSEStream already handles [DONE] by returning from generator.
-    // This test verifies the hook correctly finalizes the message when
-    // the generator completes.
     const chunks = [
       makeChunk('Final answer'),
       makeChunk('', 'stop'),
@@ -166,7 +165,6 @@ describe('useStreamingChat', () => {
   });
 
   it('retries on stream failure with exponential backoff', async () => {
-    // Fail twice, succeed third time
     const error = new Error('Connection lost');
     mockStreamMessage
       .mockRejectedValueOnce(error)
@@ -178,7 +176,6 @@ describe('useStreamingChat', () => {
 
     const { result } = renderHook(() => useStreamingChat(IMAGE_ID));
 
-    // Start message send — will trigger first attempt which fails
     act(() => {
       result.current.sendMessage('Retry test');
     });
@@ -189,15 +186,27 @@ describe('useStreamingChat', () => {
     });
     expect(mockStreamMessage).toHaveBeenCalledTimes(1);
 
+    // Retry does NOT fire before 1s
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(999);
+    });
+    expect(mockStreamMessage).toHaveBeenCalledTimes(1);
+
     // After 1s delay, second attempt
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(mockStreamMessage).toHaveBeenCalledTimes(2);
+
+    // Retry does NOT fire before 2s
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1999);
     });
     expect(mockStreamMessage).toHaveBeenCalledTimes(2);
 
     // After 2s delay, third attempt succeeds
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(2000);
+      await vi.advanceTimersByTimeAsync(1);
     });
     expect(mockStreamMessage).toHaveBeenCalledTimes(3);
 
@@ -388,5 +397,123 @@ describe('useStreamingChat', () => {
     const ids = result.current.messages.map((m) => m.id);
     const uniqueIds = new Set(ids);
     expect(uniqueIds.size).toBe(ids.length);
+  });
+
+  it('resets state when imageId changes', async () => {
+    const chunks = [makeChunk('Reply', 'stop')];
+    mockStreamMessage.mockResolvedValue(new Response());
+    mockParseSSEStream.mockReturnValue(fakeStream(chunks));
+
+    const { result, rerender } = renderHook(
+      ({ id }) => useStreamingChat(id),
+      { initialProps: { id: 'img-1' } },
+    );
+
+    await act(async () => {
+      result.current.sendMessage('Hello');
+    });
+
+    expect(result.current.messages).toHaveLength(2);
+
+    // Switch to different image
+    rerender({ id: 'img-2' });
+
+    expect(result.current.messages).toEqual([]);
+    expect(result.current.error).toBeNull();
+    expect(result.current.isStreaming).toBe(false);
+  });
+
+  it('aborts in-flight stream when imageId changes', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    mockStreamMessage.mockImplementation((_imageId, _msg, signal) => {
+      capturedSignal = signal;
+      return new Promise(() => {});
+    });
+
+    const { result, rerender } = renderHook(
+      ({ id }) => useStreamingChat(id),
+      { initialProps: { id: 'img-1' } },
+    );
+
+    act(() => {
+      result.current.sendMessage('Question');
+    });
+
+    expect(capturedSignal!.aborted).toBe(false);
+
+    rerender({ id: 'img-2' });
+
+    expect(capturedSignal!.aborted).toBe(true);
+  });
+
+  it('handles mid-stream parse failure and retries', async () => {
+    const error = new Error('Malformed SSE frame');
+
+    // First attempt: streamMessage succeeds but parseSSEStream throws mid-stream
+    mockStreamMessage.mockResolvedValue(new Response());
+    mockParseSSEStream
+      .mockReturnValueOnce(failingStream([makeChunk('Partial')], error))
+      .mockReturnValueOnce(failingStream([], error))
+      .mockReturnValueOnce(failingStream([], error))
+      .mockReturnValueOnce(failingStream([], error));
+
+    const { result } = renderHook(() => useStreamingChat(IMAGE_ID));
+
+    act(() => {
+      result.current.sendMessage('Test mid-stream');
+    });
+
+    // First attempt fails after partial content
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    // Retry 1 after 1s
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    // Retry 2 after 2s
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+
+    // Retry 3 after 4s
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000);
+    });
+
+    expect(result.current.error).toBe('Malformed SSE frame');
+    expect(result.current.isStreaming).toBe(false);
+    // Should not have duplicate assistant messages (idempotent guard)
+    const assistantMsgs = result.current.messages.filter((m) => m.role === 'assistant');
+    expect(assistantMsgs.length).toBeLessThanOrEqual(1);
+  });
+
+  it('does not update state after unmount during retry delay', async () => {
+    const error = new Error('Connection lost');
+    mockStreamMessage.mockRejectedValue(error);
+
+    const { result, unmount } = renderHook(() => useStreamingChat(IMAGE_ID));
+
+    act(() => {
+      result.current.sendMessage('Will unmount during retry');
+    });
+
+    // First attempt fails
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    // Unmount during the 1s retry delay
+    unmount();
+
+    // Advance past all retry delays — should not throw
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10000);
+    });
+
+    // If we get here without error, the abort cleanup worked
+    expect(mockStreamMessage).toHaveBeenCalledTimes(1);
   });
 });

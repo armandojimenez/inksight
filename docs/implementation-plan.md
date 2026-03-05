@@ -1289,13 +1289,16 @@ cd client && npm test -- --run Sidebar
    - Success: green left-border, auto-dismiss 5s, `role="status"`
    - Error: red left-border, persistent until dismissed, `role="alert"`
    - Trigger on: upload success, upload error, delete success, delete error, chat error
+   - **(From 10c review)** Configure Sonner toast a11y: `role`, `aria-live` attributes on toast container
 
-4. **Write tests** — `client/src/__tests__/ToastNotifications.test.tsx`
+4. **Message timestamps** — **(from 10c review)** display relative timestamps on chat messages (e.g., "2m ago")
+
+5. **Write tests** — `client/src/__tests__/ToastNotifications.test.tsx`
    - Success toast renders with green left-border and auto-dismisses
    - Error toast renders with red left-border and persists
    - Correct ARIA roles on each variant
 
-5. **Update `App.tsx`** — replace placeholder with `AppLayout`
+6. **Update `App.tsx`** — replace placeholder with `AppLayout`
 
 #### Sub-Phase Gate
 
@@ -1348,6 +1351,14 @@ cd client && npm test
    - `aria-label` on icon-only buttons (hamburger, delete, send)
    - `prefers-reduced-motion`: disable streaming animation, use instant transitions
    - Color contrast: verify all text meets 4.5:1 ratio (AA)
+   - **(From 10c review)** Heading hierarchy: add `<h1>` (app name), `<h2>` per region (sidebar, chat)
+   - **(From 10c review)** Visible `<label>` on ChatInput textarea (can be visually hidden with `sr-only`)
+   - **(From 10c review)** `aria-describedby` linking error alerts to their related input/form context
+
+6. **Responsive fixes** — **(from 10c review)**
+   - Reconcile breakpoint token mismatch: `--bp-tablet: 860px` in tokens.css vs Tailwind `sm: 640px` — pick one convention
+   - ChatInput `max-height` adjustment for mobile virtual keyboard (reduce from 160px on small screens)
+   - Auto-scroll smart detection: only auto-scroll when user is near bottom (skip if user scrolled up to read history)
 
 #### Sub-Phase Gate
 

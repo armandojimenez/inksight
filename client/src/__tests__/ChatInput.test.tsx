@@ -96,6 +96,7 @@ describe('ChatInput', () => {
     await user.type(textarea, 'Will clear');
     await user.keyboard('{Enter}');
 
+    expect(onSend).toHaveBeenCalledWith('Will clear');
     expect(textarea).toHaveValue('');
   });
 
@@ -116,19 +117,24 @@ describe('ChatInput', () => {
     expect(textarea).toBeDisabled();
   });
 
-  it('has accessible label on textarea', () => {
+  it('has aria-label on textarea', () => {
     render(<ChatInput onSend={onSend} isStreaming={false} />);
 
     const textarea = screen.getByRole('textbox');
-    expect(
-      textarea.getAttribute('aria-label') || textarea.getAttribute('placeholder'),
-    ).toBeTruthy();
+    expect(textarea).toHaveAttribute('aria-label', 'Message input');
   });
 
   it('send button has aria-label', () => {
     render(<ChatInput onSend={onSend} isStreaming={false} />);
 
     const button = screen.getByRole('button', { name: /send/i });
-    expect(button).toHaveAttribute('aria-label');
+    expect(button).toHaveAttribute('aria-label', 'Send message');
+  });
+
+  it('has maxLength on textarea', () => {
+    render(<ChatInput onSend={onSend} isStreaming={false} />);
+
+    const textarea = screen.getByRole('textbox');
+    expect(textarea).toHaveAttribute('maxLength', '4000');
   });
 });

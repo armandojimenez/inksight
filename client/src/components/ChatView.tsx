@@ -9,7 +9,6 @@ import type { ImageData } from '@/types';
 
 export interface ChatViewProps {
   image: ImageData;
-  onBack?: () => void;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -24,23 +23,23 @@ export function ChatView({ image }: ChatViewProps) {
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
-    if (scrollRef.current && typeof scrollRef.current.scrollIntoView === 'function') {
+    if (typeof scrollRef.current?.scrollIntoView === 'function') {
       scrollRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, isStreaming]);
+  }, [messages]);
 
   const hasMessages = messages.length > 0;
 
   return (
     <div className="flex h-full flex-col bg-neutral-0">
       {/* Image preview */}
-      <div className="flex items-center gap-3 border-b border-neutral-100 px-4 py-3">
+      <div className="flex min-w-0 items-center gap-3 border-b border-neutral-100 px-4 py-3">
         <img
           src={getImageFileUrl(image.id)}
           alt={image.originalFilename}
-          className="h-10 w-10 rounded object-cover"
+          className="h-10 w-10 shrink-0 rounded object-cover"
         />
-        <span className="text-sm font-medium text-neutral-600">
+        <span className="truncate text-sm font-medium text-neutral-600">
           {image.originalFilename}
         </span>
       </div>
@@ -49,11 +48,13 @@ export function ChatView({ image }: ChatViewProps) {
       <div
         role="log"
         aria-label="Chat messages"
-        className="flex-1 overflow-y-auto px-4 py-4"
+        aria-busy={isStreaming}
+        className="flex-1 overflow-y-auto py-4 pl-6 pr-4"
       >
         {!hasMessages ? (
           <div className="flex h-full flex-col items-center justify-center gap-6">
             <InksightIcon
+              data-testid="empty-state-icon"
               aria-hidden="true"
               className="text-neutral-200"
               style={{ height: 'var(--logo-height-hero)', width: 'auto' }}
@@ -62,9 +63,10 @@ export function ChatView({ image }: ChatViewProps) {
               {SUGGESTED_QUESTIONS.map((question) => (
                 <button
                   key={question}
+                  type="button"
                   onClick={() => sendMessage(question)}
                   className={cn(
-                    'rounded px-4 py-2 text-left text-sm text-primary-500',
+                    'min-h-[44px] rounded px-4 py-3 text-left text-sm text-primary-500',
                     'transition-colors hover:bg-primary-50',
                     'focus-visible:outline-none focus-visible:[box-shadow:var(--shadow-focus)]',
                   )}
@@ -126,8 +128,11 @@ function StreamingIndicator() {
           {[0, 1, 2].map((i) => (
             <span
               key={i}
-              className="h-1.5 w-1.5 rounded-full bg-ai-500 animate-pulse"
-              style={{ animationDelay: `${i * 0.2}s` }}
+              className="h-1.5 w-1.5 rounded-full bg-ai-500"
+              style={{
+                animation: 'pulse var(--anim-streaming-duration) var(--anim-streaming-easing) infinite',
+                animationDelay: `${i * 0.2}s`,
+              }}
             />
           ))}
         </div>

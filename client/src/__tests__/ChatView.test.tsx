@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, within } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ChatView } from '@/components/ChatView';
 import type { ImageData, MessageData } from '@/types';
@@ -67,8 +67,16 @@ describe('ChatView', () => {
     it('shows Inksight icon when no messages', () => {
       render(<ChatView image={mockImage} />);
 
-      const svgs = document.querySelectorAll('svg');
-      expect(svgs.length).toBeGreaterThan(0);
+      expect(document.querySelector('[data-testid="empty-state-icon"]')).toBeInTheDocument();
+    });
+
+    it('hides Inksight icon when messages exist', () => {
+      const messages = [createMessage('user', 'Hello')];
+      mockUseStreamingChat.mockReturnValue(mockChatHook({ messages }));
+
+      render(<ChatView image={mockImage} />);
+
+      expect(document.querySelector('[data-testid="empty-state-icon"]')).not.toBeInTheDocument();
     });
 
     it('shows suggested questions with arrow prefix', () => {
@@ -79,7 +87,16 @@ describe('ChatView', () => {
       expect(screen.getByText(/What text can you read/)).toBeInTheDocument();
     });
 
-    it('suggested questions are clickable and trigger onSend', async () => {
+    it('suggested questions disappear when messages exist', () => {
+      const messages = [createMessage('user', 'Hello')];
+      mockUseStreamingChat.mockReturnValue(mockChatHook({ messages }));
+
+      render(<ChatView image={mockImage} />);
+
+      expect(screen.queryByText(/What objects are in this image/)).not.toBeInTheDocument();
+    });
+
+    it('suggested questions are clickable and trigger onSend with exact text', async () => {
       const user = userEvent.setup();
       const sendMessage = vi.fn();
       mockUseStreamingChat.mockReturnValue(mockChatHook({ sendMessage }));
@@ -89,31 +106,27 @@ describe('ChatView', () => {
       const suggestion = screen.getByText(/What objects are in this image/);
       await user.click(suggestion);
 
-      expect(sendMessage).toHaveBeenCalledWith(
-        expect.stringContaining('What objects are in this image'),
-      );
+      expect(sendMessage).toHaveBeenCalledWith('What objects are in this image?');
     });
   });
 
   describe('message rendering', () => {
-    it('renders user messages with correct styling', () => {
+    it('renders user messages with correct role', () => {
       const messages = [createMessage('user', 'What is this?')];
       mockUseStreamingChat.mockReturnValue(mockChatHook({ messages }));
 
       render(<ChatView image={mockImage} />);
 
-      const bubble = screen.getByText('What is this?').closest('[data-role="user"]');
-      expect(bubble).toBeInTheDocument();
+      expect(screen.getByLabelText(/your message/i)).toHaveTextContent('What is this?');
     });
 
-    it('renders assistant messages with correct styling', () => {
+    it('renders assistant messages with correct role', () => {
       const messages = [createMessage('assistant', 'This is a landscape photo.')];
       mockUseStreamingChat.mockReturnValue(mockChatHook({ messages }));
 
       render(<ChatView image={mockImage} />);
 
-      const bubble = screen.getByText('This is a landscape photo.').closest('[data-role="assistant"]');
-      expect(bubble).toBeInTheDocument();
+      expect(screen.getByLabelText(/assistant response/i)).toHaveTextContent('This is a landscape photo.');
     });
 
     it('renders AI indicator dot on assistant messages', () => {
@@ -122,8 +135,8 @@ describe('ChatView', () => {
 
       render(<ChatView image={mockImage} />);
 
-      const bubble = screen.getByText('AI response here').closest('[data-role="assistant"]');
-      const dot = bubble?.querySelector('[data-ai-indicator]');
+      const bubble = screen.getByLabelText(/assistant response/i);
+      const dot = bubble.querySelector('[data-ai-indicator]');
       expect(dot).toBeInTheDocument();
     });
 
@@ -169,10 +182,21 @@ describe('ChatView', () => {
       expect(img).toHaveAttribute('src', '/api/images/img-123/file');
       expect(img).toHaveAttribute('alt', 'photo.png');
     });
+
+    it('truncates long filenames', () => {
+      const longNameImage = {
+        ...mockImage,
+        originalFilename: 'my-extremely-long-vacation-photo-from-december-2025-final-v3.jpg',
+      };
+      render(<ChatView image={longNameImage} />);
+
+      const filenameEl = screen.getByText(longNameImage.originalFilename);
+      expect(filenameEl.className).toContain('truncate');
+    });
   });
 
   describe('streaming', () => {
-    it('shows streaming indicator while streaming', () => {
+    it('shows streaming indicator while streaming with user message as last', () => {
       mockUseStreamingChat.mockReturnValue(
         mockChatHook({ isStreaming: true, messages: [createMessage('user', 'Question')] }),
       );
@@ -188,6 +212,14 @@ describe('ChatView', () => {
       render(<ChatView image={mockImage} />);
 
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    it('sets aria-busy on log container during streaming', () => {
+      mockUseStreamingChat.mockReturnValue(mockChatHook({ isStreaming: true }));
+
+      render(<ChatView image={mockImage} />);
+
+      expect(screen.getByRole('log')).toHaveAttribute('aria-busy', 'true');
     });
   });
 
@@ -208,6 +240,12 @@ describe('ChatView', () => {
       render(<ChatView image={mockImage} />);
 
       expect(screen.getByRole('log')).toBeInTheDocument();
+    });
+
+    it('wires hook to correct image ID', () => {
+      render(<ChatView image={mockImage} />);
+
+      expect(mockUseStreamingChat).toHaveBeenCalledWith('img-123');
     });
   });
 

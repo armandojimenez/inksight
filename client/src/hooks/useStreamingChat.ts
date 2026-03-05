@@ -12,10 +12,8 @@ export interface UseStreamingChatReturn {
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [1000, 2000, 4000];
 
-let messageCounter = 0;
 function generateId(): string {
-  messageCounter += 1;
-  return `local-${Date.now()}-${messageCounter}`;
+  return `local-${crypto.randomUUID()}`;
 }
 
 export function useStreamingChat(imageId: string): UseStreamingChatReturn {
@@ -24,6 +22,11 @@ export function useStreamingChat(imageId: string): UseStreamingChatReturn {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const isStreamingRef = useRef(false);
+
+  const setStreamingState = useCallback((value: boolean) => {
+    setIsStreaming(value);
+    isStreamingRef.current = value;
+  }, []);
 
   // Abort on unmount
   useEffect(() => {
@@ -36,10 +39,9 @@ export function useStreamingChat(imageId: string): UseStreamingChatReturn {
   useEffect(() => {
     setMessages([]);
     setError(null);
-    setIsStreaming(false);
-    isStreamingRef.current = false;
+    setStreamingState(false);
     abortRef.current?.abort();
-  }, [imageId]);
+  }, [imageId, setStreamingState]);
 
   const sendMessage = useCallback(
     (message: string) => {
@@ -47,8 +49,7 @@ export function useStreamingChat(imageId: string): UseStreamingChatReturn {
       if (!trimmed || isStreamingRef.current) return;
 
       setError(null);
-      setIsStreaming(true);
-      isStreamingRef.current = true;
+      setStreamingState(true);
 
       const userMsg: MessageData = {
         id: generateId(),
@@ -72,25 +73,31 @@ export function useStreamingChat(imageId: string): UseStreamingChatReturn {
           const response = await streamMessage(imageId, trimmed, controller.signal);
           let accumulated = '';
 
-          // Add placeholder assistant message
-          setMessages((prev) => [
-            ...prev,
-            { id: assistantId, role: 'assistant', content: '', timestamp: new Date().toISOString() },
-          ]);
+          // Idempotent placeholder — only add if not already present (prevents duplicates on retry)
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === assistantId)) return prev;
+            return [...prev, { id: assistantId, role: 'assistant' as const, content: '', timestamp: new Date().toISOString() }];
+          });
 
           for await (const chunk of parseSSEStream(response)) {
             if (controller.signal.aborted) return;
             const content = chunk.choices[0]?.delta?.content ?? '';
             accumulated += content;
-            setMessages((prev) =>
-              prev.map((m) =>
+            // Optimize: target last element instead of scanning entire array
+            setMessages((prev) => {
+              const lastIdx = prev.length - 1;
+              if (lastIdx >= 0 && prev[lastIdx].id === assistantId) {
+                const updated = [...prev];
+                updated[lastIdx] = { ...updated[lastIdx], content: accumulated };
+                return updated;
+              }
+              return prev.map((m) =>
                 m.id === assistantId ? { ...m, content: accumulated } : m,
-              ),
-            );
+              );
+            });
           }
 
-          setIsStreaming(false);
-          isStreamingRef.current = false;
+          setStreamingState(false);
         } catch (err) {
           if (controller.signal.aborted) return;
 
@@ -98,7 +105,6 @@ export function useStreamingChat(imageId: string): UseStreamingChatReturn {
             const delay = RETRY_DELAYS[attempt];
             await new Promise<void>((resolve) => {
               const timer = setTimeout(resolve, delay);
-              // Clean up timer if aborted
               controller.signal.addEventListener('abort', () => {
                 clearTimeout(timer);
                 resolve();
@@ -110,15 +116,14 @@ export function useStreamingChat(imageId: string): UseStreamingChatReturn {
           } else {
             const message = err instanceof Error ? err.message : 'Stream failed';
             setError(message);
-            setIsStreaming(false);
-            isStreamingRef.current = false;
+            setStreamingState(false);
           }
         }
       };
 
       attemptStream(0);
     },
-    [imageId],
+    [imageId, setStreamingState],
   );
 
   return { messages, sendMessage, isStreaming, error };

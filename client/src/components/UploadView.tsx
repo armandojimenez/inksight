@@ -169,7 +169,7 @@ export function UploadView({ onUploadComplete }: UploadViewProps) {
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center p-8"
+      className="flex min-h-dvh items-center justify-center p-4 sm:p-8"
       style={{ background: 'var(--gradient-hero)' }}
     >
       <div
@@ -185,7 +185,7 @@ export function UploadView({ onUploadComplete }: UploadViewProps) {
         onClick={openFilePicker}
         onKeyDown={onKeyDown}
         className={cn(
-          'flex w-full max-w-lg cursor-pointer flex-col items-center gap-4 rounded p-12',
+          'flex w-full max-w-lg cursor-pointer flex-col items-center gap-4 rounded p-6 sm:p-12',
           'transition-colors duration-150',
           'focus-visible:outline-none focus-visible:[box-shadow:var(--shadow-focus)]',
           isDragover && 'border-2 border-solid border-primary-500 bg-primary-50',
@@ -239,6 +239,7 @@ export function UploadView({ onUploadComplete }: UploadViewProps) {
         type="file"
         accept="image/png,image/jpeg,image/gif"
         className="hidden"
+        tabIndex={-1}
         onChange={onFileChange}
         aria-hidden="true"
       />

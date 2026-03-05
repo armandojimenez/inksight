@@ -9,20 +9,20 @@ function App() {
   return (
     <>
       {uploaded ? (
-        <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-neutral-25 p-8">
-          <div className="rounded border border-success-500 bg-success-50 p-6 text-center">
+        <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-neutral-25 p-4 sm:p-8">
+          <div className="max-w-lg rounded border border-success-500 bg-success-50 p-6 text-center">
             <p className="font-display text-xl font-semibold text-neutral-700">
               Upload successful!
             </p>
-            <p className="mt-2 text-sm text-neutral-500">
+            <p className="mt-2 break-all text-sm text-neutral-500">
               ID: {uploaded.id}
             </p>
-            <p className="text-sm text-neutral-500">
+            <p className="truncate text-sm text-neutral-500">
               File: {uploaded.filename} ({(uploaded.size / 1024).toFixed(1)} KB)
             </p>
           </div>
           <button
-            className="rounded bg-primary-500 px-4 py-2 text-sm font-bold text-white hover:bg-primary-600"
+            className="rounded bg-primary-500 px-4 py-2 text-sm font-bold text-white hover:bg-primary-600 focus-visible:outline-none focus-visible:[box-shadow:var(--shadow-focus)]"
             onClick={() => setUploaded(null)}
           >
             Upload another
