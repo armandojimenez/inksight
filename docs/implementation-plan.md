@@ -245,7 +245,7 @@ The following findings from the Phase 1 code review are intentionally deferred. 
   - `analyzeImage` returns valid `chat.completion` object
   - Response `id` matches pattern `chatcmpl-[a-zA-Z0-9]{29}`
   - `created` is a valid Unix timestamp (within 5 seconds of now)
-  - `model` is `"gpt-4o"`
+  - `model` is `"gpt-5.2"`
   - `choices[0].message.role` is `"assistant"`
   - `choices[0].finish_reason` is `"stop"`
   - `usage.total_tokens` equals `prompt_tokens + completion_tokens`

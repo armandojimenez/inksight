@@ -96,7 +96,7 @@
             { "key": "Content-Type", "value": "application/json; charset=utf-8" },
             { "key": "X-Request-Id", "value": "550e8400-e29b-41d4-a716-446655440000" }
           ],
-          "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"filename\": \"photo.jpg\",\n  \"mimeType\": \"image/jpeg\",\n  \"size\": 245832,\n  \"analysis\": {\n    \"id\": \"chatcmpl-abc123def456ghi789jkl012mno\",\n    \"object\": \"chat.completion\",\n    \"created\": 1709554800,\n    \"model\": \"gpt-4o\",\n    \"choices\": [\n      {\n        \"index\": 0,\n        \"message\": {\n          \"role\": \"assistant\",\n          \"content\": \"I can see a vibrant outdoor scene with natural lighting. The composition draws the eye toward the center, where the main subject is clearly visible.\"\n        },\n        \"finish_reason\": \"stop\"\n      }\n    ],\n    \"usage\": {\n      \"prompt_tokens\": 265,\n      \"completion_tokens\": 52,\n      \"total_tokens\": 317\n    }\n  }\n}"
+          "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"filename\": \"photo.jpg\",\n  \"mimeType\": \"image/jpeg\",\n  \"size\": 245832,\n  \"analysis\": {\n    \"id\": \"chatcmpl-abc123def456ghi789jkl012mno\",\n    \"object\": \"chat.completion\",\n    \"created\": 1709554800,\n    \"model\": \"gpt-5.2\",\n    \"choices\": [\n      {\n        \"index\": 0,\n        \"message\": {\n          \"role\": \"assistant\",\n          \"content\": \"I can see a vibrant outdoor scene with natural lighting. The composition draws the eye toward the center, where the main subject is clearly visible.\"\n        },\n        \"finish_reason\": \"stop\"\n      }\n    ],\n    \"usage\": {\n      \"prompt_tokens\": 265,\n      \"completion_tokens\": 52,\n      \"total_tokens\": 317\n    }\n  }\n}"
         },
         {
           "name": "400 — Missing file",
@@ -186,7 +186,7 @@
             { "key": "Content-Type", "value": "application/json; charset=utf-8" },
             { "key": "X-Request-Id", "value": "550e8400-e29b-41d4-a716-446655440001" }
           ],
-          "body": "{\n  \"id\": \"chatcmpl-abc123def456ghi789jkl012mno\",\n  \"object\": \"chat.completion\",\n  \"created\": 1709554800,\n  \"model\": \"gpt-4o\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"Based on what I can see in the image, there are several interesting elements worth discussing. The overall composition suggests careful attention to framing and subject placement.\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 320,\n    \"completion_tokens\": 85,\n    \"total_tokens\": 405\n  }\n}"
+          "body": "{\n  \"id\": \"chatcmpl-abc123def456ghi789jkl012mno\",\n  \"object\": \"chat.completion\",\n  \"created\": 1709554800,\n  \"model\": \"gpt-5.2\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"Based on what I can see in the image, there are several interesting elements worth discussing. The overall composition suggests careful attention to framing and subject placement.\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 320,\n    \"completion_tokens\": 85,\n    \"total_tokens\": 405\n  }\n}"
         },
         {
           "name": "404 — Image not found",
@@ -264,7 +264,7 @@
             { "key": "Connection", "value": "keep-alive" },
             { "key": "X-Accel-Buffering", "value": "no" }
           ],
-          "body": "data: {\"id\":\"chatcmpl-abc123\",\"object\":\"chat.completion.chunk\",\"created\":1709554800,\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-abc123\",\"object\":\"chat.completion.chunk\",\"created\":1709554800,\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Based on\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-abc123\",\"object\":\"chat.completion.chunk\",\"created\":1709554800,\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"what I\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-abc123\",\"object\":\"chat.completion.chunk\",\"created\":1709554800,\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n"
+          "body": "data: {\"id\":\"chatcmpl-abc123\",\"object\":\"chat.completion.chunk\",\"created\":1709554800,\"model\":\"gpt-5.2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-abc123\",\"object\":\"chat.completion.chunk\",\"created\":1709554800,\"model\":\"gpt-5.2\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Based on\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-abc123\",\"object\":\"chat.completion.chunk\",\"created\":1709554800,\"model\":\"gpt-5.2\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"what I\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-abc123\",\"object\":\"chat.completion.chunk\",\"created\":1709554800,\"model\":\"gpt-5.2\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n"
         }
       ]
     },

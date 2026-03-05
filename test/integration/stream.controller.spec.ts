@@ -26,7 +26,7 @@ function buildChunk(
     id,
     object: 'chat.completion.chunk',
     created,
-    model: 'gpt-4o',
+    model: 'gpt-5.2',
     choices: [{ index: 0, delta, finish_reason: finishReason }],
   };
 }

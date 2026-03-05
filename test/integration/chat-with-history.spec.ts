@@ -25,7 +25,7 @@ function buildCompletion(content: string): OpenAiChatCompletion {
     id: 'chatcmpl-test',
     object: 'chat.completion',
     created: Math.floor(Date.now() / 1000),
-    model: 'gpt-4o',
+    model: 'gpt-5.2',
     choices: [
       {
         index: 0,
@@ -45,7 +45,7 @@ function buildStreamChunk(
     id: 'chatcmpl-stream',
     object: 'chat.completion.chunk',
     created: 1700000000,
-    model: 'gpt-4o',
+    model: 'gpt-5.2',
     choices: [{ index: 0, delta, finish_reason: finishReason }],
   };
 }

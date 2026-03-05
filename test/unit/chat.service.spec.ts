@@ -24,7 +24,7 @@ describe('ChatService', () => {
     id: 'chatcmpl-test123',
     object: 'chat.completion',
     created: Math.floor(Date.now() / 1000),
-    model: 'gpt-4o',
+    model: 'gpt-5.2',
     choices: [
       {
         index: 0,
@@ -226,7 +226,7 @@ describe('ChatService', () => {
       id: 'chatcmpl-test123',
       object: 'chat.completion.chunk',
       created: Math.floor(Date.now() / 1000),
-      model: 'gpt-4o',
+      model: 'gpt-5.2',
       choices: [{ index: 0, delta: { content: 'test' }, finish_reason: null }],
     };
 
@@ -323,7 +323,7 @@ describe('ChatService', () => {
         id: 'chatcmpl-test',
         object: 'chat.completion.chunk',
         created: 1700000000,
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         choices: [
           { index: 0, delta: { content: 'Hello World' }, finish_reason: null },
         ],
@@ -357,7 +357,7 @@ describe('ChatService', () => {
         id: 'chatcmpl-test',
         object: 'chat.completion.chunk',
         created: 1700000000,
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
       };
 
@@ -390,7 +390,7 @@ describe('ChatService', () => {
           id: 'chatcmpl-test',
           object: 'chat.completion.chunk',
           created: 1700000000,
-          model: 'gpt-4o',
+          model: 'gpt-5.2',
           choices: [
             { index: 0, delta: { content: 'response' }, finish_reason: null },
           ],
@@ -422,7 +422,7 @@ describe('ChatService', () => {
           id: 'chatcmpl-test',
           object: 'chat.completion.chunk',
           created: 1700000000,
-          model: 'gpt-4o',
+          model: 'gpt-5.2',
           choices: [
             { index: 0, delta: { content: 'streamed' }, finish_reason: null },
           ],
@@ -454,7 +454,7 @@ describe('ChatService', () => {
           id: 'chatcmpl-test',
           object: 'chat.completion.chunk',
           created: 1700000000,
-          model: 'gpt-4o',
+          model: 'gpt-5.2',
           choices: [
             { index: 0, delta: { content: longContent }, finish_reason: null },
           ],
@@ -483,7 +483,7 @@ describe('ChatService', () => {
           id: 'chatcmpl-test',
           object: 'chat.completion.chunk',
           created: 1700000000,
-          model: 'gpt-4o',
+          model: 'gpt-5.2',
           choices: [
             { index: 0, delta: { content: 'partial' }, finish_reason: null },
           ],

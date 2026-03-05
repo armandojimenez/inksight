@@ -18,7 +18,7 @@ const mockCompletion: OpenAiChatCompletion = {
   id: 'chatcmpl-testABCDE',
   object: 'chat.completion',
   created: Math.floor(Date.now() / 1000),
-  model: 'gpt-4o',
+  model: 'gpt-5.2',
   choices: [
     {
       index: 0,

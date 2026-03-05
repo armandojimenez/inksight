@@ -34,7 +34,7 @@ export class UploadResponseDto {
       id: 'chatcmpl-abc123',
       object: 'chat.completion',
       created: 1709554800,
-      model: 'gpt-4o',
+      model: 'gpt-5.2',
       choices: [
         {
           index: 0,

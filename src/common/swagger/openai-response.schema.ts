@@ -53,7 +53,7 @@ export class OpenAiChatCompletionSchema {
   })
   created!: number;
 
-  @ApiProperty({ description: 'Model used for the completion', example: 'gpt-4o' })
+  @ApiProperty({ description: 'Model used for the completion', example: 'gpt-5.2' })
   model!: string;
 
   @ApiProperty({ type: [OpenAiChoiceSchema] })
@@ -110,7 +110,7 @@ export class OpenAiStreamChunkSchema {
   })
   created!: number;
 
-  @ApiProperty({ example: 'gpt-4o' })
+  @ApiProperty({ example: 'gpt-5.2' })
   model!: string;
 
   @ApiProperty({ type: [StreamChoiceSchema] })

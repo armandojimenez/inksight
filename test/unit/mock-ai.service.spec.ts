@@ -36,10 +36,10 @@ describe('MockAiService', () => {
       expect(result.created).toBeLessThanOrEqual(after);
     });
 
-    it('should have model set to "gpt-4o"', async () => {
+    it('should have model set to "gpt-5.2"', async () => {
       const result = await service.analyzeImage('uploads/test.png');
 
-      expect(result.model).toBe('gpt-4o');
+      expect(result.model).toBe('gpt-5.2');
     });
 
     it('should have choices[0].message.role as "assistant"', async () => {

@@ -363,7 +363,7 @@ export interface OpenAiChatCompletion {
   id: string;                    // "chatcmpl-" + 29 random alphanumeric chars
   object: 'chat.completion';
   created: number;               // Unix timestamp (seconds)
-  model: string;                 // "gpt-4o"
+  model: string;                 // "gpt-5.2"
   choices: Array<{
     index: number;
     message: {
@@ -1394,7 +1394,7 @@ describe('MockAiService', () => {
       expect(result.id).toMatch(/^chatcmpl-[a-zA-Z0-9]{29}$/);
       expect(result.object).toBe('chat.completion');
       expect(result.created).toBeCloseTo(Math.floor(Date.now() / 1000), -1);
-      expect(result.model).toBe('gpt-4o');
+      expect(result.model).toBe('gpt-5.2');
 
       // Choices validation
       expect(result.choices).toHaveLength(1);

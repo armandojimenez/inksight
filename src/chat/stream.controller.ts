@@ -82,9 +82,9 @@ export class StreamController {
             'Each line is `data: <JSON>\\n\\n` where JSON matches the OpenAI stream chunk format. ' +
             'Final line is `data: [DONE]\\n\\n`.',
           example:
-            'data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1709554800,"model":"gpt-4o","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n' +
-            'data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1709554800,"model":"gpt-4o","choices":[{"index":0,"delta":{"content":"This image shows"},"finish_reason":null}]}\n\n' +
-            'data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1709554800,"model":"gpt-4o","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n' +
+            'data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1709554800,"model":"gpt-5.2","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n' +
+            'data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1709554800,"model":"gpt-5.2","choices":[{"index":0,"delta":{"content":"This image shows"},"finish_reason":null}]}\n\n' +
+            'data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1709554800,"model":"gpt-5.2","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n' +
             'data: [DONE]\n\n',
         },
       },

@@ -5,7 +5,7 @@ import { ConversationMessage } from './interfaces/conversation-message.interface
 import { OpenAiChatCompletion } from './interfaces/openai-chat-completion.interface';
 import { OpenAiStreamChunk } from './interfaces/openai-stream-chunk.interface';
 
-const MODEL = 'gpt-4o';
+const MODEL = 'gpt-5.2';
 
 const CHARSET =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';

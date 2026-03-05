@@ -217,7 +217,7 @@ src/
     "id": "chatcmpl-xxxx",
     "object": "chat.completion",
     "created": 1709337600,
-    "model": "gpt-4o",
+    "model": "gpt-5.2",
     "choices": [
       {
         "index": 0,
@@ -315,7 +315,7 @@ src/
   "id": "chatcmpl-xxxx",
   "object": "chat.completion",
   "created": 1709337600,
-  "model": "gpt-4o",
+  "model": "gpt-5.2",
   "choices": [
     {
       "index": 0,
@@ -376,19 +376,19 @@ Each event follows the OpenAI streaming format:
 
 **First chunk (role):**
 ```
-data: {"id":"chatcmpl-xxxx","object":"chat.completion.chunk","created":1709337600,"model":"gpt-4o","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+data: {"id":"chatcmpl-xxxx","object":"chat.completion.chunk","created":1709337600,"model":"gpt-5.2","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
 
 ```
 
 **Content chunks (repeated):**
 ```
-data: {"id":"chatcmpl-xxxx","object":"chat.completion.chunk","created":1709337600,"model":"gpt-4o","choices":[{"index":0,"delta":{"content":"This"},"finish_reason":null}]}
+data: {"id":"chatcmpl-xxxx","object":"chat.completion.chunk","created":1709337600,"model":"gpt-5.2","choices":[{"index":0,"delta":{"content":"This"},"finish_reason":null}]}
 
 ```
 
 **Final chunk:**
 ```
-data: {"id":"chatcmpl-xxxx","object":"chat.completion.chunk","created":1709337600,"model":"gpt-4o","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+data: {"id":"chatcmpl-xxxx","object":"chat.completion.chunk","created":1709337600,"model":"gpt-5.2","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
 
 data: [DONE]
 
@@ -648,7 +648,7 @@ The AI service layer implements mock responses that precisely match the OpenAI A
 | `id` | `chatcmpl-` + random alphanumeric (29 chars) |
 | `object` | `"chat.completion"` |
 | `created` | Current Unix timestamp |
-| `model` | `"gpt-4o"` |
+| `model` | `"gpt-5.2"` |
 | `choices[0].index` | `0` |
 | `choices[0].message.role` | `"assistant"` |
 | `choices[0].message.content` | Hardcoded image description |
@@ -682,7 +682,7 @@ The AI service layer implements mock responses that precisely match the OpenAI A
 | `id` | Same ID for all chunks in one response |
 | `object` | `"chat.completion.chunk"` |
 | `created` | Same timestamp for all chunks |
-| `model` | `"gpt-4o"` |
+| `model` | `"gpt-5.2"` |
 | `choices[0].delta` | `{role}` on first, `{content}` on middle, `{}` on last |
 | `choices[0].finish_reason` | `null` until final chunk, then `"stop"` |
 

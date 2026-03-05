@@ -21,7 +21,7 @@ const mockAnalysisCompletion: OpenAiChatCompletion = {
   id: 'chatcmpl-test',
   object: 'chat.completion',
   created: 1234567890,
-  model: 'gpt-4o',
+  model: 'gpt-5.2',
   choices: [
     {
       index: 0,

@@ -73,7 +73,7 @@ describe('OpenAI Format Validation', () => {
         id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         object: 'chat.completion',
         created: 1234567890,
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
       };
 
@@ -85,7 +85,7 @@ describe('OpenAI Format Validation', () => {
         id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         object: 'chat.completion',
         created: 1234567890,
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         choices: [
           {
             index: 0,
@@ -102,7 +102,7 @@ describe('OpenAI Format Validation', () => {
       const invalid = {
         object: 'chat.completion',
         created: 1234567890,
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         choices: [
           {
             index: 0,
@@ -121,7 +121,7 @@ describe('OpenAI Format Validation', () => {
         id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         object: 'chat.completion',
         created: 'not-a-number',
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         choices: [
           {
             index: 0,
@@ -140,7 +140,7 @@ describe('OpenAI Format Validation', () => {
         id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         object: 'chat.completion.chunk',
         created: 1234567890,
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         choices: [
           {
             index: 0,
@@ -159,7 +159,7 @@ describe('OpenAI Format Validation', () => {
         id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         object: 'chat.completion',
         created: 1234567890,
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         choices: [],
         usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
       };
@@ -172,7 +172,7 @@ describe('OpenAI Format Validation', () => {
         id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         object: 'chat.completion',
         created: 1234567890,
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         choices: [
           {
             index: 0,
@@ -191,7 +191,7 @@ describe('OpenAI Format Validation', () => {
         id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         object: 'chat.completion',
         created: 1234567890,
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         choices: [
           {
             index: 0,
@@ -237,7 +237,7 @@ describe('OpenAI Format Validation', () => {
         id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         object: 'chat.completion.chunk',
         created: 1234567890,
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         choices: [
           {
             index: 0,
@@ -254,7 +254,7 @@ describe('OpenAI Format Validation', () => {
         id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         object: 'chat.completion',
         created: 1234567890,
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         choices: [
           {
             index: 0,
@@ -272,7 +272,7 @@ describe('OpenAI Format Validation', () => {
         id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         object: 'chat.completion.chunk',
         created: 1234567890,
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         choices: [
           {
             index: 0,
@@ -290,7 +290,7 @@ describe('OpenAI Format Validation', () => {
         id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         object: 'chat.completion.chunk',
         created: 1234567890,
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         choices: [],
       };
 
@@ -302,7 +302,7 @@ describe('OpenAI Format Validation', () => {
         id: 'chatcmpl-aaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         object: 'chat.completion.chunk',
         created: 1234567890,
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         choices: [
           {
             index: 0,
