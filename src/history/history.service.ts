@@ -7,9 +7,7 @@ import { ChatMessageEntity } from './entities/chat-message.entity';
 import { ConversationMessage } from '@/ai/interfaces/conversation-message.interface';
 import { CACHE_KEYS } from '@/cache/cache-keys';
 import { withRetry } from '@/common/utils/retry';
-
-const DEFAULT_HISTORY_CAP = 50;
-const DEFAULT_PAGE_SIZE = 20;
+import { DEFAULT_HISTORY_CAP, DEFAULT_PAGE_SIZE } from '@/common/pagination.constants';
 const VALID_ROLES = new Set(['user', 'assistant']);
 
 export type MessageRole = 'user' | 'assistant';
@@ -187,10 +185,19 @@ export class HistoryService {
 
   async invalidateCache(imageId: string): Promise<void> {
     try {
-      await Promise.all([
+      const results = await Promise.allSettled([
         this.cacheManager.del(CACHE_KEYS.history(imageId)),
         this.cacheManager.del(CACHE_KEYS.recent(imageId)),
       ]);
+      const failures = results.filter(
+        (r): r is PromiseRejectedResult => r.status === 'rejected',
+      );
+      if (failures.length > 0) {
+        const messages = failures.map((f) =>
+          f.reason instanceof Error ? f.reason.message : 'Unknown',
+        );
+        throw new Error(`Cache del failed: ${messages.join('; ')}`);
+      }
       this.logger.debug(`Cache INVALIDATED for imageId: ${imageId}`);
     } catch (err) {
       this.logger.warn(

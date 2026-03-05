@@ -40,6 +40,11 @@ export class ChatService {
   ): Promise<OpenAiChatCompletion> {
     await this.findImage(imageId);
 
+    // Note: addMessage invalidates the recent/history cache on each call.
+    // Every chat request triggers two invalidations (user msg + assistant msg),
+    // so the cache provides zero benefit on the chat hot path — it only serves
+    // the GET /history REST endpoint between chat messages. This is intentional:
+    // correctness (no stale reads) over hit rate.
     await this.historyService.addMessage(imageId, 'user', message);
     const history = await this.historyService.getRecentMessages(imageId);
 

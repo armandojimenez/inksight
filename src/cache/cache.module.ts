@@ -1,12 +1,21 @@
 import { Module } from '@nestjs/common';
 import { CacheModule as NestCacheModule } from '@nestjs/cache-manager';
+import { Keyv } from 'keyv';
+import { KeyvCacheableMemory } from 'cacheable';
 
 @Module({
   imports: [
     NestCacheModule.register({
       isGlobal: true,
       ttl: 300_000, // 5 minutes in ms (default)
-      max: 100, // LRU eviction after 100 items
+      stores: [
+        new Keyv({
+          store: new KeyvCacheableMemory({
+            lruSize: 100,
+            useClone: true,
+          }),
+        }),
+      ],
     }),
   ],
 })

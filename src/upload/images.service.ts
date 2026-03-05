@@ -99,10 +99,8 @@ export class ImagesService {
       }
     }
 
-    // CASCADE on FK handles message deletion
-    await this.imageRepository.remove(image);
-
-    // Invalidate all cache entries for this image
+    // Invalidate all cache entries before DB delete — if DB delete fails,
+    // cache miss safely re-reads from DB (still present)
     try {
       await this.cacheManager.del(CACHE_KEYS.image(imageId));
     } catch (err) {
@@ -111,6 +109,9 @@ export class ImagesService {
       );
     }
     await this.historyService.invalidateCache(imageId);
+
+    // CASCADE on FK handles message deletion
+    await this.imageRepository.remove(image);
   }
 
   async getImageForServing(
