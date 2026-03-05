@@ -9,6 +9,9 @@ async function bootstrap() {
   const config = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
 
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', 1);
+
   setupApp(app);
 
   const port = config.get<number>('PORT', 3000);

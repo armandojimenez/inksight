@@ -1,7 +1,9 @@
 import { Controller, Get, Res } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { DataSource } from 'typeorm';
 
+@SkipThrottle()
 @Controller('health')
 export class HealthController {
   constructor(private readonly dataSource: DataSource) {}

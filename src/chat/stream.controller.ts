@@ -6,7 +6,9 @@ import {
   Req,
   Res,
   Logger,
+  UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { ChatService } from './chat.service';
@@ -15,6 +17,7 @@ import { drainOrAbort } from './drain-or-abort';
 import { UuidValidationPipe } from '@/common/pipes/uuid-validation.pipe';
 import { RequestWithCorrelation } from '@/common/interfaces/request.interface';
 import { buildErrorResponse } from '@/common/utils/build-error-response';
+import { ConcurrentSseGuard } from '@/common/guards/concurrent-sse.guard';
 
 const DEFAULT_SSE_TIMEOUT_MS = 30_000;
 const MAX_SSE_TIMEOUT_MS = 120_000;
@@ -26,6 +29,7 @@ function clampTimeout(raw: number): number {
   return Math.min(raw, MAX_SSE_TIMEOUT_MS);
 }
 
+@UseGuards(ConcurrentSseGuard)
 @Controller('chat-stream')
 export class StreamController {
   private readonly logger = new Logger(StreamController.name);
@@ -36,6 +40,7 @@ export class StreamController {
   ) {}
 
   @Post(':imageId')
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   async chatStream(
     @Param('imageId', UuidValidationPipe) imageId: string,
     @Body() dto: ChatRequestDto,
