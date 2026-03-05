@@ -1,7 +1,7 @@
 # Inksight — Implementation Plan
 
-**Version:** 1.1
-**Last Updated:** March 2, 2026
+**Version:** 1.2
+**Last Updated:** March 4, 2026
 **Author:** Armando Jimenez
 
 ---
@@ -48,7 +48,12 @@ The smoke test is not a replacement for automated tests — it's a complementary
 | 7 | Caching Layer | Phase 6 | In-memory cache for DB reads | `v0.7-cache` |
 | 8 | Production Hardening | Phase 7 | Rate limiting, security headers, logging, health check | `v0.8-hardened` |
 | 9 | API Documentation | Phase 8 | Swagger, Postman collection, test script | `v0.9-api-docs` |
-| 10 | React Client | Phase 8 | Full UI: upload, chat, streaming, gallery | `v0.10-client` |
+| 10a | Client Setup | Phase 8 | Verified assets, shadcn/ui deps, test infra, API client | `—` |
+| 10b | UploadView | Phase 10a | Drag-and-drop upload with progress and validation | `—` |
+| 10c | ChatView + Streaming | Phase 10b | Chat messages, input, SSE streaming hook | `—` |
+| 10d | Sidebar + Gallery | Phase 10c | Image list, selection, deletion with confirmation | `—` |
+| 10e | Layout + Wiring | Phase 10d | App shell, view routing, optimistic updates, toasts | `—` |
+| 10f | Polish + A11y | Phase 10e | Responsive, keyboard shortcuts, skeletons, CSP, WCAG audit | `v0.10-client` |
 | 11 | E2E Tests | Phase 10 | Full end-to-end test suite | `v0.11-e2e` |
 | 12 | Final Polish | Phase 11 | README, code cleanup, coverage report | `v1.0` |
 
@@ -61,7 +66,7 @@ The smoke test is not a replacement for automated tests — it's a complementary
 | Phase 3: History | Phase 5 |
 | Phase 4: Storage & Hardening | Phases 6, 7 |
 | Phase 5: Production Polish | Phase 8 |
-| Phase 6: Web Client | Phases 9, 10 |
+| Phase 6: Web Client | Phases 9, 10a–10f |
 | Phase 7: Quality & Delivery | Phases 11, 12 |
 
 ---
@@ -986,6 +991,8 @@ git tag v0.9-api-docs -m "Swagger, Postman collection, and API test script"
 
 **Reference Docs:** [TDD Sec 11.1–11.4](./technical-design.md#111-component-tree) (component tree, state management, SSE client with retry, build integration), [UI Design Spec](./ui-design-spec.md) (visual design, tokens, component specs, accessibility), [ADR-003](./adr/003-frontend-framework.md), [ADR-004](./adr/004-styling.md), [ADR-006](./adr/006-sse-streaming.md) (client-side SSE approach: `fetch` + `ReadableStream`, not `EventSource`)
 
+**Build tool:** Use the `/frontend-design` skill for all component implementation tasks (10b–10f). This skill generates production-grade, polished UI that avoids generic AI aesthetics — exactly the quality bar we need for Inkit-aligned components.
+
 ### Pre-Phase Status (already complete)
 
 The design system is fully aligned with Inkit's brand. The following are already in place — **do NOT change these, treat them as source of truth:**
@@ -1019,62 +1026,32 @@ These design choices were made to match Inkit's brand. Do NOT deviate:
 | **Suggested questions** | Arrow-link pattern (`→ What objects...`) | Matches Inkit's navigation link style |
 | **Fonts** | Space Grotesk (headings), Archivo (body), Space Mono (code) | Inkit's exact font stack |
 
-### Tasks
+### Animation Spec (non-negotiable)
 
-**Setup (tasks 1–4):**
-1. Set up component structure per UI Design Spec § 6–7
-2. `tokens.css` and `globals.css` are already imported — verify `@import './tokens.css'` is first line in `globals.css`
-3. Tailwind config is already aligned — verify values match tokens, install any missing shadcn/ui deps
-4. Install shadcn/ui components: Button, Input, Toast, Dialog, ScrollArea. Configure components to use our design tokens (4px radius, Archivo font, Inkit colors)
+Subtle, purposeful micro-interactions that feel intelligent — never decorative or flashy. All animations use CSS transitions/keyframes, no JS animation libraries needed.
 
-**Core components (tasks 5–7):**
-5. **`UploadView`** — drag-and-drop with progress and validation
-   - Full-page view when no image is selected
-   - Background: `var(--gradient-hero)` — the Inkit-inspired radial gradient
-   - Center: Inksight icon (`inksight-icon.svg`) at `--logo-height-hero` (48px), color `--color-neutral-300` (subtle)
-   - Drop zone: 4px radius, dashed border, states per UI Spec § 6.4
-   - On upload complete: transition to ChatView
+| Interaction | Animation | Duration / Easing |
+|-------------|-----------|-------------------|
+| **Upload → Chat transition** | Crossfade (upload fades out, chat fades in) | 200ms ease-out |
+| **New message appears** | Fade-in + 8px slide-up | 150ms ease-out |
+| **Streaming tokens** | **No animation** — instant append (animation causes jank at token speed) | — |
+| **Streaming indicator** | 3 dots pulsing sequentially (opacity 0.3→1) | 1.4s infinite, 200ms stagger |
+| **Sidebar overlay (mobile)** | Slide-in from left + backdrop fade | 200ms ease-out |
+| **Sidebar overlay close** | Slide-out to left + backdrop fade | 150ms ease-in |
+| **Drop zone state changes** | Border color + background transition | 150ms ease |
+| **Toast enter** | Slide-in from top-right + fade-in | 200ms ease-out |
+| **Toast exit** | Fade-out + slight slide-up | 150ms ease-in |
+| **Delete confirmation dialog** | Scale from 0.95→1 + backdrop fade | 150ms ease-out |
+| **Image thumbnail hover** | Subtle brightness increase (1→1.05) | 100ms ease |
+| **Button hover** | Background color shift | 100ms ease |
+| **Focus ring** | Instant (no transition — accessibility requirement) | 0ms |
+| **`prefers-reduced-motion`** | **All animations resolve instantly** (duration: 0ms) | — |
 
-6. **`ChatView`** — message list with streaming support
-   - User bubbles: `bg-primary-500`, white text, radius `8px 8px 2px 8px`
-   - Assistant bubbles: `bg-ai-50` (#EEF0FF), `text-neutral-600`, `border border-ai-100`, radius `8px 8px 8px 2px`
-   - AI indicator: 8px dot, `bg-ai-500` (#4D63FF), left of first line
-   - Image preview at top of chat area (thumbnail with 4px radius)
-   - Empty state: Inksight icon + suggested questions with `→` arrow prefix in `text-primary-500`
-
-7. **`Sidebar`** — image gallery with selection
-   - Header: Inksight logo PNG (`inksight-logo.png`), height `--logo-height-sidebar` (28px), colored `text-primary-500`
-   - Width: 280px desktop, collapses on mobile
-   - Active item: `bg-primary-50`, `border-l-3 border-primary-500`
-   - Image thumbnails: 4px radius
-   - "+ New Image" button at bottom
-
-**Hooks & logic (tasks 8–10):**
-8. **`useStreamingChat` hook** — `fetch` + `ReadableStream` SSE parsing (NOT `EventSource` — we need POST support per ADR-006)
-   - Parse `data:` lines from SSE stream
-   - Accumulate tokens into assistant message
-   - Exponential backoff retry on stream failure (max 3 retries, 1s/2s/4s)
-   - Abort controller for cleanup on unmount
-
-9. **Optimistic updates** — user message appears in chat immediately before server round-trip confirms
-
-10. **Error handling** — toast notifications per UI Spec § 6.7
-    - Success: green left-border, auto-dismiss 5s
-    - Error: red left-border, persistent until dismissed
-    - Use `role="alert"` for errors, `role="status"` for success
-
-**UX polish (tasks 11–15):**
-11. **Suggested questions** in empty chat state — 3 presets with `→` arrow prefix, clickable to send
-12. **Responsive layout** — sidebar collapses below 1024px, hamburger menu, overlay with focus trap + Escape to close
-13. **Keyboard shortcuts** — Enter to send (Shift+Enter for newline), Escape to close sidebar
-14. **Loading skeletons** — for initial image list fetch and chat history load
-15. **Image deletion** — delete button on sidebar items → confirmation dialog → `DELETE /api/images/:id` → remove from list + select next image or show upload view
-
-**Backend integration (task 16):**
-16. **Helmet CSP `connect-src`** — allow SSE connections from React client origin for `fetch`-based streaming
-
-**Accessibility (task 17):**
-17. **Accessibility audit** — tab navigation, focus rings (`--shadow-focus`), screen reader announcements, `aria-live` regions, skip link, landmark regions, `prefers-reduced-motion` support. See UI Spec § 9 for full WCAG checklist.
+**Implementation notes:**
+- Define a shared `transition-base: 150ms ease` CSS custom property in `tokens.css`
+- Use Tailwind's `motion-safe:` and `motion-reduce:` variants for `prefers-reduced-motion`
+- Streaming indicator uses CSS `@keyframes`, not JS intervals
+- Never animate layout properties (`width`, `height`, `top`, `left`) — only `opacity`, `transform`, `background-color`, `border-color`
 
 ### API Endpoints (for reference)
 
@@ -1088,15 +1065,330 @@ These design choices were made to match Inkit's brand. Do NOT deviate:
 | `/api/images/:imageId/messages` | GET | Get chat history (paginated) |
 | `/api/health` | GET | Health check |
 
-### Component Test Plan
-- [ ] `client/src/__tests__/UploadView.test.tsx` — renders dropzone, handles drag events, shows progress, shows errors, rejects invalid file types client-side
-- [ ] `client/src/__tests__/ChatView.test.tsx` — renders messages, auto-scrolls, handles streaming, shows suggested questions on empty state
-- [ ] `client/src/__tests__/Sidebar.test.tsx` — renders image list, handles selection, shows active state, delete button triggers confirmation
-- [ ] `client/src/__tests__/ChatInput.test.tsx` — validates input, handles Enter/Shift+Enter, trims whitespace, disables during streaming
-- [ ] `client/src/__tests__/useStreamingChat.test.ts` — parses SSE events, accumulates tokens, handles errors, retries on stream failure with exponential backoff
-- [ ] `client/src/__tests__/ToastNotifications.test.tsx` — success/error/warning/info variants render correctly, auto-dismiss for success
+---
 
-### Phase Gate
+### Phase 10a: Client Setup
+
+**Goal:** Verified design assets, test infrastructure, shadcn/ui components installed, and a typed API client layer — everything subsequent sub-phases build on.
+
+#### Tasks
+
+1. **Verify existing assets** — confirm `globals.css` imports `tokens.css` as first line, Tailwind config values match tokens, fonts load in `index.html`
+2. **Install test infra** — add Vitest, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event`, `jsdom`; configure `vitest.config.ts` with jsdom environment; add `test` script to `client/package.json`
+3. **Install shadcn/ui components** — Button, Input, Toast (via Sonner or radix toast), Dialog, ScrollArea. Verify each component renders with 4px radius, Archivo font, Inkit colors
+4. **Create API client** — typed `client/src/lib/api.ts` module with functions for each endpoint: `uploadImage()`, `sendMessage()`, `streamMessage()`, `getImages()`, `getMessages()`, `deleteImage()`, `healthCheck()`. Uses `fetch` with `/api` base path. No external HTTP library needed.
+5. **Create component directory structure:**
+   ```
+   client/src/
+   ├── components/
+   │   ├── ui/          ← shadcn/ui primitives (Button, Input, etc.)
+   │   ├── UploadView.tsx
+   │   ├── ChatView.tsx
+   │   ├── ChatInput.tsx
+   │   ├── MessageBubble.tsx
+   │   ├── Sidebar.tsx
+   │   └── AppLayout.tsx
+   ├── hooks/
+   │   └── useStreamingChat.ts
+   ├── lib/
+   │   ├── api.ts
+   │   └── utils.ts     ← already exists (cn helper)
+   ├── types/
+   │   └── index.ts     ← shared TS types (Image, Message, etc.)
+   └── __tests__/
+   ```
+
+#### Sub-Phase Gate
+
+```bash
+cd client && npm test   # Vitest runs (0 tests, but infra works)
+# shadcn/ui Button renders in a trivial smoke test (optional)
+# API client module compiles with no type errors
+```
+
+**Commits:** `chore: add Vitest + RTL test infrastructure` → `chore: install shadcn/ui components` → `feat: add typed API client and component scaffolding`
+
+---
+
+### Phase 10b: UploadView
+
+**Goal:** Drag-and-drop image upload with progress indicator and client-side validation — the first screen users see.
+
+#### Tasks
+
+1. **Write tests first** — `client/src/__tests__/UploadView.test.tsx`
+   - Renders drop zone with Inksight icon and hero gradient background
+   - Drag events: `dragenter` shows active state (solid border), `dragleave` reverts, `drop` triggers upload
+   - Click to browse triggers file input
+   - Client-side validation: rejects non-image files, rejects files >10MB, shows error message
+   - Upload progress: shows progress indicator during upload
+   - Upload success: calls `onUploadComplete` callback with image data
+   - Upload error: shows error message in drop zone
+
+2. **Implement `UploadView`**
+   - Full-page view when no image is selected
+   - Background: `var(--gradient-hero)` — the Inkit-inspired radial gradient
+   - Center: Inksight icon (`inksight-icon.svg`) at `--logo-height-hero` (48px), color `--color-neutral-300` (subtle)
+   - Drop zone: 4px radius, dashed border, states per UI Spec § 6.4:
+     - Default: dashed `neutral-200` border
+     - Dragover: solid `primary-500` border, `primary-50` background
+     - Uploading: progress bar or spinner
+     - Error: `error-500` border, error message
+   - Uses `api.uploadImage()` from the API client
+   - On upload complete: calls callback with image response data
+
+3. **Implement `types/index.ts`** — `ImageData`, `MessageData`, `UploadResponse` types matching the API response shapes
+
+#### Sub-Phase Gate
+
+```bash
+cd client && npm test -- --run UploadView
+# All UploadView tests pass
+```
+
+**Smoke test:** Render UploadView in isolation (App.tsx temporarily renders just UploadView). Drag a PNG → see progress → see success state.
+
+**Commits:** `test: add UploadView tests (red)` → `feat: implement UploadView with drag-and-drop upload` → `refactor: (if needed)`
+
+---
+
+### Phase 10c: ChatView + Streaming
+
+**Goal:** Chat interface with message bubbles, input field, and real-time SSE streaming — the core interaction.
+
+#### Tasks
+
+1. **Write tests first** — `client/src/__tests__/useStreamingChat.test.ts`
+   - Parses `data:` lines from SSE stream
+   - Accumulates tokens into assistant message as they arrive
+   - Handles `[DONE]` sentinel to finalize message
+   - Retries on stream failure with exponential backoff (max 3 retries, 1s/2s/4s)
+   - Abort controller cancels stream on unmount
+   - Error callback fires on non-retryable failure
+
+2. **Write tests first** — `client/src/__tests__/ChatInput.test.tsx`
+   - Enter submits message (calls `onSend` with trimmed text)
+   - Shift+Enter inserts newline (does NOT submit)
+   - Empty/whitespace-only input: submit button disabled, Enter does nothing
+   - Input disabled during streaming (accepts `isStreaming` prop)
+   - Trims whitespace from message before sending
+
+3. **Write tests first** — `client/src/__tests__/ChatView.test.tsx`
+   - Renders list of messages with correct bubble styles (user vs assistant)
+   - User bubbles: `bg-primary-500`, white text, radius `8px 8px 2px 8px`
+   - Assistant bubbles: `bg-ai-50`, `text-neutral-600`, border `ai-100`, radius `8px 8px 8px 2px`
+   - AI indicator: 8px dot, `bg-ai-500` (#4D63FF), left of first line
+   - Image preview at top of chat area (thumbnail with 4px radius)
+   - Empty state: Inksight icon + suggested questions with `→` arrow prefix
+   - Suggested questions are clickable and trigger `onSend`
+   - Auto-scrolls to bottom on new messages
+   - Shows streaming indicator (pulsing dots) while streaming
+
+4. **Implement `useStreamingChat` hook**
+   - `fetch` + `ReadableStream` SSE parsing (NOT `EventSource` — POST required per ADR-006)
+   - Parse `data:` lines, accumulate tokens into assistant message
+   - Exponential backoff retry on stream failure (max 3 retries, 1s/2s/4s)
+   - `AbortController` for cleanup on unmount
+   - Returns: `{ messages, sendMessage, isStreaming, error }`
+
+5. **Implement `ChatInput`**
+   - Textarea with auto-resize
+   - Send button (primary style, 4px radius, no shadow)
+   - Enter to send, Shift+Enter for newline
+   - Disabled state during streaming
+
+6. **Implement `MessageBubble`**
+   - Renders user or assistant message with correct styles
+   - AI indicator dot on assistant messages
+
+7. **Implement `ChatView`**
+   - Image preview thumbnail at top
+   - Message list using `MessageBubble` components
+   - Empty state with Inksight icon + 3 suggested questions (`→ What objects are in this image?`, `→ Describe the colors and mood`, `→ What text can you read?`)
+   - Auto-scroll via `scrollIntoView` on new messages
+   - Streaming indicator (pulsing dots in `primary-400`)
+   - Integrates `ChatInput` at bottom
+   - Uses `useStreamingChat` hook internally
+
+#### Sub-Phase Gate
+
+```bash
+cd client && npm test -- --run useStreamingChat ChatInput ChatView
+# All 3 test files pass
+```
+
+**Smoke test:** Render ChatView with a hardcoded `imageId` (from a previous upload via curl). Type a message → see it appear as user bubble → see streaming assistant response arrive token by token.
+
+**Commits:** `test: add useStreamingChat hook tests (red)` → `feat: implement useStreamingChat with SSE parsing and retry` → `test: add ChatInput tests (red)` → `feat: implement ChatInput with keyboard shortcuts` → `test: add ChatView tests (red)` → `feat: implement ChatView with message bubbles and streaming`
+
+---
+
+### Phase 10d: Sidebar + Gallery
+
+**Goal:** Image gallery sidebar with selection, deletion, and conversation switching.
+
+#### Tasks
+
+1. **Write tests first** — `client/src/__tests__/Sidebar.test.tsx`
+   - Renders Inksight logo in header (primary-500)
+   - Renders list of images with thumbnails (4px radius) and original filenames
+   - Shows message count per image
+   - Click image calls `onSelect` with image ID
+   - Active image has `bg-primary-50` + `border-l-3 border-primary-500`
+   - Delete button on each item triggers confirmation dialog
+   - Confirm delete calls `onDelete` with image ID
+   - Cancel delete closes dialog without calling `onDelete`
+   - "+ New Image" button at bottom calls `onNewImage`
+   - Empty state: message encouraging upload
+
+2. **Implement `Sidebar`**
+   - Header: Inksight logo PNG (`inksight-logo.png`), height `--logo-height-sidebar` (28px)
+   - Width: 280px (fixed for now — responsive handled in 10f)
+   - Image list: fetches via `api.getImages()`, shows thumbnail + filename + message count
+   - Active item: `bg-primary-50`, `border-l-3 border-primary-500`
+   - Delete: icon button → shadcn/ui `Dialog` confirmation → calls `api.deleteImage()` → removes from list
+   - "+ New Image" button at bottom (primary outline style)
+   - Uses `ScrollArea` for overflow
+
+3. **Implement image selection state** — when user clicks a sidebar image, load its chat history via `api.getMessages()` and display in ChatView
+
+#### Sub-Phase Gate
+
+```bash
+cd client && npm test -- --run Sidebar
+# Sidebar tests pass
+```
+
+**Smoke test:** Render Sidebar alongside ChatView. Upload 2 images via curl. Sidebar shows both. Click between them → chat history switches. Delete one → confirmation → removed from list.
+
+**Commits:** `test: add Sidebar tests (red)` → `feat: implement Sidebar with gallery and deletion` → `feat: wire image selection to ChatView history loading`
+
+---
+
+### Phase 10e: Layout + Wiring
+
+**Goal:** Wire all components into the app shell — UploadView, ChatView, and Sidebar work together as a complete application.
+
+#### Tasks
+
+1. **Implement `AppLayout`** — the root layout component
+   - Left: `Sidebar` (280px)
+   - Right: `ChatView` (when image selected) or `UploadView` (when no image selected)
+   - State management: `selectedImageId`, `images` list
+   - Flow: Upload completes → image added to sidebar → auto-selected → ChatView shows with initial AI analysis
+
+2. **Optimistic updates** — user message appears in chat immediately before server round-trip confirms
+   - Add message to local state with `role: 'user'` immediately on send
+   - On stream start, add placeholder assistant message
+   - On stream complete, finalize assistant message
+   - On error, mark user message as failed (with retry option)
+
+3. **Toast notifications** — implement error/success toasts per UI Spec § 6.7
+   - Success: green left-border, auto-dismiss 5s, `role="status"`
+   - Error: red left-border, persistent until dismissed, `role="alert"`
+   - Trigger on: upload success, upload error, delete success, delete error, chat error
+
+4. **Write tests** — `client/src/__tests__/ToastNotifications.test.tsx`
+   - Success toast renders with green left-border and auto-dismisses
+   - Error toast renders with red left-border and persists
+   - Correct ARIA roles on each variant
+
+5. **Update `App.tsx`** — replace placeholder with `AppLayout`
+
+#### Sub-Phase Gate
+
+```bash
+cd client && npm test -- --run ToastNotifications
+# Toast tests pass
+cd client && npm test
+# ALL existing tests still pass (UploadView, ChatView, ChatInput, useStreamingChat, Sidebar, Toast)
+```
+
+**Smoke test:** Full flow in browser — open app → see UploadView → drag image → upload completes → auto-transition to ChatView → sidebar shows image → type message → streaming response → upload second image → switch between them → delete one → toast confirms.
+
+**Commits:** `feat: implement AppLayout with view routing and state management` → `feat: add optimistic updates for chat messages` → `test: add toast notification tests (red)` → `feat: implement toast notifications` → `feat: wire App.tsx to AppLayout`
+
+---
+
+### Phase 10f: Polish + Accessibility
+
+**Goal:** Responsive layout, keyboard shortcuts, loading states, backend CSP update, and WCAG 2.1 AA compliance.
+
+#### Tasks
+
+1. **Responsive layout**
+   - Below 1024px: sidebar collapses completely
+   - Hamburger menu button in mobile header (Inksight icon only at 24px)
+   - Sidebar opens as overlay with backdrop
+   - Focus trap inside overlay (Tab cycles within sidebar)
+   - Escape closes sidebar overlay
+   - Selecting an image auto-closes sidebar on mobile
+
+2. **Keyboard shortcuts**
+   - Enter to send message (already in ChatInput — verify in full app context)
+   - Escape to close sidebar overlay (mobile)
+   - Tab navigation through all interactive elements
+
+3. **Loading skeletons**
+   - Sidebar image list: shimmer placeholders while `getImages()` loads
+   - Chat history: shimmer placeholders while `getMessages()` loads
+   - Use `animate-pulse` with `neutral-100` / `neutral-200` colors
+
+4. **Helmet CSP `connect-src`** (backend change)
+   - Update `src/common/security/helmet.config.ts` (or equivalent) to allow SSE connections from React client origin
+   - Must allow `connect-src 'self'` at minimum for fetch-based streaming to work
+
+5. **Accessibility audit** — per UI Spec § 9:
+   - Focus rings: `--shadow-focus` (2px offset ring, `primary-400`) on all interactive elements
+   - Skip link: "Skip to main content" link at top of page, visible on focus
+   - Landmark regions: `<nav>` for sidebar, `<main>` for chat area, `<header>` for top bar
+   - `aria-live="polite"` region for streaming messages (announces new content)
+   - `aria-label` on icon-only buttons (hamburger, delete, send)
+   - `prefers-reduced-motion`: disable streaming animation, use instant transitions
+   - Color contrast: verify all text meets 4.5:1 ratio (AA)
+
+#### Sub-Phase Gate
+
+```bash
+cd client && npm test
+# ALL 6 test files pass:
+#   UploadView, ChatView, ChatInput, useStreamingChat, Sidebar, ToastNotifications
+```
+
+**Smoke test (responsive):**
+```
+✓ Resize to 375px width → sidebar collapses
+✓ Hamburger menu → opens sidebar as overlay
+✓ Escape closes sidebar overlay
+✓ Mobile header shows Inksight icon only (24px)
+✓ Selecting an image closes sidebar on mobile
+```
+
+**Smoke test (accessibility):**
+```
+✓ Tab navigates through all interactive elements in logical order
+✓ Focus ring visible on all interactive elements
+✓ Skip link appears on first Tab press
+✓ Screen reader announces streaming messages
+✓ All icon buttons have accessible labels
+```
+
+**Smoke test (design system — final verification):**
+```
+✓ All buttons have 4px radius and no shadow (Inkit match)
+✓ All inputs have 4px radius (Inkit match)
+✓ Page background is #F7F8FD (Inkit match)
+✓ No teal/foreign colors anywhere — only blue family + neutrals
+✓ Fonts: Space Grotesk headings, Archivo body, Space Mono code
+```
+
+**Commits:** `feat: add responsive layout with collapsible sidebar` → `feat: add loading skeletons for image list and chat history` → `fix: update Helmet CSP connect-src for SSE streaming` → `feat: add accessibility — skip link, landmarks, aria-live, focus rings` → `refactor: (if needed)`
+
+---
+
+### Phase 10 — Final Phase Gate
+
+This gate covers the complete Phase 10 (all sub-phases 10a–10f).
 
 **Automated:**
 ```bash
@@ -1104,7 +1396,7 @@ cd client && npm test
 # All 6 component/hook test files pass
 ```
 
-**Smoke Test (browser):**
+**Smoke Test (full browser walkthrough):**
 ```
 Open http://localhost:3000 in Chrome and verify:
 
@@ -1356,12 +1648,12 @@ git tag v1.0 -m "Inksight v1.0 — Production-ready visual assistant API"
 | `test/integration/security.spec.ts` | 8 | Headers, CORS, error leaks |
 | `test/unit/cleanup.service.spec.ts` | 8 | Scheduled data cleanup (24hr TTL + active session guard) |
 | `test/unit/logging.interceptor.spec.ts` | 8 | Request logging, correlation IDs, response time |
-| `client/src/__tests__/UploadView.test.tsx` | 10 | Upload dropzone, drag, progress, errors |
-| `client/src/__tests__/ChatView.test.tsx` | 10 | Messages, auto-scroll, streaming |
-| `client/src/__tests__/Sidebar.test.tsx` | 10 | Image list, selection, delete |
-| `client/src/__tests__/ChatInput.test.tsx` | 10 | Input validation, keyboard shortcuts |
-| `client/src/__tests__/useStreamingChat.test.ts` | 10 | SSE parsing, retry, error handling |
-| `client/src/__tests__/ToastNotifications.test.tsx` | 10 | Toast variants, auto-dismiss |
+| `client/src/__tests__/UploadView.test.tsx` | 10b | Upload dropzone, drag, progress, errors |
+| `client/src/__tests__/useStreamingChat.test.ts` | 10c | SSE parsing, retry, error handling |
+| `client/src/__tests__/ChatInput.test.tsx` | 10c | Input validation, keyboard shortcuts |
+| `client/src/__tests__/ChatView.test.tsx` | 10c | Messages, auto-scroll, streaming |
+| `client/src/__tests__/Sidebar.test.tsx` | 10d | Image list, selection, delete |
+| `client/src/__tests__/ToastNotifications.test.tsx` | 10e | Toast variants, auto-dismiss |
 | `test/e2e/app.e2e-spec.ts` | 11 | Full journey |
 | `test/schemas/chat-completion.schema.json` | 2 | OpenAI non-streaming response schema |
 | `test/schemas/stream-chunk.schema.json` | 2 | OpenAI streaming chunk schema |
