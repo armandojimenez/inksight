@@ -786,7 +786,7 @@ The following findings from the Phase 7 code review are intentionally deferred. 
 
 ## Phase 8: Production Hardening ✅
 
-**Status:** Complete — 471 tests pass, tagged `v0.8-hardened`
+**Status:** Complete — 477 tests pass, tagged `v0.8-hardened`
 
 **Goal:** Rate limiting, security headers, structured logging, health check.
 
@@ -896,6 +896,18 @@ curl -s http://localhost:3000/api/chat/bad-uuid \
 ```bash
 git tag v0.8-hardened -m "Production hardening: rate limiting, Helmet, logging, cleanup cron"
 ```
+
+### Review Findings Deferred to Later Phases
+
+The following findings from the Phase 8 code reviews (6 reviews: Gemini, Codex, adversarial, dual, security, test quality) are intentionally deferred. Each item is tracked in its target phase.
+
+| Finding | Deferred To | Rationale |
+|---------|------------|-----------|
+| Redis-backed throttler/SSE counters for multi-instance scaling | Phase 12 (Production Deployment) | In-memory Map is correct for single-instance; Redis adds unnecessary complexity until horizontal scaling is needed |
+| Configurable `trust proxy` via env var (currently hardcoded `1`) | Phase 12 (Production Deployment) | Single-instance deployment behind one proxy; configurable value needed only when deployment topology varies |
+| `SSE_TIMEOUT_MS` in Joi validation schema and `.env.example` | Phase 12 (Production Deployment) | Already has runtime clamping; formal Joi validation is a polish item for production config review |
+| Cleanup re-entrancy stuck-detection timeout | Phase 12 (Production Deployment) | Process-local `isRunning` flag is safe in single-threaded Node.js; timeout only needed if cleanup could deadlock (it can't — all ops have DB/FS timeouts) |
+| Unicode normalization (NFKC) and bidi control char filtering in message sanitization | Phase 12 (Production Deployment) | Current regex covers C0, DEL, and C1 control chars; NFKC normalization and bidi overrides are an advanced Unicode security concern for production hardening |
 
 ---
 
@@ -1136,12 +1148,19 @@ git tag v0.11-e2e -m "E2E test suite, 85%+ coverage across all modules"
    - Project structure overview
 2. Audit and normalize import paths across all source files (consistent `@/` alias usage)
 3. Verify all tests pass
-3. Verify Docker Compose builds and runs from clean state
-4. Verify `npm start` serves both API and React client
-5. Remove any dead code, console.logs, TODOs
-6. Run final code review
-7. Generate test coverage report
-8. Create final git tag
+4. Verify Docker Compose builds and runs from clean state
+5. Verify `npm start` serves both API and React client
+6. Remove any dead code, console.logs, TODOs
+7. Run final code review
+8. Generate test coverage report
+9. Create final git tag
+
+#### Deferred from Phase 8 Reviews
+10. Make `trust proxy` configurable via `TRUST_PROXY` env var (currently hardcoded to `1`)
+11. Add `SSE_TIMEOUT_MS` to Joi validation schema and `.env.example`
+12. Add cleanup re-entrancy stuck-detection timeout (safety net for long-running cycles)
+13. Add Unicode normalization (NFKC) and bidi control char filtering to message sanitization
+14. Evaluate Redis-backed throttler/SSE counters for multi-instance scaling (document decision in README or ADR if not needed)
 
 ### README Structure
 ```

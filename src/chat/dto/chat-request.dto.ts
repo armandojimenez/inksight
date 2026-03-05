@@ -2,10 +2,10 @@ import { IsString, IsNotEmpty, MaxLength, Validate } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { NoNullBytesValidator } from '@/common/validators/no-null-bytes.validator';
 
-// Strip control chars U+0001-U+001F except tab (0x09), newline (0x0A), carriage return (0x0D)
+// Strip C0 control chars (except tab/LF/CR), DEL, and C1 control chars
 function sanitizeControlChars(value: string): string {
   // eslint-disable-next-line no-control-regex
-  return value.replace(/[\x01-\x08\x0B\x0C\x0E-\x1F]/g, '');
+  return value.replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F\x80-\x9F]/g, '');
 }
 
 export class ChatRequestDto {

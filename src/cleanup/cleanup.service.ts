@@ -1,17 +1,22 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Cache } from 'cache-manager';
 import { Repository, LessThan } from 'typeorm';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { ImageEntity } from '@/upload/entities/image.entity';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { HistoryService } from '@/history/history.service';
+import { CACHE_KEYS } from '@/cache/cache-keys';
 
 const DEFAULT_IMAGE_TTL_MS = 86_400_000; // 24h
 const DEFAULT_TEMP_TTL_MS = 3_600_000; // 1h
 const BATCH_SIZE = 100;
+const MAX_BATCH_ITERATIONS = 10;
+const TEMP_BATCH_SIZE = 200;
 
 @Injectable()
 export class CleanupService {
@@ -25,6 +30,7 @@ export class CleanupService {
     private readonly messageRepository: Repository<ChatMessageEntity>,
     private readonly historyService: HistoryService,
     private readonly configService: ConfigService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -42,11 +48,20 @@ export class CleanupService {
 
     this.isRunning = true;
     try {
-      await this.cleanupExpiredImages();
+      let totalDeleted = 0;
+      for (let i = 0; i < MAX_BATCH_ITERATIONS; i++) {
+        const deleted = await this.cleanupExpiredImages();
+        totalDeleted += deleted;
+        if (deleted < BATCH_SIZE) break; // no more full batches
+      }
+      if (totalDeleted > 0) {
+        this.logger.log(`Image cleanup complete: ${totalDeleted} total`);
+      }
       await this.cleanupOrphanedTempFiles();
     } catch (err) {
       this.logger.error(
         `Cleanup cycle failed: ${err instanceof Error ? err.message : 'Unknown'}`,
+        err instanceof Error ? err.stack : undefined,
       );
     } finally {
       this.isRunning = false;
@@ -59,6 +74,9 @@ export class CleanupService {
       DEFAULT_IMAGE_TTL_MS,
     );
     const cutoff = new Date(Date.now() - ttl);
+    const uploadDir = path.resolve(
+      this.configService.get<string>('UPLOAD_DIR', 'uploads'),
+    );
 
     // Find images older than TTL that have no recent chat activity
     const expiredImages = await this.imageRepository.find({
@@ -86,20 +104,28 @@ export class CleanupService {
       try {
         // DB-first deletion order (safer: if file delete fails, DB record is already gone)
         await this.historyService.invalidateCache(image.id);
+        await this.cacheManager.del(CACHE_KEYS.image(image.id));
         await this.imageRepository.remove(image);
 
-        // Delete file from disk — tolerate ENOENT
-        try {
-          await fs.unlink(image.uploadPath);
-        } catch (err) {
-          const errno = err as NodeJS.ErrnoException;
-          if (errno.code !== 'ENOENT') throw err;
+        // Delete file from disk — tolerate ENOENT, validate path containment
+        if (this.isPathContained(image.uploadPath, uploadDir)) {
+          try {
+            await fs.unlink(image.uploadPath);
+          } catch (err) {
+            const errno = err as NodeJS.ErrnoException;
+            if (errno.code !== 'ENOENT') throw err;
+          }
+        } else {
+          this.logger.error(
+            `Path traversal blocked in cleanup: ${image.uploadPath}`,
+          );
         }
 
         deletedCount++;
       } catch (err) {
         this.logger.error(
           `Failed to delete image ${image.id}: ${err instanceof Error ? err.message : 'Unknown'}`,
+          err instanceof Error ? err.stack : undefined,
         );
       }
     }
@@ -130,7 +156,9 @@ export class CleanupService {
       throw err;
     }
 
-    const tempFiles = entries.filter((f) => f.startsWith('.tmp-'));
+    const tempFiles = entries
+      .filter((f) => f.startsWith('.tmp-'))
+      .slice(0, TEMP_BATCH_SIZE);
     let deletedCount = 0;
 
     for (const file of tempFiles) {
@@ -154,5 +182,10 @@ export class CleanupService {
     }
 
     return deletedCount;
+  }
+
+  private isPathContained(filePath: string, dir: string): boolean {
+    const resolved = path.resolve(filePath);
+    return resolved.startsWith(dir + path.sep) || resolved === dir;
   }
 }

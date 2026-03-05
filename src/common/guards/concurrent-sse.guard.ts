@@ -41,7 +41,7 @@ export class ConcurrentSseGuard implements CanActivate {
     this.connections.set(ip, current + 1);
 
     let decremented = false;
-    res.on('close', () => {
+    const decrement = () => {
       if (decremented) return;
       decremented = true;
       const count = this.connections.get(ip) ?? 0;
@@ -51,7 +51,9 @@ export class ConcurrentSseGuard implements CanActivate {
       } else {
         this.connections.set(ip, next);
       }
-    });
+    };
+    res.on('close', decrement);
+    res.on('finish', decrement);
 
     return true;
   }

@@ -25,7 +25,7 @@ import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: Joi.object({
-        PORT: Joi.number().default(3000),
+        PORT: Joi.number().min(1).max(65535).default(3000),
         NODE_ENV: Joi.string()
           .valid('development', 'production', 'test')
           .default('development'),
@@ -33,14 +33,14 @@ import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
         UPLOAD_DIR: Joi.string()
           .pattern(/^[a-zA-Z0-9._/-]+$/)
           .default('uploads'),
-        MAX_FILE_SIZE: Joi.number().default(16777216),
-        RATE_LIMIT_TTL: Joi.number().default(60000),
-        RATE_LIMIT_MAX: Joi.number().default(100),
+        MAX_FILE_SIZE: Joi.number().min(1).default(16777216),
+        RATE_LIMIT_TTL: Joi.number().min(1000).default(60000),
+        RATE_LIMIT_MAX: Joi.number().min(1).default(100),
         ALLOWED_ORIGIN: Joi.string().optional(),
-        MAX_SSE_PER_IP: Joi.number().default(5),
+        MAX_SSE_PER_IP: Joi.number().min(1).default(5),
         CLEANUP_ENABLED: Joi.boolean().default(true),
-        CLEANUP_IMAGE_TTL_MS: Joi.number().default(86400000),
-        CLEANUP_TEMP_TTL_MS: Joi.number().default(3600000),
+        CLEANUP_IMAGE_TTL_MS: Joi.number().min(60000).default(86400000),
+        CLEANUP_TEMP_TTL_MS: Joi.number().min(10000).default(3600000),
       }),
     }),
     ThrottlerModule.forRootAsync({
