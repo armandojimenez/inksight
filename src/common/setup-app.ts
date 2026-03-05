@@ -23,7 +23,20 @@ export function setupApp(app: INestApplication): void {
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api');
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          connectSrc: ["'self'"],
+          imgSrc: ["'self'", 'data:', 'blob:'],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+          scriptSrc: ["'self'"],
+        },
+      },
+    }),
+  );
   app.use(express.json({ limit: '1mb' }));
   app.use(
     (
