@@ -63,12 +63,14 @@
 
   /* ========================================================================
    * COLORS — AI Accent
-   * Teal palette to visually distinguish AI-generated content from user input
+   * Uses primary blue family (Inkit palette match) to distinguish AI content.
+   * Light blue wash for AI bg vs solid blue for user — clear contrast,
+   * zero foreign colors introduced.
    * ======================================================================== */
-  --color-ai-50:  #F0FDFA;      /* AI message background */
-  --color-ai-100: #CCFBF1;      /* AI streaming indicator bg */
-  --color-ai-500: #0F766E;      /* AI indicator — 5.5:1 on white (AAA) — darkened from #0D9488 */
-  --color-ai-600: #115E59;      /* AI hover — 7.1:1 on white (AAA) */
+  --color-ai-50:  #EEF0FF;      /* AI message background — primary-50 */
+  --color-ai-100: #D9DEFF;      /* AI streaming indicator bg — primary-100 */
+  --color-ai-500: #4D63FF;      /* AI indicator dot — primary-400, 4.6:1 on white (AA) */
+  --color-ai-600: #0024CC;      /* AI hover — primary-500, 9.9:1 on white (AAA) */
 
   /* ========================================================================
    * TYPOGRAPHY — Font Families
@@ -132,9 +134,11 @@
 
   /* ========================================================================
    * BORDER RADIUS
+   * Inkit uses 4px universally. We match for standard UI, extend for chat.
    * ======================================================================== */
-  --radius-sm:   0.25rem;  /* 4px  — subtle rounding */
-  --radius-base: 0.5rem;   /* 8px  — buttons, inputs, cards */
+  --radius-sm:   0.125rem; /* 2px  — subtle rounding, pill details */
+  --radius-base: 0.25rem;  /* 4px  — buttons, inputs, cards — Inkit exact match */
+  --radius-md:   0.5rem;   /* 8px  — chat containers, panels */
   --radius-lg:   0.75rem;  /* 12px — larger cards, modals */
   --radius-xl:   1rem;     /* 16px — chat bubbles */
   --radius-2xl:  1.5rem;   /* 24px — large containers */
@@ -142,8 +146,10 @@
 
   /* ========================================================================
    * SHADOWS
-   * Subtle, blue-tinted to match the neutral palette
+   * Minimal, Inkit-matched flat design. Blue-tinted for neutrals.
+   * Buttons: no shadow (Inkit match). Shadows reserved for elevated layers.
    * ======================================================================== */
+  --shadow-none: none;     /* Buttons — Inkit uses zero shadow */
   --shadow-xs:  0 1px 2px 0 rgba(12, 15, 26, 0.04);
   --shadow-sm:  0 1px 3px 0 rgba(12, 15, 26, 0.06),
                 0 1px 2px -1px rgba(12, 15, 26, 0.06);
@@ -198,6 +204,26 @@
   --icon-size-sm:     16px;
   --icon-size-base:   20px;
   --icon-size-lg:     24px;
+
+  /* ========================================================================
+   * GRADIENTS
+   * Hero gradient mirrors Inkit's soft concentric-ring hero background
+   * ======================================================================== */
+  --gradient-hero: radial-gradient(
+    ellipse 80% 60% at 50% 40%,
+    var(--color-primary-50) 0%,
+    var(--color-neutral-25) 55%,
+    var(--color-neutral-0) 100%
+  );
+
+  /* ========================================================================
+   * LOGO
+   * Sizing tokens for consistent logo placement across contexts
+   * ======================================================================== */
+  --logo-height-sidebar: 28px;    /* Full logo in sidebar header */
+  --logo-height-mobile:  24px;    /* Icon-only in mobile header */
+  --logo-height-hero:    48px;    /* Large icon in upload/empty state */
+  --logo-height-loading: 32px;    /* Icon in loading/streaming state */
 
   /* ========================================================================
    * ANIMATION

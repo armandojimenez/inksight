@@ -33,10 +33,10 @@ export default {
           900: '#0C0F1A',
         },
         ai: {
-          50: '#F0FDFA',
-          100: '#CCFBF1',
-          500: '#0F766E',
-          600: '#115E59',
+          50: '#EEF0FF',
+          100: '#D9DEFF',
+          500: '#4D63FF',
+          600: '#0024CC',
         },
         success: {
           50: '#ECFDF5',
@@ -75,11 +75,12 @@ export default {
         ],
       },
       borderRadius: {
-        sm: '0.25rem',
-        DEFAULT: '0.5rem',
-        lg: '0.75rem',
-        xl: '1rem',
-        '2xl': '1.5rem',
+        sm: '0.125rem',     /* 2px */
+        DEFAULT: '0.25rem', /* 4px — Inkit exact match */
+        md: '0.5rem',       /* 8px — chat containers */
+        lg: '0.75rem',      /* 12px — modals */
+        xl: '1rem',         /* 16px — chat bubbles */
+        '2xl': '1.5rem',    /* 24px */
       },
     },
   },

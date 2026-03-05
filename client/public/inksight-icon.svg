@@ -1,6 +1,6 @@
 <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
   <!-- Viewfinder corner brackets -->
-  <g fill="#0024CC">
+  <g fill="currentColor">
     <!-- Top-left -->
     <path d="M2 2h18v5H7v13H2V2z"/>
     <!-- Top-right -->
@@ -12,19 +12,19 @@
   </g>
 
   <!-- Eye outer shape (almond/marquise) -->
-  <path d="M32 21c-11 0-19 11-19 11s8 11 19 11 19-11 19-11-8-11-19-11z" fill="#0024CC"/>
+  <path d="M32 21c-11 0-19 11-19 11s8 11 19 11 19-11 19-11-8-11-19-11z" fill="currentColor"/>
 
   <!-- Iris ring (white cutout) -->
   <circle cx="32" cy="32" r="7.5" fill="white"/>
 
   <!-- Pupil -->
-  <circle cx="32" cy="32" r="5" fill="#0024CC"/>
+  <circle cx="32" cy="32" r="5" fill="currentColor"/>
 
   <!-- Highlight -->
   <circle cx="30" cy="30" r="1.8" fill="white"/>
 
   <!-- Eyelash / sparkle marks -->
-  <g stroke="#0024CC" stroke-width="2" stroke-linecap="round" fill="none">
+  <g stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none">
     <line x1="28" y1="22.5" x2="27" y2="19"/>
     <line x1="32" y1="21.5" x2="32" y2="17.5"/>
     <line x1="36" y1="22.5" x2="37" y2="19"/>

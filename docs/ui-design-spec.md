@@ -22,42 +22,79 @@ Inksight's design is inspired by Inkit's visual language — modern minimalism w
 
 ### 2.1 Logo
 
-The Inksight logo combines a geometric eye/lens motif with the wordmark. The eye references "sight" (vision analysis), while the inner iris shape echoes a document/page — connecting to Inkit's document platform heritage.
+The Inksight logo features a stylized eye inside viewfinder/camera brackets, paired with the "INKSIGHT" wordmark in bold geometric sans-serif. The design intentionally echoes Inkit's visual language:
+
+- **Viewfinder brackets** — Four L-shaped corners forming a scanning frame, referencing Inkit's angular bracket icon motif and the image-scanning function of the product
+- **Eye** — Bold almond/marquise shape representing visual AI analysis ("sight")
+- **Iris + highlight** — Filled pupil with a catch-light dot, adding life and depth
+- **Eyelash marks** — Small decorative strokes above the eye, conveying attentiveness
 
 **Logo Construction:**
 ```
-    ◉  Inksight
-    │
-    └── Geometric eye icon
-        ├── Outer shape: Almond/eye (2px stroke, brand blue)
-        ├── Inner circle: Filled iris (brand blue)
-        └── Highlight: Small offset circle (white) for depth
+  ┌─             ─┐
+  │   ◉ INKSIGHT  │   Full logo (sidebar, desktop header)
+  └─             ─┘
+       ↑
+  ┌─      ─┐
+  │   ◉    │          Icon only (favicon, mobile header, loading)
+  └─      ─┘
 ```
 
 **Logo Variants:**
-| Variant | Usage | Colors |
-|---------|-------|--------|
-| Primary | Light backgrounds | Blue icon + dark text |
-| Inverse | Dark backgrounds, headers | White icon + white text |
-| Icon only | Favicon, app icon, small spaces | Blue or white |
-| Monochrome | Print, low-color contexts | Single color |
+| Variant | File | Usage | Colors |
+|---------|------|-------|--------|
+| Full (PNG) | `inksight-logo.png` | Sidebar header, about page | Black icon + black wordmark |
+| Icon only (SVG) | `inksight-icon.svg` | Favicon, mobile header, loading, empty states | `currentColor` (inherits context) |
+| Favicon (SVG) | `favicon.svg` | Browser tab | Brand blue `#0024CC` |
+| Primary blue | CSS `color: var(--color-primary-500)` on icon SVG | Sidebar header, active states | `#0024CC` |
+| Inverse white | CSS `color: var(--color-neutral-0)` on icon SVG | Dark backgrounds, potential dark mode | `#FFFFFF` |
+| Monochrome black | `inksight-logo.png` as-is | Print, high-contrast mode | Black |
 
-**Logo Typography:** Space Grotesk 600 weight — matches Inkit's heading font, creating family cohesion.
+**Logo Typography:** The "INKSIGHT" wordmark uses a bold, wide geometric sans-serif — visually consistent with Space Grotesk 700 weight.
 
-**Clear Space:** Minimum padding equal to the height of the "I" in "Inksight" on all sides.
+**Logo Sizing Tokens:**
+| Token | Value | Context |
+|-------|-------|---------|
+| `--logo-height-sidebar` | 28px | Full logo in sidebar header |
+| `--logo-height-mobile` | 24px | Icon only in mobile header |
+| `--logo-height-hero` | 48px | Large icon in upload/empty state |
+| `--logo-height-loading` | 32px | Icon in loading/streaming state |
 
-### 2.2 Logotype SVG Specification
+**Clear Space:** Minimum padding equal to the height of the "I" in "INKSIGHT" on all sides.
+
+### 2.2 Icon SVG Specification
+
+The icon-only SVG uses `currentColor` so it inherits color from its CSS context:
 
 ```svg
-<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-  <!-- Eye outer shape -->
-  <path d="M16 6C8 6 2 16 2 16s6 10 14 10 14-10 14-10S24 6 16 6z"
-        fill="none" stroke="currentColor" stroke-width="2"
-        stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Iris -->
-  <circle cx="16" cy="16" r="6" fill="currentColor"/>
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Viewfinder corner brackets -->
+  <g fill="currentColor">
+    <path d="M2 2h18v5H7v13H2V2z"/>     <!-- Top-left -->
+    <path d="M44 2h18v18h-5V7H44V2z"/>   <!-- Top-right -->
+    <path d="M2 44h5v13h13v5H2V44z"/>     <!-- Bottom-left -->
+    <path d="M44 57h13V44h5v18H44v-5z"/>  <!-- Bottom-right -->
+  </g>
+
+  <!-- Eye outer shape (almond/marquise) -->
+  <path d="M32 21c-11 0-19 11-19 11s8 11 19 11 19-11 19-11-8-11-19-11z"
+        fill="currentColor"/>
+
+  <!-- Iris ring (white cutout) -->
+  <circle cx="32" cy="32" r="7.5" fill="white"/>
+
+  <!-- Pupil -->
+  <circle cx="32" cy="32" r="5" fill="currentColor"/>
+
   <!-- Highlight -->
-  <circle cx="14" cy="14" r="2" fill="white" opacity="0.9"/>
+  <circle cx="30" cy="30" r="1.8" fill="white"/>
+
+  <!-- Eyelash / sparkle marks -->
+  <g stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none">
+    <line x1="28" y1="22.5" x2="27" y2="19"/>
+    <line x1="32" y1="21.5" x2="32" y2="17.5"/>
+    <line x1="36" y1="22.5" x2="37" y2="19"/>
+  </g>
 </svg>
 ```
 
@@ -114,16 +151,18 @@ Derived from Inkit's brand blue (`#0024CC`) with Inksight's own extensions.
 
 ### 3.4 AI Accent Color
 
-A distinct teal-blue for AI-generated content, differentiating machine responses from user input:
+AI content uses the **primary blue family** — no foreign colors. The visual distinction is solid blue (user) vs light blue wash (assistant):
 
-| Token | Hex | Usage |
-|-------|-----|-------|
-| `--color-ai-50` | `#F0FDFA` | AI message background |
-| `--color-ai-100` | `#CCFBF1` | AI streaming indicator background |
-| `--color-ai-500` | `#0F766E` | AI indicator dot, streaming pulse |
-| `--color-ai-600` | `#0D6B65` | AI accent on hover |
+| Token | Hex | Source | Usage |
+|-------|-----|--------|-------|
+| `--color-ai-50` | `#EEF0FF` | `primary-50` | AI message background |
+| `--color-ai-100` | `#D9DEFF` | `primary-100` | AI streaming indicator background |
+| `--color-ai-500` | `#4D63FF` | `primary-400` | AI indicator dot, streaming pulse |
+| `--color-ai-600` | `#0024CC` | `primary-500` | AI accent on hover |
 
-**Accessibility:** `--color-ai-500` on white = 5.5:1 (AAA compliant). Used only as an indicator, never for text.
+**Design rationale:** Inkit's palette is exclusively blue + neutrals. Introducing teal would break brand cohesion. The solid-blue user bubble vs light-blue-wash assistant bubble provides clear visual separation without foreign colors.
+
+**Accessibility:** `--color-ai-500` (#4D63FF) on white = 4.6:1 (AA). Used only as an indicator dot, never for text. Text uses `--color-neutral-600` (#3A415A) on `--color-ai-50` (#EEF0FF) = **9.6:1** (AAA).
 
 ---
 
@@ -217,8 +256,9 @@ Practical scale optimized for UI readability:
 |----------|-------|
 | Background | `--color-primary-500` (#0024CC) |
 | Text | White (#FFFFFF) |
-| Font | Archivo 600, 14px |
-| Border radius | 8px |
+| Font | Archivo 700, 14px — Inkit uses bold on buttons |
+| Border radius | 4px (`--radius-base`) — Inkit exact match |
+| Box shadow | none — Inkit flat design |
 | Height | 44px (meets touch target) |
 | Padding | 12px 24px |
 | Hover | `--color-primary-600` (#001BA0) |
@@ -264,7 +304,7 @@ Practical scale optimized for UI readability:
 |----------|-------|
 | Background | `--color-neutral-0` (white) |
 | Border | 1.5px solid `--color-neutral-200` |
-| Border radius | 8px |
+| Border radius | 4px (`--radius-base`) — Inkit exact match |
 | Height | 44px |
 | Padding | 12px 16px |
 | Font | Archivo 400, 16px |
@@ -295,7 +335,7 @@ Practical scale optimized for UI readability:
 |----------|-------|
 | Background | `--color-primary-500` (#0024CC) |
 | Text | White |
-| Border radius | 16px 16px 4px 16px |
+| Border radius | 8px 8px 2px 8px (`--radius-md` with 2px tail) — professional, Inkit-restrained |
 | Padding | 12px 16px |
 | Max width | 75% of chat area |
 | Font | Archivo 400, 16px |
@@ -317,16 +357,16 @@ Practical scale optimized for UI readability:
 
 | Property | Value |
 |----------|-------|
-| Background | `--color-ai-50` (#F0FDFA) |
+| Background | `--color-ai-50` (#EEF0FF) — primary-50, Inkit blue family |
 | Text | `--color-neutral-600` (#3A415A) |
-| Border | 1px solid `--color-ai-100` |
-| AI indicator | 8px circle, `--color-ai-500`, left of first line |
-| Border radius | 16px 16px 16px 4px |
+| Border | 1px solid `--color-ai-100` (#D9DEFF) |
+| AI indicator | 8px circle, `--color-ai-500` (#4D63FF), left of first line |
+| Border radius | 8px 8px 8px 2px (`--radius-md` with 2px tail) — professional, Inkit-restrained |
 | Padding | 12px 16px |
 | Max width | 85% of chat area |
 
 **Accessibility:**
-- Contrast: #3A415A on #F0FDFA = **8.2:1** (AAA)
+- Contrast: #3A415A on #EEF0FF = **9.6:1** (AAA)
 - AI indicator dot has `aria-hidden="true"` (decorative)
 - Screen reader announces "Assistant:" prefix via `aria-label`
 - Streaming text uses `aria-live="polite"` to announce new content without interrupting
@@ -418,7 +458,7 @@ When the AI is generating a response:
 | Property | Value |
 |----------|-------|
 | Dot size | 6px diameter |
-| Dot color | `--color-ai-500` |
+| Dot color | `--color-ai-500` (#4D63FF) — primary blue family |
 | Animation | Sequential pulse, 1.4s cycle, ease-in-out |
 | Container | Same as assistant message bubble |
 
@@ -513,6 +553,31 @@ When the AI is generating a response:
 - Landmark regions: `<header>`, `<nav>`, `<main>`, `<footer>` (WCAG 1.3.1)
 - Sidebar on mobile opens as a dialog with focus trap (WCAG 2.4.3)
 - Input bar stays visible on virtual keyboard open (mobile)
+
+---
+
+## 7.4 Hero Gradient (Inkit Brand Gesture)
+
+Inkit's homepage uses a soft circular blue gradient as its hero background. We replicate this in the upload view and empty chat state to create visual kinship:
+
+```css
+background: var(--gradient-hero);
+/* radial-gradient(ellipse 80% 60% at 50% 40%, primary-50, neutral-25, white) */
+```
+
+**Usage:**
+| View | Application |
+|------|------------|
+| Upload view (no image selected) | Full-page background behind the drop zone |
+| Empty chat state (before first message) | Behind the Inksight icon and suggested questions |
+
+**Suggested Questions** use the Inkit arrow-link pattern — text with a `->` arrow in brand blue:
+
+```
+-> What objects are in this image?
+-> Describe the color palette
+-> What text is visible?
+```
 
 ---
 
@@ -649,10 +714,10 @@ export default {
           // ... (extends default Tailwind neutrals)
         },
         ai: {
-          50:  '#F0FDFA',
-          100: '#CCFBF1',
-          500: '#0F766E',
-          600: '#0D6B65',
+          50:  '#EEF0FF',   // primary-50 — AI message bg
+          100: '#D9DEFF',   // primary-100 — AI streaming bg
+          500: '#4D63FF',   // primary-400 — AI indicator dot
+          600: '#0024CC',   // primary-500 — AI hover
         },
       },
       fontFamily: {
@@ -670,9 +735,12 @@ export default {
         '3xl': ['1.875rem', { lineHeight: '2.25rem' }],
       },
       borderRadius: {
-        DEFAULT: '8px',
+        sm: '2px',
+        DEFAULT: '4px',   // Inkit exact match
+        md: '8px',        // Chat containers
         lg: '12px',
-        xl: '16px',
+        xl: '16px',       // Chat bubbles
+        '2xl': '24px',
         full: '9999px',
       },
       spacing: {
@@ -749,10 +817,10 @@ Not in scope for v1, but the design system is prepared:
   --color-info-50:     #EFF6FF;
   --color-info-500:    #2563EB;
 
-  /* Colors — AI */
-  --color-ai-50:  #F0FDFA;
-  --color-ai-100: #CCFBF1;
-  --color-ai-500: #0F766E;
+  /* Colors — AI (primary blue family, no foreign teal) */
+  --color-ai-50:  #EEF0FF;   /* = primary-50 */
+  --color-ai-100: #D9DEFF;   /* = primary-100 */
+  --color-ai-500: #4D63FF;   /* = primary-400 */
 
   /* Typography */
   --font-display: 'Space Grotesk', system-ui, sans-serif;
@@ -768,17 +836,28 @@ Not in scope for v1, but the design system is prepared:
   --space-8:  32px;
   --space-12: 48px;
 
-  /* Borders */
-  --radius-sm:   4px;
-  --radius-base: 8px;
+  /* Borders — Inkit uses 4px universally, we extend for chat UI */
+  --radius-sm:   2px;
+  --radius-base: 4px;   /* Inkit exact match — buttons, inputs, cards */
+  --radius-md:   8px;   /* Chat containers, panels */
   --radius-lg:   12px;
-  --radius-xl:   16px;
+  --radius-xl:   16px;  /* Chat bubbles */
+  --radius-2xl:  24px;
   --radius-full: 9999px;
 
-  /* Shadows */
+  /* Shadows — Inkit flat design: no shadows on buttons */
+  --shadow-none: none;  /* Buttons */
   --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md:  0 4px 6px rgba(0, 0, 0, 0.07);
   --shadow-lg:  0 10px 15px rgba(0, 0, 0, 0.1);
+
+  /* Gradients — Inkit hero-style radial gradient */
+  --gradient-hero: radial-gradient(
+    ellipse 80% 60% at 50% 40%,
+    var(--color-primary-50) 0%,
+    var(--color-neutral-25) 55%,
+    var(--color-neutral-0) 100%
+  );
 
   /* Transitions */
   --transition-fast: 150ms ease-out;
