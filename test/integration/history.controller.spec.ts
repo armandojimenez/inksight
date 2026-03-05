@@ -9,7 +9,7 @@ import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { ImageEntity } from '@/upload/entities/image.entity';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
-import { setupApp } from '@/common/setup-app';
+import { setupTestApp } from '../helpers/setup-test-app';
 
 const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
 const NONEXISTENT_UUID = '550e8400-e29b-41d4-a716-446655440099';
@@ -69,7 +69,7 @@ describe('HistoryController (integration)', () => {
       .compile();
 
     app = module.createNestApplication();
-    setupApp(app);
+    setupTestApp(app);
     await app.init();
   });
 

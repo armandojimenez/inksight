@@ -4,7 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import * as request from 'supertest';
 import { DataSource } from 'typeorm';
 import { HealthController } from '@/health/health.controller';
-import { setupApp } from '@/common/setup-app';
+import { setupTestApp } from '../helpers/setup-test-app';
 
 describe('HealthController (integration)', () => {
   let app: INestApplication;
@@ -22,7 +22,7 @@ describe('HealthController (integration)', () => {
     }).compile();
 
     app = module.createNestApplication();
-    setupApp(app);
+    setupTestApp(app);
     await app.init();
   });
 

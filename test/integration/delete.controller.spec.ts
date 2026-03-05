@@ -10,7 +10,7 @@ import { ImageEntity } from '@/upload/entities/image.entity';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { AI_SERVICE_TOKEN } from '@/common/constants';
 import { HistoryService } from '@/history/history.service';
-import { setupApp } from '@/common/setup-app';
+import { setupTestApp } from '../helpers/setup-test-app';
 
 jest.mock('fs/promises');
 
@@ -90,7 +90,7 @@ describe('Delete Controller (integration)', () => {
       .compile();
 
     app = module.createNestApplication();
-    setupApp(app);
+    setupTestApp(app);
     await app.init();
   });
 

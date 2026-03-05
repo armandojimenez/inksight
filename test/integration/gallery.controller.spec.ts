@@ -9,7 +9,7 @@ import { ImageEntity } from '@/upload/entities/image.entity';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { AI_SERVICE_TOKEN } from '@/common/constants';
 import { HistoryService } from '@/history/history.service';
-import { setupApp } from '@/common/setup-app';
+import { setupTestApp } from '../helpers/setup-test-app';
 
 function mockImage(overrides: Partial<ImageEntity> = {}): ImageEntity {
   return {
@@ -96,7 +96,7 @@ describe('Gallery Controller (integration)', () => {
       .compile();
 
     app = module.createNestApplication();
-    setupApp(app);
+    setupTestApp(app);
     await app.init();
   });
 

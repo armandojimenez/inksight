@@ -10,7 +10,7 @@ import { ImageEntity } from '@/upload/entities/image.entity';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { AI_SERVICE_TOKEN } from '@/common/constants';
 import { HistoryService } from '@/history/history.service';
-import { setupApp } from '@/common/setup-app';
+import { setupTestApp } from '../helpers/setup-test-app';
 import { OpenAiStreamChunk } from '@/ai/interfaces/openai-stream-chunk.interface';
 
 const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
@@ -190,7 +190,7 @@ describe('StreamController (integration)', () => {
       .compile();
 
     app = module.createNestApplication();
-    setupApp(app);
+    setupTestApp(app);
     await app.init();
     await app.listen(0); // bind to random port for sseRequest
   });

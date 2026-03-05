@@ -13,7 +13,7 @@ import { AI_SERVICE_TOKEN } from '@/common/constants';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { HistoryService } from '@/history/history.service';
-import { setupApp } from '@/common/setup-app';
+import { setupTestApp } from '../helpers/setup-test-app';
 import { OpenAiChatCompletion } from '@/ai/interfaces/openai-chat-completion.interface';
 import { OpenAiStreamChunk } from '@/ai/interfaces/openai-stream-chunk.interface';
 import { ConversationMessage } from '@/ai/interfaces/conversation-message.interface';
@@ -185,7 +185,7 @@ describe('Chat with History (integration)', () => {
       .compile();
 
     app = module.createNestApplication();
-    setupApp(app);
+    setupTestApp(app);
     await app.init();
     await app.listen(0);
 

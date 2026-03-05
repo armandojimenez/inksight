@@ -8,8 +8,6 @@ import helmet from 'helmet';
 import * as express from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { ConfigService } from '@nestjs/config';
-import { HttpExceptionFilter } from './filters/http-exception.filter';
-import { LoggingInterceptor } from './interceptors/logging.interceptor';
 import { validationExceptionFactory } from './factories/validation-exception.factory';
 import { buildErrorResponse } from './utils/build-error-response';
 
@@ -74,9 +72,6 @@ export function setupApp(app: INestApplication): void {
       exceptionFactory: validationExceptionFactory,
     }),
   );
-
-  app.useGlobalFilters(new HttpExceptionFilter());
-  app.useGlobalInterceptors(new LoggingInterceptor());
 
   app.enableShutdownHooks();
 }
