@@ -35,14 +35,12 @@ describe('Sidebar', () => {
   let onSelectImage: ReturnType<typeof vi.fn<(id: string) => void>>;
   let onDeleteImage: ReturnType<typeof vi.fn<(id: string) => void>>;
   let onNewUpload: ReturnType<typeof vi.fn<() => void>>;
-  let onToggle: ReturnType<typeof vi.fn<() => void>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     onSelectImage = vi.fn<(id: string) => void>();
     onDeleteImage = vi.fn<(id: string) => void>();
     onNewUpload = vi.fn<() => void>();
-    onToggle = vi.fn<() => void>();
   });
 
   afterEach(() => {
@@ -57,8 +55,6 @@ describe('Sidebar', () => {
         onSelectImage={onSelectImage}
         onDeleteImage={onDeleteImage}
         onNewUpload={onNewUpload}
-        isOpen={true}
-        onToggle={onToggle}
         {...overrides}
       />,
     );
@@ -119,6 +115,28 @@ describe('Sidebar', () => {
       expect(onSelectImage).toHaveBeenCalledWith('img-1');
     });
 
+    it('calls onSelectImage on Enter key', async () => {
+      const user = userEvent.setup();
+      renderSidebar();
+
+      const item = screen.getByText('sunset.jpg').closest('[data-image-item]')!;
+      (item as HTMLElement).focus();
+      await user.keyboard('{Enter}');
+
+      expect(onSelectImage).toHaveBeenCalledWith('img-1');
+    });
+
+    it('calls onSelectImage on Space key', async () => {
+      const user = userEvent.setup();
+      renderSidebar();
+
+      const item = screen.getByText('sunset.jpg').closest('[data-image-item]')!;
+      (item as HTMLElement).focus();
+      await user.keyboard(' ');
+
+      expect(onSelectImage).toHaveBeenCalledWith('img-1');
+    });
+
     it('active image has highlighted background and left border', () => {
       renderSidebar({ selectedImageId: 'img-1' });
 
@@ -126,11 +144,11 @@ describe('Sidebar', () => {
       expect(activeItem).toHaveAttribute('data-active', 'true');
     });
 
-    it('non-active images do not have active state', () => {
+    it('non-active images do not have data-active attribute', () => {
       renderSidebar({ selectedImageId: 'img-1' });
 
       const inactiveItem = screen.getByText('portrait.png').closest('[data-image-item]')!;
-      expect(inactiveItem).not.toHaveAttribute('data-active', 'true');
+      expect(inactiveItem).not.toHaveAttribute('data-active');
     });
   });
 
@@ -140,6 +158,12 @@ describe('Sidebar', () => {
 
       const deleteButtons = screen.getAllByRole('button', { name: /delete/i });
       expect(deleteButtons).toHaveLength(3);
+    });
+
+    it('delete button has exact aria-label with filename', () => {
+      renderSidebar();
+
+      expect(screen.getByRole('button', { name: 'Delete sunset.jpg' })).toBeInTheDocument();
     });
 
     it('clicking delete opens confirmation dialog', async () => {
@@ -160,7 +184,7 @@ describe('Sidebar', () => {
       const deleteButton = screen.getAllByRole('button', { name: /delete/i })[0]!;
       await user.click(deleteButton);
 
-      const confirmButton = screen.getByRole('button', { name: /confirm|yes|delete$/i });
+      const confirmButton = screen.getByRole('button', { name: /delete$/i });
       await user.click(confirmButton);
 
       expect(onDeleteImage).toHaveBeenCalledWith('img-1');
@@ -212,6 +236,32 @@ describe('Sidebar', () => {
     });
   });
 
+  describe('loading state', () => {
+    it('shows skeleton when isLoading is true', () => {
+      renderSidebar({ isLoading: true });
+
+      expect(screen.getByTestId('sidebar-skeleton')).toBeInTheDocument();
+    });
+
+    it('skeleton has aria-hidden', () => {
+      renderSidebar({ isLoading: true });
+
+      expect(screen.getByTestId('sidebar-skeleton')).toHaveAttribute('aria-hidden', 'true');
+    });
+
+    it('does not show image list when loading', () => {
+      renderSidebar({ isLoading: true });
+
+      expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    });
+
+    it('does not show empty state when loading', () => {
+      renderSidebar({ images: [], isLoading: true });
+
+      expect(screen.queryByText(/upload an image/i)).not.toBeInTheDocument();
+    });
+  });
+
   describe('accessibility', () => {
     it('has navigation landmark', () => {
       renderSidebar();
@@ -224,6 +274,13 @@ describe('Sidebar', () => {
 
       expect(screen.getByRole('list')).toBeInTheDocument();
       expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    });
+
+    it('image items have focus-visible styling class', () => {
+      renderSidebar();
+
+      const item = screen.getByText('sunset.jpg').closest('[data-image-item]')!;
+      expect(item.className).toContain('focus-visible');
     });
   });
 });
