@@ -25,7 +25,7 @@ describe('ImagesService', () => {
     get: jest.Mock;
     set: jest.Mock;
     del: jest.Mock;
-    reset: jest.Mock;
+    clear: jest.Mock;
   };
 
   const IMAGE_ID = '550e8400-e29b-41d4-a716-446655440000';
@@ -84,7 +84,7 @@ describe('ImagesService', () => {
             get: jest.fn().mockResolvedValue(undefined),
             set: jest.fn().mockResolvedValue(undefined),
             del: jest.fn().mockResolvedValue(undefined),
-            reset: jest.fn().mockResolvedValue(undefined),
+            clear: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
@@ -302,8 +302,9 @@ describe('ImagesService', () => {
       (fsPromises.access as jest.Mock).mockResolvedValue(undefined);
       (fs.createReadStream as jest.Mock).mockReturnValue({ pipe: jest.fn() });
 
-      await service.getImageForServing(IMAGE_ID);
+      const result = await service.getImageForServing(IMAGE_ID);
 
+      expect(result.image).toEqual(image);
       expect(imageRepo.findOneBy).not.toHaveBeenCalled();
     });
 

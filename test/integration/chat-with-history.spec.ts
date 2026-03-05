@@ -10,6 +10,8 @@ import { HistoryModule } from '@/history/history.module';
 import { ImageEntity } from '@/upload/entities/image.entity';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { AI_SERVICE_TOKEN } from '@/common/constants';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { HistoryService } from '@/history/history.service';
 import { setupApp } from '@/common/setup-app';
 import { OpenAiChatCompletion } from '@/ai/interfaces/openai-chat-completion.interface';
@@ -191,6 +193,8 @@ describe('Chat with History (integration)', () => {
   });
 
   afterEach(async () => {
+    const cache = app.get<Cache>(CACHE_MANAGER);
+    await cache.clear();
     await app.close();
   });
 

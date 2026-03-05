@@ -7,6 +7,8 @@ import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
+import { Keyv } from 'keyv';
+import { KeyvCacheableMemory } from 'cacheable';
 import { HistoryService } from '@/history/history.service';
 import { ImagesService } from '@/upload/images.service';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
@@ -81,7 +83,11 @@ describe('Cache Integration', () => {
         NestCacheModule.register({
           isGlobal: true,
           ttl: 300_000,
-          max: 100,
+          stores: [
+            new Keyv({
+              store: new KeyvCacheableMemory({ lruSize: 100, useClone: true }),
+            }),
+          ],
         }),
       ],
       providers: [
@@ -341,7 +347,7 @@ describe('Cache Integration', () => {
   });
 
   describe('cross-contamination', () => {
-    it('should not share cache between different imageIds', async () => {
+    it('should not share history cache between different imageIds', async () => {
       const messagesA = [{ id: 'mA' }] as ChatMessageEntity[];
       const messagesB = [{ id: 'mB' }] as ChatMessageEntity[];
 
@@ -362,7 +368,7 @@ describe('Cache Integration', () => {
       expect(resultB.messages[0]!.id).toBe('mB');
     });
 
-    it('addMessage for imageId A should not invalidate imageId B cache', async () => {
+    it('addMessage for imageId A should not invalidate imageId B history cache', async () => {
       mockMessageRepo.findAndCount.mockResolvedValue([[], 0]);
       await historyService.getHistory(IMAGE_ID_B);
 
@@ -374,14 +380,28 @@ describe('Cache Integration', () => {
 
       expect(mockMessageRepo.findAndCount).not.toHaveBeenCalled();
     });
+
+    it('addMessage for imageId A should not invalidate imageId B recent cache', async () => {
+      const dbMessages = [{ role: 'user', content: 'Hi' }] as ChatMessageEntity[];
+      mockMessageRepo.find.mockResolvedValue(dbMessages);
+      await historyService.getRecentMessages(IMAGE_ID_B);
+
+      await historyService.addMessage(IMAGE_ID_A, 'user', 'Hello');
+
+      // B's recent cache should still be valid
+      mockMessageRepo.find.mockClear();
+      const result = await historyService.getRecentMessages(IMAGE_ID_B);
+
+      expect(mockMessageRepo.find).not.toHaveBeenCalled();
+      expect(result).toEqual([{ role: 'user', content: 'Hi' }]);
+    });
   });
 
   describe('error resilience', () => {
-    it('should fall through to DB when cache get throws', async () => {
+    it('getHistory should fall through to DB when cache get throws', async () => {
       const messages = [{ id: 'm1' }] as ChatMessageEntity[];
       mockMessageRepo.findAndCount.mockResolvedValue([messages, 1]);
 
-      // Poison the cache get to throw
       const spy = jest.spyOn(cacheManager, 'get').mockRejectedValue(new Error('cache failure'));
 
       const result = await historyService.getHistory(IMAGE_ID_A);
@@ -392,7 +412,7 @@ describe('Cache Integration', () => {
       spy.mockRestore();
     });
 
-    it('should still return DB result when cache set throws', async () => {
+    it('getHistory should still return DB result when cache set throws', async () => {
       const messages = [{ id: 'm1' }] as ChatMessageEntity[];
       mockMessageRepo.findAndCount.mockResolvedValue([messages, 1]);
 
@@ -401,6 +421,76 @@ describe('Cache Integration', () => {
       const result = await historyService.getHistory(IMAGE_ID_A);
 
       expect(result).toEqual({ messages, total: 1 });
+
+      spy.mockRestore();
+    });
+
+    it('getRecentMessages should fall through to DB when cache get throws', async () => {
+      const dbMessages = [{ role: 'user', content: 'Hi' }] as ChatMessageEntity[];
+      mockMessageRepo.find.mockResolvedValue(dbMessages);
+
+      const spy = jest.spyOn(cacheManager, 'get').mockRejectedValue(new Error('cache failure'));
+
+      const result = await historyService.getRecentMessages(IMAGE_ID_A);
+
+      expect(result).toEqual([{ role: 'user', content: 'Hi' }]);
+      expect(mockMessageRepo.find).toHaveBeenCalledTimes(1);
+
+      spy.mockRestore();
+    });
+
+    it('getRecentMessages should return DB result when cache set throws', async () => {
+      const dbMessages = [{ role: 'user', content: 'Hi' }] as ChatMessageEntity[];
+      mockMessageRepo.find.mockResolvedValue(dbMessages);
+
+      const spy = jest.spyOn(cacheManager, 'set').mockRejectedValue(new Error('cache failure'));
+
+      const result = await historyService.getRecentMessages(IMAGE_ID_A);
+
+      expect(result).toEqual([{ role: 'user', content: 'Hi' }]);
+
+      spy.mockRestore();
+    });
+
+    it('getImageForServing should fall through to DB when cache get throws', async () => {
+      const image = mockImage();
+      mockImageRepo.findOneBy.mockResolvedValue(image);
+      (fsPromises.access as jest.Mock).mockResolvedValue(undefined);
+      (fs.createReadStream as jest.Mock).mockReturnValue({ pipe: jest.fn() });
+
+      const spy = jest.spyOn(cacheManager, 'get').mockRejectedValue(new Error('cache failure'));
+
+      const result = await imagesService.getImageForServing(IMAGE_ID_A);
+
+      expect(result.image).toEqual(image);
+      expect(mockImageRepo.findOneBy).toHaveBeenCalledTimes(1);
+
+      spy.mockRestore();
+    });
+
+    it('getImageForServing should return result when cache set throws', async () => {
+      const image = mockImage();
+      mockImageRepo.findOneBy.mockResolvedValue(image);
+      (fsPromises.access as jest.Mock).mockResolvedValue(undefined);
+      (fs.createReadStream as jest.Mock).mockReturnValue({ pipe: jest.fn() });
+
+      const spy = jest.spyOn(cacheManager, 'set').mockRejectedValue(new Error('cache failure'));
+
+      const result = await imagesService.getImageForServing(IMAGE_ID_A);
+
+      expect(result.image).toEqual(image);
+
+      spy.mockRestore();
+    });
+
+    it('deleteImage should not throw when cache del fails', async () => {
+      const image = mockImage();
+      mockImageRepo.findOneBy.mockResolvedValue(image);
+      (fsPromises.unlink as jest.Mock).mockResolvedValue(undefined);
+
+      const spy = jest.spyOn(cacheManager, 'del').mockRejectedValue(new Error('cache failure'));
+
+      await expect(imagesService.deleteImage(IMAGE_ID_A)).resolves.not.toThrow();
 
       spy.mockRestore();
     });
@@ -425,7 +515,11 @@ describe('Cache Integration', () => {
           NestCacheModule.register({
             isGlobal: true,
             ttl: 50, // 50ms TTL
-            max: 100,
+            stores: [
+              new Keyv({
+                store: new KeyvCacheableMemory({ lruSize: 100, useClone: true }),
+              }),
+            ],
           }),
         ],
         providers: [
@@ -442,6 +536,7 @@ describe('Cache Integration', () => {
     });
 
     afterEach(async () => {
+      await shortTtlModule.close();
       await shortTtlCache.clear();
     });
 
@@ -451,8 +546,8 @@ describe('Cache Integration', () => {
       await shortTtlHistory.getHistory(IMAGE_ID_A);
       mockMessageRepo.findAndCount.mockClear();
 
-      // Wait for TTL to expire
-      await new Promise((r) => setTimeout(r, 100));
+      // Wait for TTL to expire (10x margin for CI)
+      await new Promise((r) => setTimeout(r, 500));
 
       mockMessageRepo.findAndCount.mockResolvedValue([[{ id: 'm2' }] as ChatMessageEntity[], 1]);
       const result = await shortTtlHistory.getHistory(IMAGE_ID_A);
@@ -463,21 +558,39 @@ describe('Cache Integration', () => {
   });
 
   describe('LRU eviction', () => {
-    it('should evict entries when cache max is exceeded', async () => {
-      // Use direct cache API to verify LRU behavior
-      // cache-manager v5 with keyv may not enforce max on memory store
-      // This test verifies cache set/get work and don't throw with many entries
-      mockMessageRepo.findAndCount.mockResolvedValue([[], 0]);
-
+    it('should evict oldest entries when cache max is exceeded', async () => {
+      // Fill 150 entries — LRU limit is 100
       for (let i = 0; i < 150; i++) {
-        const id = `550e8400-e29b-41d4-a716-4466554400${String(i).padStart(2, '0')}`;
-        await cacheManager.set(`test:${id}`, { data: i });
+        await cacheManager.set(`lru-test:${i}`, { data: i });
       }
 
-      // Verify we can still use the cache (no crash, no OOM)
-      const result = await cacheManager.get<{ data: number }>('test:550e8400-e29b-41d4-a716-446655440099');
-      // May or may not be evicted depending on implementation — just verify no error
-      expect(true).toBe(true);
+      // Earliest entry should be evicted
+      const evicted = await cacheManager.get<{ data: number }>('lru-test:0');
+      expect(evicted).toBeUndefined();
+
+      // Latest entry should be retained
+      const retained = await cacheManager.get<{ data: number }>('lru-test:149');
+      expect(retained).toEqual({ data: 149 });
+    });
+  });
+
+  describe('mutation safety', () => {
+    it('should not corrupt cache when returned object is mutated', async () => {
+      const messages = [{ id: 'm1', content: 'original' }] as ChatMessageEntity[];
+      mockMessageRepo.findAndCount.mockResolvedValue([messages, 1]);
+
+      // Populate cache
+      const result1 = await historyService.getHistory(IMAGE_ID_A);
+
+      // Mutate the returned object
+      result1.messages[0]!.content = 'MUTATED';
+
+      // Read from cache again — should get original value
+      mockMessageRepo.findAndCount.mockClear();
+      const result2 = await historyService.getHistory(IMAGE_ID_A);
+
+      expect(mockMessageRepo.findAndCount).not.toHaveBeenCalled();
+      expect(result2.messages[0]!.content).toBe('original');
     });
   });
 });

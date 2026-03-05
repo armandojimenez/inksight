@@ -11,6 +11,8 @@ import { CacheModule } from '@/cache/cache.module';
 import { ImageEntity } from '@/upload/entities/image.entity';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { AI_SERVICE_TOKEN } from '@/common/constants';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { HistoryService } from '@/history/history.service';
 import { setupApp } from '@/common/setup-app';
 
@@ -109,6 +111,8 @@ describe('Image File Controller (integration)', () => {
   });
 
   afterEach(async () => {
+    const cache = app.get<Cache>(CACHE_MANAGER);
+    await cache.clear();
     await app.close();
     jest.restoreAllMocks();
   });

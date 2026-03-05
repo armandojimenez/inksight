@@ -17,7 +17,7 @@ describe('HistoryService', () => {
     get: jest.Mock;
     set: jest.Mock;
     del: jest.Mock;
-    reset: jest.Mock;
+    clear: jest.Mock;
   };
   let mockQueryBuilder: {
     delete: jest.Mock;
@@ -58,7 +58,7 @@ describe('HistoryService', () => {
       get: jest.fn().mockResolvedValue(undefined),
       set: jest.fn().mockResolvedValue(undefined),
       del: jest.fn().mockResolvedValue(undefined),
-      reset: jest.fn().mockResolvedValue(undefined),
+      clear: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -436,13 +436,24 @@ describe('HistoryService', () => {
     it('getHistory should call cache get/set for default params', async () => {
       repo.findAndCount.mockResolvedValue([[], 0]);
 
-      await service.getHistory(IMAGE_ID_A);
+      const result = await service.getHistory(IMAGE_ID_A);
 
+      expect(result).toEqual({ messages: [], total: 0 });
       expect(mockCache.get).toHaveBeenCalledWith(`history:${IMAGE_ID_A}`);
       expect(mockCache.set).toHaveBeenCalledWith(
         `history:${IMAGE_ID_A}`,
         { messages: [], total: 0 },
       );
+    });
+
+    it('getHistory should return cached data on cache HIT without DB call', async () => {
+      const cached = { messages: [{ id: 'cached-m1' }], total: 1 };
+      mockCache.get.mockResolvedValue(cached);
+
+      const result = await service.getHistory(IMAGE_ID_A);
+
+      expect(result).toEqual(cached);
+      expect(repo.findAndCount).not.toHaveBeenCalled();
     });
 
     it('getHistory should NOT cache non-default pagination', async () => {
@@ -457,8 +468,9 @@ describe('HistoryService', () => {
     it('getRecentMessages should call cache get/set for default count', async () => {
       repo.find.mockResolvedValue([]);
 
-      await service.getRecentMessages(IMAGE_ID_A);
+      const result = await service.getRecentMessages(IMAGE_ID_A);
 
+      expect(result).toEqual([]);
       expect(mockCache.get).toHaveBeenCalledWith(`recent:${IMAGE_ID_A}`);
       expect(mockCache.set).toHaveBeenCalledWith(
         `recent:${IMAGE_ID_A}`,

@@ -7,6 +7,8 @@ import { HistoryModule } from '@/history/history.module';
 import { CacheModule } from '@/cache/cache.module';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { ImageEntity } from '@/upload/entities/image.entity';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { setupApp } from '@/common/setup-app';
 
 const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
@@ -72,6 +74,8 @@ describe('HistoryController (integration)', () => {
   });
 
   afterEach(async () => {
+    const cache = app.get<Cache>(CACHE_MANAGER);
+    await cache.clear();
     await app.close();
   });
 
