@@ -7,23 +7,80 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiConsumes,
+  ApiBody,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { UploadService } from './upload.service';
 import { UploadResponseDto } from './dto/upload-response.dto';
 import { FileValidationPipe } from '../common/pipes/file-validation.pipe';
 import { MulterErrorInterceptor } from '../common/interceptors/multer-error.interceptor';
+import { ErrorResponseSchema } from '@/common/swagger/error-response.schema';
 
 // Multer hard limit: slightly above MAX_FILE_SIZE so the pipe can provide
 // a precise error message. Must stay >= MAX_FILE_SIZE env var.
 // Both reference the same 16MB base. See also: FileValidationPipe.maxFileSize
 const MAX_FILE_SIZE_HARD_LIMIT = 16 * 1024 * 1024 + 1024;
 
+@ApiTags('Upload')
 @Controller('upload')
 export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
 
   @Post()
+  @ApiOperation({
+    summary: 'Upload an image',
+    description:
+      'Upload an image file for AI analysis. The server validates the file extension, size (max 16 MB), ' +
+      'and content integrity (magic bytes must match the declared extension). ' +
+      'Files are stored as `{uuid}.{ext}` — original filenames are sanitized and preserved in metadata only. ' +
+      'Returns image metadata with initial AI vision analysis. Rate limited to 10 requests per minute.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Image file to upload',
+    schema: {
+      type: 'object',
+      required: ['image'],
+      properties: {
+        image: {
+          type: 'string',
+          format: 'binary',
+          description: 'Image file (PNG, JPEG, or GIF, max 16 MB)',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Image uploaded and analyzed successfully',
+    type: UploadResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Missing file (`MISSING_FILE`) or content does not match extension (`FILE_CONTENT_MISMATCH`)',
+    type: ErrorResponseSchema,
+  })
+  @ApiResponse({
+    status: 413,
+    description: 'File size exceeds 16 MB limit (`FILE_TOO_LARGE`)',
+    type: ErrorResponseSchema,
+  })
+  @ApiResponse({
+    status: 415,
+    description: 'File type not allowed — accepted: .png, .jpg, .jpeg, .gif (`INVALID_FILE_TYPE`)',
+    type: ErrorResponseSchema,
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Rate limit exceeded — max 10 uploads per minute (`RATE_LIMIT_EXCEEDED`)',
+    type: ErrorResponseSchema,
+  })
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(

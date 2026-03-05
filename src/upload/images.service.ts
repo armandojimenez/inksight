@@ -17,6 +17,9 @@ import { HistoryService } from '@/history/history.service';
 import { GalleryImageResponse } from './dto/gallery-response.dto';
 import { CACHE_KEYS } from '@/cache/cache-keys';
 
+// Allowed MIME types for serving. Includes webp defensively even though
+// upload validation restricts to png/jpeg/gif — prevents 403 if DB records
+// ever reference a webp file (e.g., from a future upload expansion).
 const ALLOWED_MIME_TYPES = new Set([
   'image/png',
   'image/jpeg',

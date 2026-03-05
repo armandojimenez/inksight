@@ -9,6 +9,13 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiProduces,
+} from '@nestjs/swagger';
 import { Response } from 'express';
 import { ImagesService } from './images.service';
 import { UuidValidationPipe } from '@/common/pipes/uuid-validation.pipe';
@@ -16,7 +23,9 @@ import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { GalleryResponse } from './dto/gallery-response.dto';
 import { buildErrorResponse } from '@/common/utils/build-error-response';
 import { RequestWithCorrelation } from '@/common/interfaces/request.interface';
+import { ErrorResponseSchema } from '@/common/swagger/error-response.schema';
 
+@ApiTags('Images')
 @Controller('images')
 export class ImagesController {
   private readonly logger = new Logger(ImagesController.name);
@@ -24,6 +33,22 @@ export class ImagesController {
   constructor(private readonly imagesService: ImagesService) {}
 
   @Get()
+  @ApiOperation({
+    summary: 'List uploaded images (gallery)',
+    description:
+      'Returns a paginated list of all uploaded images, ordered by creation date (newest first). ' +
+      'Each entry includes metadata and a count of associated chat messages.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of images',
+    type: GalleryResponse,
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Rate limit exceeded (`RATE_LIMIT_EXCEEDED`)',
+    type: ErrorResponseSchema,
+  })
   async listImages(
     @Query() query: PaginationQueryDto,
   ): Promise<GalleryResponse> {
@@ -42,6 +67,34 @@ export class ImagesController {
   }
 
   @Delete(':imageId')
+  @ApiOperation({
+    summary: 'Delete an image',
+    description:
+      'Permanently deletes an image record, its file on disk, and all associated chat messages (cascade). ' +
+      'Invalidates related caches. Returns 204 on success, 404 if the image does not exist.',
+  })
+  @ApiParam({
+    name: 'imageId',
+    description: 'Image UUID (v4 format)',
+    format: 'uuid',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({ status: 204, description: 'Image deleted successfully' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid UUID format (`INVALID_UUID`)',
+    type: ErrorResponseSchema,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Image not found (`IMAGE_NOT_FOUND`)',
+    type: ErrorResponseSchema,
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Rate limit exceeded (`RATE_LIMIT_EXCEEDED`)',
+    type: ErrorResponseSchema,
+  })
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteImage(
     @Param('imageId', UuidValidationPipe) imageId: string,
@@ -50,6 +103,44 @@ export class ImagesController {
   }
 
   @Get(':imageId/file')
+  @ApiOperation({
+    summary: 'Serve image file',
+    description:
+      'Streams the original image file from disk. Sets `Content-Type` from the database record, ' +
+      '`Content-Disposition: inline` with the original filename, and aggressive cache headers ' +
+      '(`Cache-Control: public, max-age=31536000, immutable`).',
+  })
+  @ApiParam({
+    name: 'imageId',
+    description: 'Image UUID (v4 format)',
+    format: 'uuid',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiProduces('image/png', 'image/jpeg', 'image/gif')
+  @ApiResponse({
+    status: 200,
+    description: 'Image file binary stream',
+    content: {
+      'image/png': { schema: { type: 'string', format: 'binary' } },
+      'image/jpeg': { schema: { type: 'string', format: 'binary' } },
+      'image/gif': { schema: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid UUID format (`INVALID_UUID`)',
+    type: ErrorResponseSchema,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Image not found (`IMAGE_NOT_FOUND`) or file missing from disk (`IMAGE_FILE_NOT_FOUND`)',
+    type: ErrorResponseSchema,
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Rate limit exceeded (`RATE_LIMIT_EXCEEDED`)',
+    type: ErrorResponseSchema,
+  })
   async serveImage(
     @Param('imageId', UuidValidationPipe) imageId: string,
     @Res() res: Response,

@@ -9,6 +9,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiBody,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { ChatService } from './chat.service';
@@ -18,6 +25,7 @@ import { UuidValidationPipe } from '@/common/pipes/uuid-validation.pipe';
 import { RequestWithCorrelation } from '@/common/interfaces/request.interface';
 import { buildErrorResponse } from '@/common/utils/build-error-response';
 import { ConcurrentSseGuard } from '@/common/guards/concurrent-sse.guard';
+import { ErrorResponseSchema } from '@/common/swagger/error-response.schema';
 
 const DEFAULT_SSE_TIMEOUT_MS = 30_000;
 const MAX_SSE_TIMEOUT_MS = 120_000;
@@ -29,6 +37,7 @@ function clampTimeout(raw: number): number {
   return Math.min(raw, MAX_SSE_TIMEOUT_MS);
 }
 
+@ApiTags('Chat')
 @UseGuards(ConcurrentSseGuard)
 @Controller('chat-stream')
 export class StreamController {
@@ -40,6 +49,63 @@ export class StreamController {
   ) {}
 
   @Post(':imageId')
+  @ApiOperation({
+    summary: 'Stream a chat message (Server-Sent Events)',
+    description:
+      'Send a message about an uploaded image and receive a streaming AI response via Server-Sent Events (SSE). ' +
+      'Each event is a `data:` line containing a JSON chunk in OpenAI streaming format. ' +
+      'The stream ends with a `data: [DONE]` sentinel event.\n\n' +
+      '**Stream lifecycle:**\n' +
+      '1. Pre-stream validation (image exists, message valid) — errors returned as JSON\n' +
+      '2. SSE headers set (`Content-Type: text/event-stream`)\n' +
+      '3. Content chunks streamed as `data: {JSON}\\n\\n`\n' +
+      '4. `data: [DONE]\\n\\n` sentinel sent on completion\n\n' +
+      '**Limits:** 30 requests/minute rate limit + max 5 concurrent SSE connections per IP. ' +
+      'Streams timeout after 30 seconds (configurable, max 120s).',
+  })
+  @ApiParam({
+    name: 'imageId',
+    description: 'Image UUID (v4 format)',
+    format: 'uuid',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiBody({ type: ChatRequestDto })
+  @ApiResponse({
+    status: 200,
+    description:
+      'SSE stream of chat completion chunks ending with `data: [DONE]`',
+    content: {
+      'text/event-stream': {
+        schema: {
+          type: 'string',
+          description:
+            'Each line is `data: <JSON>\\n\\n` where JSON matches the OpenAI stream chunk format. ' +
+            'Final line is `data: [DONE]\\n\\n`.',
+          example:
+            'data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1709554800,"model":"gpt-4o","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n' +
+            'data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1709554800,"model":"gpt-4o","choices":[{"index":0,"delta":{"content":"This image shows"},"finish_reason":null}]}\n\n' +
+            'data: {"id":"chatcmpl-abc","object":"chat.completion.chunk","created":1709554800,"model":"gpt-4o","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n' +
+            'data: [DONE]\n\n',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid UUID (`INVALID_UUID`) or invalid message (`INVALID_MESSAGE`, `VALIDATION_ERROR`)',
+    type: ErrorResponseSchema,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Image not found (`IMAGE_NOT_FOUND`)',
+    type: ErrorResponseSchema,
+  })
+  @ApiResponse({
+    status: 429,
+    description:
+      'Rate limit exceeded (`RATE_LIMIT_EXCEEDED`) or concurrent SSE connection limit exceeded (`SSE_CONNECTION_LIMIT`)',
+    type: ErrorResponseSchema,
+  })
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   async chatStream(
     @Param('imageId', UuidValidationPipe) imageId: string,
