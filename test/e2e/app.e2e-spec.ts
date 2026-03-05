@@ -72,7 +72,7 @@ async function createE2eApp(overrides?: {
             .pattern(/^[a-zA-Z0-9._/\-]+$/)
             .default('uploads'),
           MAX_FILE_SIZE: Joi.number().min(1).default(16777216),
-          RATE_LIMIT_TTL: Joi.number().min(1).default(60000),
+          RATE_LIMIT_TTL: Joi.number().min(1000).default(60000),
           RATE_LIMIT_MAX: Joi.number().min(1).default(100),
           ALLOWED_ORIGIN: Joi.string().optional(),
           MAX_SSE_PER_IP: Joi.number().min(1).default(5),
