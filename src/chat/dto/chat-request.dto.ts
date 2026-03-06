@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, MaxLength, Validate } from 'class-validator';
+import { IsString, IsNotEmpty, MinLength, MaxLength, Validate } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { NoNullBytesValidator } from '@/common/validators/no-null-bytes.validator';
@@ -19,9 +19,10 @@ export class ChatRequestDto {
   @Transform(({ value }) =>
     typeof value === 'string' ? sanitizeControlChars(value.trim()) : value,
   )
-  @IsString()
-  @Validate(NoNullBytesValidator)
-  @IsNotEmpty()
-  @MaxLength(2000)
+  @IsString({ message: 'Message must be a string' })
+  @Validate(NoNullBytesValidator, { message: 'Message contains null bytes' })
+  @IsNotEmpty({ message: 'Message cannot be empty' })
+  @MinLength(1, { message: 'Message must be at least 1 character long' })
+  @MaxLength(2000, { message: 'Message cannot exceed 2000 characters' })
   message!: string;
 }

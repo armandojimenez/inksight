@@ -34,7 +34,7 @@ The approach: **I do the thinking, AI does the typing.**
 | **Test Automation** | Test strategy, coverage analysis | Unit, integration, and E2E test suites |
 
 ### Web Research
-- Scraped Inkit's public website to study brand design system (colors, typography, visual patterns)
+- Reviewed Inkit's public website to study brand design system (colors, typography, visual patterns)
 - Referenced OpenAI API documentation for exact response format compliance
 - Consulted NestJS, TypeORM, and React documentation for best practices
 
