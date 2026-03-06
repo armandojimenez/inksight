@@ -29,7 +29,8 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/armandojimenez/inksight && cd inksight
+git clone https://github.com/armandojimenez/inksight
+cd inksight
 docker compose up --build -d --wait
 open http://localhost:3000
 ```
