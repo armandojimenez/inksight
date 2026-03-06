@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AppLayout } from '@/components/AppLayout';
 import type { ImageData, UploadResponse } from '@/types';
@@ -48,7 +48,12 @@ vi.mock('@/components/UploadView', () => ({
             mimeType: 'image/png',
             size: 2048,
             analysis: {
-              choices: [{ message: { content: 'This is a photo of a cat.' } }],
+              id: 'chatcmpl-test',
+              object: 'chat.completion',
+              created: 1700000000,
+              model: 'gpt-5.2',
+              choices: [{ index: 0, message: { role: 'assistant', content: 'This is a photo of a cat.' }, finish_reason: 'stop' }],
+              usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
             },
           })
         }
@@ -104,7 +109,7 @@ vi.mock('@/lib/api', async (importOriginal) => {
     ...actual,
     getImages: vi.fn().mockResolvedValue({
       images: [],
-      totalImages: 0,
+      total: 0,
       page: 1,
       pageSize: 100,
       totalPages: 0,
@@ -147,7 +152,7 @@ describe('AppLayout', () => {
     mockUseMediaQuery.mockReturnValue(true); // desktop
     mockGetImages.mockResolvedValue({
       images: [],
-      totalImages: 0,
+      total: 0,
       page: 1,
       pageSize: 100,
       totalPages: 0,
@@ -189,7 +194,7 @@ describe('AppLayout', () => {
     it('selects first image and shows ChatView when images loaded', async () => {
       mockGetImages.mockResolvedValue({
         images: sampleImages,
-        totalImages: 2,
+        total: 2,
         page: 1,
         pageSize: 100,
         totalPages: 1,
@@ -252,7 +257,7 @@ describe('AppLayout', () => {
       const user = userEvent.setup();
       mockGetImages.mockResolvedValue({
         images: sampleImages,
-        totalImages: 2,
+        total: 2,
         page: 1,
         pageSize: 100,
         totalPages: 1,
@@ -278,7 +283,7 @@ describe('AppLayout', () => {
       const user = userEvent.setup();
       mockGetImages.mockResolvedValue({
         images: sampleImages,
-        totalImages: 2,
+        total: 2,
         page: 1,
         pageSize: 100,
         totalPages: 1,
@@ -299,7 +304,7 @@ describe('AppLayout', () => {
       const user = userEvent.setup();
       mockGetImages.mockResolvedValue({
         images: sampleImages,
-        totalImages: 2,
+        total: 2,
         page: 1,
         pageSize: 100,
         totalPages: 1,
@@ -322,7 +327,7 @@ describe('AppLayout', () => {
       const user = userEvent.setup();
       mockGetImages.mockResolvedValue({
         images: sampleImages,
-        totalImages: 2,
+        total: 2,
         page: 1,
         pageSize: 100,
         totalPages: 1,
@@ -353,7 +358,7 @@ describe('AppLayout', () => {
       const singleImage = [sampleImages[0]!];
       mockGetImages.mockResolvedValue({
         images: singleImage,
-        totalImages: 1,
+        total: 1,
         page: 1,
         pageSize: 100,
         totalPages: 1,
@@ -377,7 +382,7 @@ describe('AppLayout', () => {
       const user = userEvent.setup();
       mockGetImages.mockResolvedValue({
         images: sampleImages,
-        totalImages: 2,
+        total: 2,
         page: 1,
         pageSize: 100,
         totalPages: 1,
@@ -456,7 +461,7 @@ describe('AppLayout', () => {
       const user = userEvent.setup();
       mockGetImages.mockResolvedValue({
         images: sampleImages,
-        totalImages: 2,
+        total: 2,
         page: 1,
         pageSize: 100,
         totalPages: 1,
@@ -499,7 +504,7 @@ describe('AppLayout', () => {
       const user = userEvent.setup();
       mockGetImages.mockResolvedValue({
         images: sampleImages,
-        totalImages: 2,
+        total: 2,
         page: 1,
         pageSize: 100,
         totalPages: 1,
@@ -523,7 +528,7 @@ describe('AppLayout', () => {
     it('shows upload button in header when image is selected', async () => {
       mockGetImages.mockResolvedValue({
         images: sampleImages,
-        totalImages: 2,
+        total: 2,
         page: 1,
         pageSize: 100,
         totalPages: 1,
@@ -568,7 +573,7 @@ describe('AppLayout', () => {
       const user = userEvent.setup();
       mockGetImages.mockResolvedValue({
         images: sampleImages,
-        totalImages: 2,
+        total: 2,
         page: 1,
         pageSize: 100,
         totalPages: 1,

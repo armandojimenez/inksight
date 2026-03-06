@@ -153,8 +153,8 @@ describe('API Contracts', () => {
       const analysis = payload.analysis!;
       assertHasFields(analysis as unknown as Record<string, unknown>, ['id', 'object', 'created', 'model', 'choices', 'usage'], 'UploadResponse.analysis');
       expect(analysis.choices.length).toBeGreaterThan(0);
-      expect(analysis.choices[0]).toHaveProperty('message');
-      expect(analysis.choices[0].message).toHaveProperty('content');
+      expect(analysis.choices[0]!).toHaveProperty('message');
+      expect(analysis.choices[0]!.message).toHaveProperty('content');
     });
 
     it('accepts null analysis', () => {
