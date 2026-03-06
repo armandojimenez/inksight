@@ -8,6 +8,24 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 };
 
+// jsdom doesn't implement IntersectionObserver — required by useScrollReveal
+global.IntersectionObserver = class IntersectionObserver {
+  readonly root = null;
+  readonly rootMargin = '0px';
+  readonly thresholds: readonly number[] = [0];
+  constructor(private callback: IntersectionObserverCallback) {}
+  observe(target: Element) {
+    // Immediately trigger as visible for tests
+    this.callback(
+      [{ isIntersecting: true, target } as IntersectionObserverEntry],
+      this as unknown as IntersectionObserver,
+    );
+  }
+  unobserve() {}
+  disconnect() {}
+  takeRecords(): IntersectionObserverEntry[] { return []; }
+};
+
 // jsdom doesn't implement matchMedia — required by useMediaQuery in AppLayout
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

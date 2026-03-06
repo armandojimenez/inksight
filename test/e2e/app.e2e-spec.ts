@@ -317,19 +317,22 @@ describe('Inksight E2E', () => {
     expect(chatRes.body.choices[0].message.content.length).toBeGreaterThan(0);
 
     // Step 3: Verify history — full PRD response shape (P2-1)
+    // Upload persists initial analysis as first assistant message (+1)
     const historyRes = await request(server)
       .get(`/api/chat/${uploaded.id}/history`);
 
     expect(historyRes.status).toBe(200);
     expect(historyRes.body).toHaveProperty('imageId', uploaded.id);
-    expect(historyRes.body).toHaveProperty('totalMessages', 2);
+    expect(historyRes.body).toHaveProperty('totalMessages', 3);
     expect(historyRes.body).toHaveProperty('page', 1);
     expect(historyRes.body).toHaveProperty('pageSize', 20);
     expect(historyRes.body).toHaveProperty('totalPages', 1);
-    expect(historyRes.body.messages[0].role).toBe('user');
-    expect(historyRes.body.messages[0].content).toBe('What objects do you see?');
-    expect(historyRes.body.messages[1].role).toBe('assistant');
-    expect(historyRes.body.messages[1].content.length).toBeGreaterThan(0);
+    expect(historyRes.body.messages[0].role).toBe('assistant');
+    expect(historyRes.body.messages[0].content.length).toBeGreaterThan(0);
+    expect(historyRes.body.messages[1].role).toBe('user');
+    expect(historyRes.body.messages[1].content).toBe('What objects do you see?');
+    expect(historyRes.body.messages[2].role).toBe('assistant');
+    expect(historyRes.body.messages[2].content.length).toBeGreaterThan(0);
   });
 
   // ─── Scenario 2: Upload → stream → verify response from chunks ─────────
@@ -368,12 +371,13 @@ describe('Inksight E2E', () => {
     expect(lastChunk.choices[0].finish_reason).toBe('stop');
 
     // P2-8 / P3-7: Verify streaming also persists assistant message to history (ST-6)
+    // Upload persists initial analysis as first assistant message (+1)
     const historyRes = await request(server)
       .get(`/api/chat/${uploaded.id}/history`);
     expect(historyRes.status).toBe(200);
-    expect(historyRes.body.totalMessages).toBe(2);
-    expect(historyRes.body.messages[1].role).toBe('assistant');
-    expect(historyRes.body.messages[1].content).toBe(fullText);
+    expect(historyRes.body.totalMessages).toBe(3);
+    expect(historyRes.body.messages[2].role).toBe('assistant');
+    expect(historyRes.body.messages[2].content).toBe(fullText);
   });
 
   // ─── Scenario 3: Multiple chats → history grows + pagination ────────────
@@ -391,12 +395,12 @@ describe('Inksight E2E', () => {
       expect(res.status).toBe(200);
     }
 
-    // History should have 6 messages (3 user + 3 assistant)
+    // History should have 7 messages (1 initial analysis + 3 user + 3 assistant)
     const historyRes = await request(server)
       .get(`/api/chat/${uploaded.id}/history`);
 
     expect(historyRes.status).toBe(200);
-    expect(historyRes.body.totalMessages).toBe(6);
+    expect(historyRes.body.totalMessages).toBe(7);
 
     // P2-4: Verify pagination across multiple pages
     const page1 = await request(server)
@@ -404,8 +408,8 @@ describe('Inksight E2E', () => {
 
     expect(page1.status).toBe(200);
     expect(page1.body.messages).toHaveLength(2);
-    expect(page1.body.totalMessages).toBe(6);
-    expect(page1.body.totalPages).toBe(3);
+    expect(page1.body.totalMessages).toBe(7);
+    expect(page1.body.totalPages).toBe(4);
     expect(page1.body.page).toBe(1);
 
     // Fetch page 2 and verify different messages + correct offset
@@ -445,13 +449,14 @@ describe('Inksight E2E', () => {
     // P3-3: Assert status before accessing body
     const history1 = await request(server)
       .get(`/api/chat/${img1.id}/history`);
+    // +1 each for initial analysis persisted during upload
     expect(history1.status).toBe(200);
-    expect(history1.body.totalMessages).toBe(2);
+    expect(history1.body.totalMessages).toBe(3);
 
     const history2 = await request(server)
       .get(`/api/chat/${img2.id}/history`);
     expect(history2.status).toBe(200);
-    expect(history2.body.totalMessages).toBe(4);
+    expect(history2.body.totalMessages).toBe(5);
   });
 
   // ─── Scenario 5: Delete image → cascade cleanup ────────────────────────
@@ -470,10 +475,10 @@ describe('Inksight E2E', () => {
     const files = await fs.readdir(E2E_UPLOAD_DIR);
     expect(files.filter((f) => !f.startsWith('.')).length).toBe(1);
 
-    // P2-3: Verify message count before delete
+    // P2-3: Verify message count before delete (+1 for initial analysis)
     const preHistory = await request(server)
       .get(`/api/chat/${uploaded.id}/history`);
-    expect(preHistory.body.totalMessages).toBe(2);
+    expect(preHistory.body.totalMessages).toBe(3);
 
     // Delete
     const deleteRes = await request(server)
@@ -681,11 +686,11 @@ describe('Inksight E2E', () => {
     // P3-6: Verify ordering — newest first (DESC by createdAt)
     expect(galleryRes.body.images[0].id).toBe(img3Res.body.id);
 
-    // img1 should have 2 messages (user + assistant)
+    // img1 should have 3 messages (1 initial analysis + user + assistant)
     const img1Gallery = galleryRes.body.images.find(
       (i: { id: string }) => i.id === img1.id,
     );
-    expect(img1Gallery.messageCount).toBe(2);
+    expect(img1Gallery.messageCount).toBe(3);
 
     // P3-5: Verify per-image mimeType correctness
     const jpegImage = galleryRes.body.images.find(

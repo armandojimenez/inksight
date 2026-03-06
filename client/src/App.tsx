@@ -1,12 +1,17 @@
+import { Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AppLayout } from '@/components/AppLayout';
+import { LandingPage } from '@/components/LandingPage';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 function App() {
   return (
     <>
       <ErrorBoundary>
-        <AppLayout />
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/app" element={<AppLayout />} />
+        </Routes>
       </ErrorBoundary>
       <Toaster
         position="bottom-right"
