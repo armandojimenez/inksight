@@ -293,8 +293,8 @@ function MockupChat() {
         <img src="/sample-landscape.jpg" alt="" aria-hidden="true" className="h-6 w-6 rounded object-cover" loading="lazy" />
         <span className="text-xs font-medium text-neutral-400">sunset-mountains.jpg</span>
       </div>
-      {/* Messages — fixed height */}
-      <div className="flex flex-col gap-3 p-4 h-[280px]">
+      {/* Messages */}
+      <div className="flex flex-col gap-3 p-4">
         <div className="flex justify-end">
           <div className="rounded bg-primary-500 px-3 py-2 text-sm text-white max-w-[70%]">
             What objects are in the foreground?
