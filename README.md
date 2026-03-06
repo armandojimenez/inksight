@@ -13,8 +13,8 @@
   <img src="https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white" alt="NestJS" />
   <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL" />
-  <img src="https://img.shields.io/badge/Tests-48_files-brightgreen" alt="Tests" />
-  <a href="https://codecov.io/gh/armandojimenez/inksight"><img src="https://codecov.io/gh/armandojimenez/inksight/branch/main/graph/badge.svg" alt="Coverage" /></a>
+  <img src="https://img.shields.io/badge/Tests-54_files-brightgreen" alt="Tests" />
+  <a href="https://codecov.io/gh/inksight-app/inksight"><img src="https://codecov.io/gh/inksight-app/inksight/branch/main/graph/badge.svg" alt="Coverage" /></a>
   <img src="https://img.shields.io/badge/ADRs-11-blue" alt="ADRs" />
 </p>
 
@@ -112,7 +112,7 @@ graph TD
 | **Styling** | Tailwind CSS + shadcn/ui | Utility-first with accessible component primitives ([ADR-004](docs/adr/004-styling.md)) |
 | **Streaming** | Server-Sent Events (SSE) | POST-compatible, no connection upgrade, simpler proxy config than WebSockets ([ADR-006](docs/adr/006-sse-streaming.md)) |
 | **Caching** | In-memory (Redis-ready) | Zero-config for single instance, abstraction supports Redis swap ([ADR-007](docs/adr/007-caching-strategy.md)) |
-| **Testing** | Jest + Supertest + Vitest | Layered test pyramid: unit, integration, E2E, client ([ADR-009](docs/adr/009-testing.md)) |
+| **Testing** | Jest + Supertest + Vitest | Layered test pyramid: unit, integration, E2E, contract, client ([ADR-009](docs/adr/009-testing.md)) |
 | **Infrastructure** | Docker Compose | Single-command setup, PostgreSQL health checks, multi-stage build |
 
 ---
@@ -210,7 +210,7 @@ Tests follow a layered pyramid. Each layer has a distinct scope and catches a di
 
 ```
          ┌───────────┐
-         │   E2E     │  1 file, 13 scenarios
+         │   E2E     │  1 file, 15 scenarios
          │  (Jest +  │  Full HTTP lifecycle
          │ Supertest)│  Real DB, real cache
          ├───────────┤
@@ -222,16 +222,19 @@ Tests follow a layered pyramid. Each layer has a distinct scope and catches a di
      │   │  (Jest)   │  Isolated services
      │   │           │  All deps mocked
      ├───┤───────────┤
-     │   │  Client   │  8 files
+     │   │  Client   │  13 files
      │   │  (Vitest +│  React components + hooks
      │   │   RTL)    │  API calls mocked
+     ├───┤───────────┤
+     │   │ Contract  │  1 file, 19 assertions
+     │   │  (Vitest) │  Backend ↔ client type drift
      ├───┤───────────┤
      │   │  Schema   │  2 JSON Schema files
      │   │Validation │  OpenAI format compliance
      └───┴───────────┘
 ```
 
-**48 test files + 2 JSON Schema validation files = 50 test artifacts**
+**54 test files + 2 JSON Schema validation files = 56 test artifacts**
 
 ### Running Tests
 
@@ -260,6 +263,7 @@ cd client && npm test
 | **Integration** | Wiring errors between controllers, services, and the real database. Request/response serialization, query parameter parsing, error response formatting |
 | **E2E** | Full user journeys across multiple endpoints. Upload > chat > stream > history > delete flows with a real database and cache |
 | **Client** | Component rendering, user interactions, SSE hook behavior, keyboard shortcuts, accessibility attributes |
+| **Contract** | Backend ↔ client type drift. Validates that realistic backend response payloads match the exact fields and types the client code depends on |
 | **Schema** | OpenAI response format compliance. Both streaming chunks and complete responses are validated against JSON Schema |
 
 ---
@@ -421,13 +425,13 @@ inksight/
 │   │   │   └── utils.ts          #     Shared utilities
 │   │   ├── styles/
 │   │   │   └── tokens.css        #     Design token system
-│   │   └── __tests__/            #     Component + hook tests
+│   │   └── __tests__/            #     Component, hook, and API contract tests
 │   └── tailwind.config.ts        #   Tailwind config (mirrors tokens)
 │
 ├── test/                         # Backend tests
 │   ├── unit/                     #   25 unit test files
 │   ├── integration/              #   14 integration test files
-│   ├── e2e/                      #   1 E2E test file (13 scenarios)
+│   ├── e2e/                      #   1 E2E test file (15 scenarios)
 │   └── schemas/                  #   2 JSON Schema validation files
 │
 ├── docs/                         # Documentation
@@ -525,7 +529,7 @@ git log --oneline --decorate    # See the full progression
 | `v0.8-hardened` | 8 | Rate limiting, security headers, logging, health check, cleanup |
 | `v0.9-api-docs` | 9 | Swagger UI, Postman collection, automated test script |
 | `v0.10-client` | 10 | React client with streaming, gallery, design system alignment |
-| `v0.11-e2e` | 11 | End-to-end test suite (13 scenarios) |
+| `v0.11-e2e` | 11 | End-to-end test suite (15 scenarios) |
 
 ---
 

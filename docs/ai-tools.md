@@ -1,6 +1,6 @@
 # AI Tools & Orchestration
 
-**Author:** Armando Jimenez
+**Author:** Inksight Team
 **Date:** March 2, 2026
 
 ---

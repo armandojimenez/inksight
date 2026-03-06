@@ -399,24 +399,30 @@ describe('AppLayout', () => {
   });
 
   describe('accessibility', () => {
-    it('has skip-to-content link', () => {
+    it('has skip-to-content link', async () => {
       render(<AppLayout />);
 
-      const skipLink = screen.getByText('Skip to main content');
-      expect(skipLink).toBeInTheDocument();
-      expect(skipLink).toHaveAttribute('href', '#main-content');
+      await waitFor(() => {
+        const skipLink = screen.getByText('Skip to main content');
+        expect(skipLink).toBeInTheDocument();
+        expect(skipLink).toHaveAttribute('href', '#main-content');
+      });
     });
 
-    it('has h1 with app name', () => {
+    it('has h1 with app name', async () => {
       render(<AppLayout />);
 
-      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Inksight');
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Inksight');
+      });
     });
 
-    it('has main landmark with correct id', () => {
+    it('has main landmark with correct id', async () => {
       render(<AppLayout />);
 
-      expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content');
+      await waitFor(() => {
+        expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content');
+      });
     });
   });
 

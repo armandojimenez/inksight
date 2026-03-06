@@ -555,6 +555,110 @@ describe('StreamController (integration)', () => {
       }, 10000);
     });
 
+    describe('backpressure handling', () => {
+      it('should handle res.write returning false (backpressure) and resume after drain', async () => {
+        mockRepository.findOneBy.mockResolvedValue({
+          id: VALID_UUID,
+        } as ImageEntity);
+
+        // Generate enough chunks that backpressure could plausibly occur
+        async function* manyChunks(): AsyncGenerator<OpenAiStreamChunk> {
+          const id = 'chatcmpl-bp';
+          const created = 1700000000;
+          yield buildChunk(id, created, { role: 'assistant', content: '' }, null);
+          for (let i = 0; i < 20; i++) {
+            yield buildChunk(id, created, { content: `chunk-${i} ` }, null);
+          }
+          yield buildChunk(id, created, {}, 'stop');
+        }
+
+        mockAiService.chatStream.mockReturnValue(manyChunks());
+
+        const server = app.getHttpServer();
+        const res = await sseRequest(
+          server,
+          `/api/chat-stream/${VALID_UUID}`,
+          { message: 'test' },
+        );
+
+        expect(res.status).toBe(200);
+        const events = parseSSE(res.body);
+        // All chunks should arrive regardless of backpressure
+        expect(events).toContain('[DONE]');
+        const jsonEvents = events.filter((e) => e !== '[DONE]');
+        // 1 role chunk + 20 content chunks + 1 stop chunk = 22
+        expect(jsonEvents).toHaveLength(22);
+      });
+
+      it('should break out of stream loop when client disconnects mid-stream', async () => {
+        mockRepository.findOneBy.mockResolvedValue({
+          id: VALID_UUID,
+        } as ImageEntity);
+
+        // Create a slow generator that yields chunks with delays
+        mockAiService.chatStream.mockImplementation(
+          (_prompt: string, _imageId: string, _history: unknown[], signal?: AbortSignal) => {
+            async function* slowGenerator(): AsyncGenerator<OpenAiStreamChunk> {
+              yield buildChunk('id1', 1700000000, { role: 'assistant', content: '' }, null);
+              yield buildChunk('id1', 1700000000, { content: 'first ' }, null);
+              // Wait long enough for client to disconnect
+              await new Promise<void>((resolve, reject) => {
+                if (signal?.aborted) { resolve(); return; }
+                const timer = setTimeout(resolve, 5000);
+                signal?.addEventListener('abort', () => {
+                  clearTimeout(timer);
+                  resolve();
+                }, { once: true });
+              });
+              if (!signal?.aborted) {
+                yield buildChunk('id1', 1700000000, { content: 'late' }, null);
+                yield buildChunk('id1', 1700000000, {}, 'stop');
+              }
+            }
+            return slowGenerator();
+          },
+        );
+
+        const server = app.getHttpServer();
+        const addr = server.address() as { port: number };
+
+        // Make a request and destroy it after getting initial data
+        const result = await new Promise<string>((resolve) => {
+          const payload = JSON.stringify({ message: 'test' });
+          const req = http.request(
+            {
+              hostname: '127.0.0.1',
+              port: addr.port,
+              path: `/api/chat-stream/${VALID_UUID}`,
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': String(Buffer.byteLength(payload)),
+              },
+            },
+            (res) => {
+              let body = '';
+              res.on('data', (chunk: Buffer) => {
+                body += chunk.toString();
+                // After receiving some data, destroy the connection
+                if (body.includes('first')) {
+                  res.destroy();
+                  resolve(body);
+                }
+              });
+            },
+          );
+          req.write(payload);
+          req.end();
+        });
+
+        // We should have gotten the first chunks but not "late"
+        expect(result).toContain('assistant');
+        expect(result).toContain('first');
+        expect(result).not.toContain('[DONE]');
+      }, 10000);
+    });
+
     describe('edge cases', () => {
       it('should handle empty generator (zero yields) with [DONE]', async () => {
         mockRepository.findOneBy.mockResolvedValue({

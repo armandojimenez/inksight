@@ -197,6 +197,29 @@ describe('ChatService', () => {
       );
     });
 
+    it('should default assistant content to empty string when choices array is empty', async () => {
+      const image = { id: TEST_IMAGE_ID } as ImageEntity;
+      imageRepository.findOneBy.mockResolvedValue(image);
+
+      const emptyChoicesCompletion: OpenAiChatCompletion = {
+        ...mockCompletion,
+        choices: [] as unknown as OpenAiChatCompletion['choices'],
+        usage: undefined as unknown as OpenAiChatCompletion['usage'],
+      };
+      aiService.chat.mockResolvedValue(emptyChoicesCompletion);
+
+      const result = await service.chat(TEST_IMAGE_ID, 'Hello');
+
+      expect(result).toBe(emptyChoicesCompletion);
+      // Assistant message should be persisted with empty string content and null tokens
+      expect(historyService.addMessage).toHaveBeenCalledWith(
+        TEST_IMAGE_ID,
+        'assistant',
+        '',
+        null,
+      );
+    });
+
     it('should forward non-empty history to AI service', async () => {
       const image = { id: TEST_IMAGE_ID } as ImageEntity;
       imageRepository.findOneBy.mockResolvedValue(image);

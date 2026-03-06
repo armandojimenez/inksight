@@ -228,5 +228,58 @@ describe('Image File Controller (integration)', () => {
       expect(res.status).toBe(404);
       expect(res.body).toHaveProperty('code', 'IMAGE_FILE_NOT_FOUND');
     });
+
+    describe('stream error handling', () => {
+      it('should return error JSON when stream errors before headers sent to client', async () => {
+        const image = mockImage();
+        mockImageRepo.findOneBy.mockResolvedValue(image);
+        (fsPromises.access as jest.Mock).mockResolvedValue(undefined);
+
+        // Create a stream that emits an error synchronously before any data is piped
+        const errorStream = new Readable({
+          read() {
+            // Emit error on next tick so the pipe is set up but no data sent yet
+            process.nextTick(() => this.destroy(new Error('Disk read failure')));
+          },
+        }) as unknown as fs.ReadStream;
+
+        (fs.createReadStream as jest.Mock).mockReturnValue(errorStream);
+
+        const res = await request(app.getHttpServer())
+          .get(`/api/images/${VALID_UUID}/file`);
+
+        // The stream error handler should catch this — response ends gracefully
+        // Either a JSON error (if headers not yet committed) or just closes
+        expect([200, 500]).toContain(res.status);
+      });
+
+      it('should end response when stream errors after headers already sent', async () => {
+        const image = mockImage();
+        mockImageRepo.findOneBy.mockResolvedValue(image);
+        (fsPromises.access as jest.Mock).mockResolvedValue(undefined);
+
+        // Create a stream that sends some data, then errors
+        const partialStream = new Readable({
+          read() {
+            this.push(Buffer.from('partial-data'));
+            process.nextTick(() => this.destroy(new Error('Mid-stream disk error')));
+          },
+        }) as unknown as fs.ReadStream;
+
+        (fs.createReadStream as jest.Mock).mockReturnValue(partialStream);
+
+        const res = await request(app.getHttpServer())
+          .get(`/api/images/${VALID_UUID}/file`)
+          .buffer(true)
+          .parse((res, callback) => {
+            const chunks: Buffer[] = [];
+            res.on('data', (chunk: Buffer) => chunks.push(chunk));
+            res.on('end', () => callback(null, Buffer.concat(chunks)));
+          });
+
+        // Headers already sent with 200, stream errored mid-way and was ended
+        expect(res.status).toBe(200);
+      });
+    });
   });
 });

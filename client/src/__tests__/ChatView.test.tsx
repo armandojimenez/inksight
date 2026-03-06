@@ -279,6 +279,18 @@ describe('ChatView', () => {
 
       expect(screen.getByRole('log')).toHaveAttribute('aria-busy', 'true');
     });
+
+    it('shows empty state instead of streaming indicator when streaming with no messages', () => {
+      mockUseStreamingChat.mockReturnValue(
+        mockChatHook({ isStreaming: true, messages: [] }),
+      );
+
+      render(<ChatView image={mockImage} />);
+
+      // Empty state renders (suggested questions visible), no streaming indicator
+      expect(screen.getByTestId('empty-state-icon')).toBeInTheDocument();
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
   });
 
   describe('loading and error states', () => {
@@ -301,6 +313,26 @@ describe('ChatView', () => {
 
       expect(screen.getByText('Failed to load messages')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument();
+    });
+
+    it('calls window.location.reload when history error reload button is clicked', async () => {
+      const user = userEvent.setup();
+      const reloadMock = vi.fn();
+      Object.defineProperty(window, 'location', {
+        value: { reload: reloadMock },
+        writable: true,
+        configurable: true,
+      });
+
+      mockUseStreamingChat.mockReturnValue(
+        mockChatHook({ historyError: 'Failed to load messages' }),
+      );
+
+      render(<ChatView image={mockImage} />);
+
+      await user.click(screen.getByRole('button', { name: /reload/i }));
+
+      expect(reloadMock).toHaveBeenCalled();
     });
 
     it('shows error banner with retry and dismiss buttons', () => {

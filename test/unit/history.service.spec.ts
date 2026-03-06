@@ -503,5 +503,53 @@ describe('HistoryService', () => {
 
       expect(mockCache.del).not.toHaveBeenCalled();
     });
+
+    it('getHistory should fall through to DB when cache.get throws', async () => {
+      mockCache.get.mockRejectedValue(new Error('Cache connection lost'));
+      repo.findAndCount.mockResolvedValue([[], 0]);
+
+      const result = await service.getHistory(IMAGE_ID_A);
+
+      expect(result).toEqual({ messages: [], total: 0 });
+      expect(repo.findAndCount).toHaveBeenCalled();
+    });
+
+    it('getHistory should still return data when cache.set throws', async () => {
+      mockCache.set.mockRejectedValue(new Error('Cache write failed'));
+      repo.findAndCount.mockResolvedValue([[{ id: 'm1' }] as ChatMessageEntity[], 1]);
+
+      const result = await service.getHistory(IMAGE_ID_A);
+
+      expect(result).toEqual({ messages: [{ id: 'm1' }], total: 1 });
+    });
+
+    it('getRecentMessages should fall through to DB when cache.get throws', async () => {
+      mockCache.get.mockRejectedValue(new Error('Cache connection lost'));
+      repo.find.mockResolvedValue([
+        { role: 'user', content: 'Hello' } as ChatMessageEntity,
+      ]);
+
+      const result = await service.getRecentMessages(IMAGE_ID_A);
+
+      expect(result).toEqual([{ role: 'user', content: 'Hello' }]);
+      expect(repo.find).toHaveBeenCalled();
+    });
+
+    it('getRecentMessages should still return data when cache.set throws', async () => {
+      mockCache.set.mockRejectedValue(new Error('Cache write failed'));
+      repo.find.mockResolvedValue([
+        { role: 'assistant', content: 'Hi' } as ChatMessageEntity,
+      ]);
+
+      const result = await service.getRecentMessages(IMAGE_ID_A);
+
+      expect(result).toEqual([{ role: 'assistant', content: 'Hi' }]);
+    });
+
+    it('invalidateCache should not throw when cache.del rejects', async () => {
+      mockCache.del.mockRejectedValue(new Error('Cache unreachable'));
+
+      await expect(service.invalidateCache(IMAGE_ID_A)).resolves.toBeUndefined();
+    });
   });
 });

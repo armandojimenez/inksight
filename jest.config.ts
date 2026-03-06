@@ -8,7 +8,12 @@ const config: Config = {
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
-  collectCoverageFrom: ['src/**/*.ts', '!src/main.ts'],
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/main.ts',
+    '!src/database/data-source.ts',
+    '!src/database/migrations/**',
+  ],
   coverageDirectory: './coverage',
   testEnvironment: 'node',
   moduleNameMapper: {

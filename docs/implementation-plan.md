@@ -2,7 +2,7 @@
 
 **Version:** 1.2
 **Last Updated:** March 4, 2026
-**Author:** Armando Jimenez
+**Author:** Inksight Team
 
 ---
 
@@ -710,7 +710,7 @@ git tag v0.6-hardened-db -m "Database hardening: indexes, optimistic locking, re
 12. Fix `technical-design.md:853` TTL from `300` to `300_000` (ms, not seconds)
 13. Update ADR-007 key patterns to document flat key simplification
 
-> **Key design decisions:** Flat cache keys matching ADR-007 (no paginated keys, no key tracker Map). Pages 2+ and non-default counts go to DB uncached. `CacheInterceptor`/decorators rejected in favor of manual cache-aside for invalidation control. See [detailed plan](/Users/armandojimenez/.claude/plans/phase-7-caching-layer.md).
+> **Key design decisions:** Flat cache keys matching ADR-007 (no paginated keys, no key tracker Map). Pages 2+ and non-default counts go to DB uncached. `CacheInterceptor`/decorators rejected in favor of manual cache-aside for invalidation control. See detailed plan in session notes.
 
 ### Tests to Write First
 - [ ] Add `CACHE_MANAGER` mock to all 12 existing test files (3 unit + 9 integration) — verify `npm test` passes

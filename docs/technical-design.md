@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Last Updated:** March 2, 2026
-**Author:** Armando Jimenez
+**Author:** Inksight Team
 
 ---
 

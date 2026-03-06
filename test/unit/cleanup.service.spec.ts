@@ -203,6 +203,22 @@ describe('CleanupService', () => {
       expect(result).toBe(1);
     });
 
+    it('should block path traversal in cleanup and not delete file', async () => {
+      const img = mockImage({
+        uploadPath: '/etc/passwd',
+      });
+      imageRepo.find!.mockResolvedValue([img]);
+      mockFs.unlink.mockResolvedValue(undefined);
+
+      const result = await service.cleanupExpiredImages();
+
+      // Image DB record is still removed, but fs.unlink should NOT be called
+      // because path traversal is blocked
+      expect(result).toBe(1);
+      expect(imageRepo.remove).toHaveBeenCalledWith(img);
+      expect(mockFs.unlink).not.toHaveBeenCalled();
+    });
+
     it('should invalidate image cache entry on deletion', async () => {
       const img = mockImage();
       imageRepo.find!.mockResolvedValue([img]);
@@ -292,6 +308,17 @@ describe('CleanupService', () => {
       mockFs.readdir.mockRejectedValue(permError);
 
       await expect(service.cleanupOrphanedTempFiles()).rejects.toThrow('EPERM');
+    });
+
+    it('should warn on non-ENOENT error during temp file cleanup', async () => {
+      mockFs.readdir.mockResolvedValue(['.tmp-abc'] as any);
+      mockFs.stat.mockResolvedValue({ mtimeMs: 0 } as any);
+      const permError = Object.assign(new Error('EPERM'), { code: 'EPERM' });
+      mockFs.unlink.mockRejectedValue(permError);
+
+      const result = await service.cleanupOrphanedTempFiles();
+      // Non-ENOENT errors are warned but not rethrown; file not counted as deleted
+      expect(result).toBe(0);
     });
 
     it('should use configurable temp TTL', async () => {
