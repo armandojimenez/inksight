@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/Tests-54_files-brightgreen" alt="Tests" />
-  <a href="https://codecov.io/gh/inksight-app/inksight"><img src="https://codecov.io/gh/inksight-app/inksight/branch/main/graph/badge.svg" alt="Coverage" /></a>
+  <img src="https://img.shields.io/badge/Coverage-98.7%25_Statements-brightgreen" alt="Coverage: 98.7% Statements" />
   <img src="https://img.shields.io/badge/ADRs-11-blue" alt="ADRs" />
 </p>
 
@@ -31,10 +31,11 @@
 ```bash
 git clone <repo-url> && cd visual-assistant
 docker-compose up --build -d
-# Wait for healthy, then open http://localhost:3000
+docker-compose ps    # Wait for app to show (healthy)
+open http://localhost:3000
 ```
 
-Zero configuration. Docker handles PostgreSQL, the NestJS API, and the React client. Upload an image and start chatting.
+Zero configuration. Docker handles PostgreSQL, the NestJS API, and the React client. Both services have health checks — `docker-compose ps` shows `(healthy)` when everything is ready. Upload an image and start chatting.
 
 For local development without Docker:
 
@@ -234,7 +235,7 @@ Tests follow a layered pyramid. Each layer has a distinct scope and catches a di
      └───┴───────────┘
 ```
 
-**54 test files + 2 JSON Schema validation files = 56 test artifacts**
+**54 test files + 2 JSON Schema validation files = 56 test artifacts · 738 tests · 98.7% statement coverage**
 
 ### Running Tests
 

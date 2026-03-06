@@ -4,8 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { setupApp } from './common/setup-app';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { version } = require('../package.json');
+import { version } from '../package.json';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -47,14 +46,17 @@ async function bootstrap() {
     .setVersion(version)
     .build();
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
-
   const port = config.get<number>('PORT', 3000);
   const nodeEnv = config.get<string>('NODE_ENV');
+
+  if (nodeEnv !== 'production') {
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document);
+    logger.log(`Swagger docs available at http://localhost:${port}/api/docs`);
+  }
+
   await app.listen(port);
   logger.log(`Application listening on port ${port} (${nodeEnv})`);
-  logger.log(`Swagger docs available at http://localhost:${port}/api/docs`);
 }
 
 void bootstrap();

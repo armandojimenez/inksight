@@ -38,15 +38,15 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: inksight
       POSTGRES_USER: inksight
       POSTGRES_PASSWORD: inksight_dev
+      POSTGRES_DB: inksight
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U inksight -d inksight"]
+      test: ["CMD-SHELL", "pg_isready -U inksight"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -55,18 +55,22 @@ services:
     build: .
     ports:
       - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://inksight:inksight_dev@db:5432/inksight
+      NODE_ENV: development
+      PORT: 3000
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      DATABASE_URL: postgres://inksight:inksight_dev@db:5432/inksight
-      NODE_ENV: production
-    volumes:
-      - uploads_data:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
 volumes:
   pgdata:
-  uploads_data:
 ```
 
 ## Migration Strategy

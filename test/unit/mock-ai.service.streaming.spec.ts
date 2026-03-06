@@ -174,8 +174,7 @@ describe('MockAiService — chatStream streaming', () => {
       const gen = service.chatStream(PROMPT, IMAGE_ID, [], ac.signal);
 
       // Exhaust the generator
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      for await (const _ of gen) {
+      for await (const _chunk of gen) {
         // drain
       }
 

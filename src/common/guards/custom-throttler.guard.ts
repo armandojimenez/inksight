@@ -4,8 +4,8 @@ import { ThrottlerGuard, ThrottlerLimitDetail } from '@nestjs/throttler';
 @Injectable()
 export class CustomThrottlerGuard extends ThrottlerGuard {
   protected async throwThrottlingException(
-    context: ExecutionContext,
-    throttlerLimitDetail: ThrottlerLimitDetail,
+    _context: ExecutionContext,
+    _throttlerLimitDetail: ThrottlerLimitDetail,
   ): Promise<void> {
     throw new HttpException(
       {

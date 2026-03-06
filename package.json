@@ -1,6 +1,6 @@
 {
   "name": "inksight",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "AI-powered visual assistant — image upload + conversational chat with real-time streaming",
   "private": true,
   "license": "UNLICENSED",

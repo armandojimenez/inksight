@@ -4,9 +4,9 @@ import { ApiProperty } from '@nestjs/swagger';
 import { NoNullBytesValidator } from '@/common/validators/no-null-bytes.validator';
 
 // Strip C0 control chars (except tab/LF/CR), DEL, and C1 control chars
+const CONTROL_CHAR_PATTERN = /[\x01-\x08\x0B\x0C\x0E-\x1F\x7F\x80-\x9F]/g;
 function sanitizeControlChars(value: string): string {
-  // eslint-disable-next-line no-control-regex
-  return value.replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F\x80-\x9F]/g, '');
+  return value.replace(CONTROL_CHAR_PATTERN, '');
 }
 
 export class ChatRequestDto {

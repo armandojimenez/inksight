@@ -14,7 +14,6 @@ import { setupTestApp } from '../helpers/setup-test-app';
 import { OpenAiStreamChunk } from '@/ai/interfaces/openai-stream-chunk.interface';
 
 const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
-const VALID_UUID_2 = '660e8400-e29b-41d4-a716-446655440001';
 
 function buildChunk(
   id: string,
@@ -602,7 +601,7 @@ describe('StreamController (integration)', () => {
               yield buildChunk('id1', 1700000000, { role: 'assistant', content: '' }, null);
               yield buildChunk('id1', 1700000000, { content: 'first ' }, null);
               // Wait long enough for client to disconnect
-              await new Promise<void>((resolve, reject) => {
+              await new Promise<void>((resolve) => {
                 if (signal?.aborted) { resolve(); return; }
                 const timer = setTimeout(resolve, 5000);
                 signal?.addEventListener('abort', () => {

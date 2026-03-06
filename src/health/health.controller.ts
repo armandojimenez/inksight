@@ -4,7 +4,6 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Response } from 'express';
 import { DataSource } from 'typeorm';
 import { HealthResponseSchema } from '@/common/swagger/health-response.schema';
-import { ErrorResponseSchema } from '@/common/swagger/error-response.schema';
 
 @ApiTags('Health')
 @SkipThrottle()

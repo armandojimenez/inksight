@@ -171,8 +171,8 @@ describe('CleanupService', () => {
       const img = mockImage();
       imageRepo.find!.mockResolvedValue([img]);
 
-      const qb = messageRepo.createQueryBuilder!('msg');
-      (qb as any).getRawMany.mockResolvedValue([{ imageId: 'img-1' }]);
+      const qb = messageRepo.createQueryBuilder!('msg') as any;
+      qb.getRawMany.mockResolvedValue([{ imageId: 'img-1' }]);
 
       const result = await service.cleanupExpiredImages();
       expect(result).toBe(0);

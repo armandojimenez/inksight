@@ -4,7 +4,6 @@ import { MockAiService } from '@/ai/mock-ai.service';
 import { IAiService } from '@/ai/interfaces/ai-service.interface';
 import { OpenAiStreamChunk } from '@/ai/interfaces/openai-stream-chunk.interface';
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 const chatCompletionSchema = require('../schemas/chat-completion.schema.json') as Record<
   string,
   unknown
@@ -36,8 +35,7 @@ describe('OpenAI Format Validation', () => {
       const valid = validateCompletion(result);
 
       if (!valid) {
-        // eslint-disable-next-line no-console
-        console.error('Validation errors:', validateCompletion.errors);
+        fail(`Validation errors: ${JSON.stringify(validateCompletion.errors)}`);
       }
       expect(valid).toBe(true);
     });
@@ -225,8 +223,7 @@ describe('OpenAI Format Validation', () => {
       for (const chunk of chunks) {
         const valid = validateChunk(chunk);
         if (!valid) {
-          // eslint-disable-next-line no-console
-          console.error('Chunk validation errors:', validateChunk.errors, chunk);
+          fail(`Chunk validation errors: ${JSON.stringify(validateChunk.errors)} for chunk: ${JSON.stringify(chunk)}`);
         }
         expect(valid).toBe(true);
       }

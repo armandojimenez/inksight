@@ -6,13 +6,11 @@ import * as request from 'supertest';
 import * as http from 'http';
 import { ChatModule } from '@/chat/chat.module';
 import { CacheModule } from '@/cache/cache.module';
-import { HistoryModule } from '@/history/history.module';
 import { ImageEntity } from '@/upload/entities/image.entity';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { AI_SERVICE_TOKEN } from '@/common/constants';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
-import { HistoryService } from '@/history/history.service';
 import { setupTestApp } from '../helpers/setup-test-app';
 import { OpenAiChatCompletion } from '@/ai/interfaces/openai-chat-completion.interface';
 import { OpenAiStreamChunk } from '@/ai/interfaces/openai-stream-chunk.interface';
@@ -94,7 +92,6 @@ describe('Chat with History (integration)', () => {
     analyzeImage: jest.Mock;
     chatStream: jest.Mock;
   };
-  let historyService: HistoryService;
   let mockMessageRepo: {
     save: jest.Mock;
     create: jest.Mock;
@@ -189,7 +186,6 @@ describe('Chat with History (integration)', () => {
     await app.init();
     await app.listen(0);
 
-    historyService = module.get<HistoryService>(HistoryService);
   });
 
   afterEach(async () => {

@@ -77,7 +77,6 @@ describe('Database integration', () => {
     }
   });
 
-  // eslint-disable-next-line jest/valid-title
   describeWithDb()('with database connection', () => {
     it('should have both tables after migrations run', async () => {
       const tables: Array<{ table_name: string }> = await dataSource.query(`
