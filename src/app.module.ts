@@ -76,7 +76,7 @@ import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
       }),
     }),
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'client', 'dist'),
+      rootPath: join(__dirname, '..', '..', 'client', 'dist'),
       serveRoot: '/',
       exclude: ['/api/{*any}'],
     }),
