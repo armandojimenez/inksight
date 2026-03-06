@@ -62,5 +62,24 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Test
-        run: npm test -- --coverage
+      - name: Backend tests with coverage
+        run: npm test -- --coverage --coverageReporters=lcov --coverageReporters=text
+
+      - name: Client tests with coverage
+        run: cd client && npx vitest run --coverage
+
+      - name: Upload backend coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          flags: backend
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload client coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./client/coverage/lcov.info
+          flags: client
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
