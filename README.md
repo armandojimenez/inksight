@@ -29,13 +29,12 @@
 ## Quick Start
 
 ```bash
-git clone <repo-url> && cd visual-assistant
-docker-compose up --build -d
-docker-compose ps    # Wait for app to show (healthy)
+git clone https://github.com/armandojimenez/inksight && cd inksight
+docker compose up --build -d --wait
 open http://localhost:3000
 ```
 
-Zero configuration. Docker handles PostgreSQL, the NestJS API, and the React client. Both services have health checks — `docker-compose ps` shows `(healthy)` when everything is ready. Upload an image and start chatting.
+Zero configuration. Docker handles PostgreSQL, the NestJS API, and the React client. The `--wait` flag blocks until both services pass their health checks, then returns — no manual polling needed. Upload an image and start chatting.
 
 For local development without Docker:
 
