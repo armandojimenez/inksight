@@ -39,6 +39,9 @@ export function AppLayout() {
     getImages(undefined, controller.signal)
       .then((res) => {
         setImages([...res.images]);
+        if (res.images.length > 0 && res.images[0]) {
+          setSelectedImageId(res.images[0].id);
+        }
       })
       .catch(() => {
         if (!controller.signal.aborted) {
@@ -201,8 +204,7 @@ export function AppLayout() {
             <Menu className="h-5 w-5" />
           </Button>
           <InksightIcon
-            aria-hidden="true"
-            className="h-[var(--logo-height-mobile)] w-auto text-primary-500"
+            className="h-[var(--logo-height-mobile)] w-auto"
           />
         </header>
       )}

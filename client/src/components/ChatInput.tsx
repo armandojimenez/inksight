@@ -48,7 +48,7 @@ export function ChatInput({ onSend, isStreaming, disabled, errorId }: ChatInputP
   );
 
   return (
-    <div className="flex items-end gap-2 border-t border-neutral-100 bg-neutral-0 p-3">
+    <div className="flex items-center gap-3 border-t border-neutral-100 bg-neutral-0 px-4 min-h-[var(--bottombar-height)]">
       <label htmlFor="chat-message-input" className="sr-only">
         Message input
       </label>

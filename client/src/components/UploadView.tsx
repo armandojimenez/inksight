@@ -198,8 +198,7 @@ export function UploadView({ onUploadComplete }: UploadViewProps) {
         )}
       >
         <InksightIcon
-          aria-hidden="true"
-          className="text-neutral-300"
+          className="opacity-30"
           style={{ height: 'var(--logo-height-hero)', width: 'auto' }}
         />
 

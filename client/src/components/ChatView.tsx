@@ -45,7 +45,7 @@ export function ChatView({ image }: ChatViewProps) {
   return (
     <div className="flex h-full flex-col bg-neutral-0">
       {/* Image preview */}
-      <div className="flex min-w-0 items-center gap-3 border-b border-neutral-100 px-4 py-3">
+      <div className="flex min-w-0 items-center gap-3 border-b border-neutral-100 px-4 h-[var(--topbar-height)]">
         <img
           src={getImageFileUrl(image.id)}
           alt={image.originalFilename}
@@ -71,8 +71,7 @@ export function ChatView({ image }: ChatViewProps) {
           <div className="flex h-full flex-col items-center justify-center gap-6">
             <InksightIcon
               data-testid="empty-state-icon"
-              aria-hidden="true"
-              className="text-neutral-200"
+              className="opacity-20"
               style={{ height: 'var(--logo-height-hero)', width: 'auto' }}
             />
             <div className="flex flex-col gap-2">

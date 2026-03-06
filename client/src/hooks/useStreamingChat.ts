@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { streamMessage, parseSSEStream } from '@/lib/api';
+import { streamMessage, parseSSEStream, getMessages } from '@/lib/api';
 import type { MessageData } from '@/types';
 
 export interface UseStreamingChatReturn {
@@ -35,12 +35,24 @@ export function useStreamingChat(imageId: string): UseStreamingChatReturn {
     };
   }, []);
 
-  // Reset when imageId changes
+  // Load history and reset when imageId changes
   useEffect(() => {
     setMessages([]);
     setError(null);
     setStreamingState(false);
     abortRef.current?.abort();
+
+    const controller = new AbortController();
+    getMessages(imageId, { limit: 50 }, controller.signal)
+      .then((res) => {
+        if (!controller.signal.aborted && res.messages.length > 0) {
+          setMessages([...res.messages]);
+        }
+      })
+      .catch(() => {
+        // Silently ignore — empty state is fine as fallback
+      });
+    return () => controller.abort();
   }, [imageId, setStreamingState]);
 
   const sendMessage = useCallback(
@@ -86,9 +98,10 @@ export function useStreamingChat(imageId: string): UseStreamingChatReturn {
             // Optimize: target last element instead of scanning entire array
             setMessages((prev) => {
               const lastIdx = prev.length - 1;
-              if (lastIdx >= 0 && prev[lastIdx].id === assistantId) {
+              const last = prev[lastIdx];
+              if (last && last.id === assistantId) {
                 const updated = [...prev];
-                updated[lastIdx] = { ...updated[lastIdx], content: accumulated };
+                updated[lastIdx] = { ...last, content: accumulated };
                 return updated;
               }
               return prev.map((m) =>

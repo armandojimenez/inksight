@@ -9,6 +9,7 @@ import { ImageEntity } from '@/upload/entities/image.entity';
 import { AI_SERVICE_TOKEN } from '@/common/constants';
 import { IAiService } from '@/ai/interfaces/ai-service.interface';
 import { OpenAiChatCompletion } from '@/ai/interfaces/openai-chat-completion.interface';
+import { HistoryService } from '@/history/history.service';
 import { createMinimalPng } from '../../test/fixtures/image-buffers';
 
 jest.mock('fs/promises');
@@ -71,6 +72,12 @@ describe('UploadService', () => {
         {
           provide: AI_SERVICE_TOKEN,
           useValue: aiService,
+        },
+        {
+          provide: HistoryService,
+          useValue: {
+            addMessage: jest.fn().mockResolvedValue(undefined),
+          },
         },
       ],
     }).compile();

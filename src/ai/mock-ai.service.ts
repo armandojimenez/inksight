@@ -147,8 +147,8 @@ export class MockAiService implements IAiService {
     const created = Math.floor(Date.now() / 1000);
 
     const MAX_CHUNK_DELAY = 1000;
-    const rawDelay = parseInt(process.env.STREAM_CHUNK_DELAY_MS ?? '0', 10);
-    const delayMs = Number.isFinite(rawDelay) ? Math.min(Math.max(rawDelay, 0), MAX_CHUNK_DELAY) : 0;
+    const rawDelay = parseInt(process.env.STREAM_CHUNK_DELAY_MS ?? '50', 10);
+    const delayMs = Number.isFinite(rawDelay) ? Math.min(Math.max(rawDelay, 0), MAX_CHUNK_DELAY) : 50;
 
     try {
       if (signal?.aborted) return;

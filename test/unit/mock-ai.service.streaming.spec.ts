@@ -26,14 +26,18 @@ describe('MockAiService — chatStream streaming', () => {
   }
 
   describe('delay configuration', () => {
-    it('should yield chunks with no delay when STREAM_CHUNK_DELAY_MS is unset', async () => {
+    it('should yield chunks with default 50ms delay when STREAM_CHUNK_DELAY_MS is unset', async () => {
       const start = Date.now();
       const gen = service.chatStream(PROMPT, IMAGE_ID, []);
       const chunks = await collectChunks(gen);
       const elapsed = Date.now() - start;
 
+      // Default is 50ms per chunk for realistic streaming simulation
+      const contentChunks = chunks.filter(
+        (c) => c.choices[0]?.delta.content !== undefined && c.choices[0].delta.content !== '',
+      );
       expect(chunks.length).toBeGreaterThan(2);
-      expect(elapsed).toBeLessThan(100); // effectively instant
+      expect(elapsed).toBeGreaterThanOrEqual(contentChunks.length * 30); // allow tolerance
     });
 
     it('should yield chunks with no delay when STREAM_CHUNK_DELAY_MS is 0', async () => {
@@ -63,7 +67,7 @@ describe('MockAiService — chatStream streaming', () => {
       expect(elapsed).toBeGreaterThanOrEqual(contentChunks.length * 15); // allow some tolerance
     });
 
-    it('should fall back to 0 delay when STREAM_CHUNK_DELAY_MS is invalid (NaN)', async () => {
+    it('should fall back to 50ms default delay when STREAM_CHUNK_DELAY_MS is invalid (NaN)', async () => {
       process.env.STREAM_CHUNK_DELAY_MS = 'abc';
 
       const start = Date.now();
@@ -71,8 +75,12 @@ describe('MockAiService — chatStream streaming', () => {
       const chunks = await collectChunks(gen);
       const elapsed = Date.now() - start;
 
+      // Invalid value falls back to 50ms default
+      const contentChunks = chunks.filter(
+        (c) => c.choices[0]?.delta.content !== undefined && c.choices[0].delta.content !== '',
+      );
       expect(chunks.length).toBeGreaterThan(2);
-      expect(elapsed).toBeLessThan(100); // no delay — NaN clamped to 0
+      expect(elapsed).toBeGreaterThanOrEqual(contentChunks.length * 30);
     });
 
     it('should clamp STREAM_CHUNK_DELAY_MS to 1000ms maximum', async () => {

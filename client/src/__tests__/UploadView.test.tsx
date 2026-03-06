@@ -55,10 +55,10 @@ describe('UploadView', () => {
   it('renders Inksight icon', () => {
     render(<UploadView onUploadComplete={onUploadComplete} />);
 
-    // InksightIcon is an inline SVG; query by role since there's no alt text
+    // InksightIcon is a PNG img element
     const icon = screen.getByRole('button', { name: /upload image/i });
-    const svg = icon.querySelector('svg');
-    expect(svg).toBeInTheDocument();
+    const img = icon.querySelector('img[src="/inksight-icon.png"]');
+    expect(img).toBeInTheDocument();
   });
 
   it('has correct aria-label on drop zone', () => {

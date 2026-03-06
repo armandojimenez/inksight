@@ -67,11 +67,11 @@ export function Sidebar({
       className="flex h-full w-[var(--sidebar-width)] flex-col border-r border-neutral-100 bg-neutral-0"
     >
       {/* Header with logo */}
-      <div className="flex items-center px-4 py-3 border-b border-neutral-100">
+      <div className="flex items-center px-4 h-[var(--topbar-height)] border-b border-neutral-100">
         <img
           src="/inksight-logo.png"
           alt="Inksight"
-          className="h-[var(--logo-height-sidebar)]"
+          className="h-7 w-auto"
         />
         <h2 className="sr-only">Image Gallery</h2>
       </div>
@@ -119,8 +119,8 @@ export function Sidebar({
                     />
 
                     {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-neutral-700 truncate">
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <p className="text-sm font-medium text-neutral-700 truncate" title={image.originalFilename}>
                         {image.originalFilename}
                       </p>
                       <p className="text-xs text-neutral-400">
@@ -128,19 +128,18 @@ export function Sidebar({
                       </p>
                     </div>
 
-                    {/* Delete button — visible on touch/mobile, hover on desktop */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 flex-shrink-0 lg:opacity-0 lg:group-hover:opacity-100 focus-visible:opacity-100"
+                    {/* Delete — hidden by default, appears on row hover (CSS in tokens.css) */}
+                    <button
+                      data-delete-btn
+                      className="h-7 w-7 flex-shrink-0 flex items-center justify-center rounded hover:bg-error-50 focus-visible:outline-none focus-visible:[box-shadow:var(--shadow-focus)]"
                       aria-label={`Delete ${image.originalFilename}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         setDeleteTarget(image);
                       }}
                     >
-                      <Trash2 className="h-4 w-4 text-neutral-400" />
-                    </Button>
+                      <Trash2 className="h-3.5 w-3.5 text-neutral-300 hover:text-error-500 transition-colors" />
+                    </button>
                   </div>
                 </li>
               );
@@ -150,10 +149,9 @@ export function Sidebar({
       </ScrollArea>
 
       {/* New Image button */}
-      <div className="p-4 border-t border-neutral-100">
+      <div className="flex items-center px-4 h-[var(--bottombar-height)] border-t border-neutral-100">
         <Button
-          variant="outline"
-          className="w-full"
+          className="w-full h-11"
           onClick={onNewUpload}
         >
           <Plus className="mr-2 h-4 w-4" />

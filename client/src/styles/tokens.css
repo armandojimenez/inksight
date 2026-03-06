@@ -190,6 +190,8 @@
    * ======================================================================== */
   --sidebar-width:    280px;
   --sidebar-width-sm: 240px;
+  --topbar-height:    64px;
+  --bottombar-height: 68px;
   --header-height:    56px;
   --input-bar-height: 72px;
   --max-chat-width:   768px;
@@ -245,6 +247,22 @@
  * Respects user preference — disables all animations and transitions
  * WCAG 2.3.3 compliance
  * ======================================================================== */
+/* Fix Radix ScrollArea content wrapper expanding beyond viewport width.
+   The default display:table + min-width:100% causes children to overflow. */
+[data-radix-scroll-area-viewport] > div {
+  display: block !important;
+}
+
+/* Sidebar item hover-to-reveal delete button */
+[data-image-item] [data-delete-btn] {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+[data-image-item]:hover [data-delete-btn],
+[data-image-item]:focus-within [data-delete-btn] {
+  opacity: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --transition-fast:  0.01ms;

@@ -10,6 +10,7 @@ import { UploadResponseDto } from './dto/upload-response.dto';
 import { IAiService } from '@/ai/interfaces/ai-service.interface';
 import { AI_SERVICE_TOKEN } from '@/common/constants';
 import { withRetry } from '@/common/utils/retry';
+import { HistoryService } from '@/history/history.service';
 
 @Injectable()
 export class UploadService {
@@ -22,6 +23,7 @@ export class UploadService {
     private readonly configService: ConfigService,
     @Inject(AI_SERVICE_TOKEN)
     private readonly aiService: IAiService,
+    private readonly historyService: HistoryService,
   ) {
     this.uploadDir = this.configService.get<string>('UPLOAD_DIR', 'uploads');
   }
@@ -63,6 +65,22 @@ export class UploadService {
       });
 
       const saved = await withRetry(() => this.imageRepository.save(entity));
+
+      // Persist analysis as the first assistant message in chat history
+      if (initialAnalysis) {
+        try {
+          const content =
+            (initialAnalysis as { choices?: { message?: { content?: string } }[] })
+              .choices?.[0]?.message?.content ?? '';
+          if (content) {
+            await this.historyService.addMessage(saved.id, 'assistant', content);
+          }
+        } catch (histErr) {
+          this.logger.warn(
+            `Failed to save initial analysis to history: ${histErr instanceof Error ? histErr.message : String(histErr)}`,
+          );
+        }
+      }
 
       return {
         id: saved.id,
