@@ -7,7 +7,7 @@
 
 ## Philosophy
 
-AI was used as a **force multiplier** for implementation, not a replacement for engineering judgment. Every architectural decision, design choice, and trade-off was made by me — AI tools accelerated the execution of those decisions.
+AI was used as a **force multiplier** for implementation, not a replacement for engineering judgment. Every architectural decision, design choice, and trade-off was made by me. AI tools accelerated the execution of those decisions.
 
 The approach: **I do the thinking, AI does the typing.**
 
@@ -16,6 +16,7 @@ The approach: **I do the thinking, AI does the typing.**
 ## Tools Used
 
 ### Claude Code (Primary Development Tool)
+
 **Role:** AI pair programmer for the entire development lifecycle
 
 **How it was used:**
@@ -34,46 +35,80 @@ The approach: **I do the thinking, AI does the typing.**
 | **Test Automation** | Test strategy, coverage analysis | Unit, integration, and E2E test suites |
 
 ### Web Research
+
 - Reviewed Inkit's public website to study brand design system (colors, typography, visual patterns)
 - Referenced OpenAI API documentation for exact response format compliance
 - Consulted NestJS, TypeORM, and React documentation for best practices
 
 ---
 
-## Orchestration Approach
+## Development Workflow
 
+```mermaid
+graph LR
+    subgraph HumanLed["Human-Led"]
+        R["Research"] --> A["Architecture"] --> D["Decisions"]
+    end
+
+    subgraph Collab["Human + AI"]
+        P["Plan Review"] --> I["TDD Implementation"] --> CR["3-Way Code Review"]
+    end
+
+    D --> P
+    CR --> S["Smoke Test + Tag"]
+    S -->|"Next Phase"| R
+
+    style HumanLed fill:#EEF0FF,stroke:#0024CC,color:#000
+    style Collab fill:#F1F3F9,stroke:#6B7280,color:#000
 ```
-Phase 1: Research & Planning
-├── Studied product requirements
-├── Researched Inkit's brand and design system
-├── Made architectural decisions (documented in ADRs)
-└── Created PRD, Technical Design Doc, UI Design Spec
 
-Phase 2: Implementation
-├── Scaffolded project structure
-├── Built each feature module with tests
-├── Used AI for code generation from specs
-└── Reviewed all generated code for quality
+### Phase-by-Phase Breakdown
 
-Phase 3: Quality Assurance
-├── Security audit of all endpoints
-├── Code review of complete codebase
-├── Test coverage analysis and gap filling
-└── Accessibility audit of UI components
-
-Phase 4: Polish & Documentation
-├── UI refinement and responsive testing
-├── README and setup documentation
-├── Final code review pass
-└── Build and deployment verification
-```
+| Stage | What I Did | How AI Helped |
+|-------|-----------|--------------|
+| **Research** | Studied Inkit's design system, defined product requirements, wrote the [PRD](PRD.md) | Context7 for up-to-date NestJS and TypeORM documentation |
+| **Architecture** | Made every technology choice, authored 11 ADRs with trade-off analysis | Validated patterns against framework best practices |
+| **Planning** | Defined a [13-phase implementation plan](implementation-plan.md) with TDD gates at every boundary | Multi-AI plan review: Gemini and Codex independently critiqued the plan |
+| **Implementation** | Wrote test cases first (red-green-refactor), verified each phase manually | Claude Code as pair programmer for code generation from specs |
+| **Code Review** | Evaluated all findings, decided what to fix, what to defer, and why | Three independent AI reviewers: Gemini, Codex, and Claude. Adversarial review mode where one AI proposes and another critiques |
+| **Quality Gate** | Manual smoke test of every endpoint, visual review of every component, acceptance and tagging | Automated test execution, coverage analysis, accessibility auditing |
 
 ---
 
-## What AI Did NOT Do
+## Multi-AI Review Process
 
-- **Architectural decisions:** All technology choices, trade-offs, and design patterns were human-driven
-- **Requirements interpretation:** Understanding the product's intent and prioritization was human judgment
-- **Design aesthetic:** Visual direction, brand alignment, and UX decisions were human-directed
-- **Quality standards:** Definition of "done" and acceptance criteria were human-defined
-- **Testing strategy:** Which scenarios to test and what constitutes coverage was human-planned
+Each completed phase went through a structured review:
+
+```mermaid
+graph TD
+    Code[Completed Phase Code] --> G[Gemini Review]
+    Code --> X[Codex Review]
+    Code --> C[Claude Review]
+    G --> Findings[Consolidated Findings]
+    X --> Findings
+    C --> Findings
+    Findings --> Eval{Human Evaluation}
+    Eval -->|Accept| Fix[Apply Fixes]
+    Eval -->|Defer| Doc[Document in Plan]
+    Eval -->|Reject| Skip[Skip with Rationale]
+    Fix --> Verify[Tests + Smoke Test]
+    Verify --> Tag[Git Tag + Next Phase]
+
+    style Eval fill:#EEF0FF,stroke:#0024CC,color:#000
+```
+
+Each reviewer catches different things. Gemini tends to focus on architecture and patterns. Codex focuses on edge cases and correctness. Claude catches security and consistency issues. The combination produces a more thorough review than any single pass.
+
+Every finding gets a human decision: accept and fix, defer to a future phase with documentation, or reject with a rationale. Nothing is auto-applied.
+
+---
+
+## What AI Did, What AI Did Not Do
+
+| AI Contributed | I Decided |
+|---------------|----------|
+| Code generation from detailed specifications | Which technologies, patterns, and abstractions to use |
+| Documentation drafting from architectural discussions | Product requirements and user experience priorities |
+| Bug detection across three independent reviewers | What constitutes "done" and when quality is sufficient |
+| Up-to-date framework documentation via Context7 | Design direction, brand alignment, and visual identity |
+| Test scenario generation from documented acceptance criteria | Testing strategy, coverage targets, and what to test |

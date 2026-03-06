@@ -1,35 +1,31 @@
-# Development-only configuration. Credentials are for local dev — never use in production.
-# Works on fresh clone with zero configuration: docker-compose up
+# Development configuration. Credentials are defined in .env — copy .env.example to .env before running.
+# Works with default values: cp .env.example .env && docker-compose up
 services:
   db:
     image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: inksight
-      POSTGRES_PASSWORD: inksight_dev
-      POSTGRES_DB: inksight
+    env_file: .env
     ports:
       - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U inksight']
+      test: ['CMD-SHELL', 'pg_isready -U $POSTGRES_USER']
       interval: 5s
       timeout: 5s
       retries: 5
 
   app:
     build: .
+    env_file: .env
     ports:
-      - '3000:3000'
+      - '${PORT:-3000}:${PORT:-3000}'
     environment:
-      DATABASE_URL: postgres://inksight:inksight_dev@db:5432/inksight
-      NODE_ENV: development
-      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER:-inksight}:${POSTGRES_PASSWORD:-inksight_dev}@db:5432/${POSTGRES_DB:-inksight}
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://localhost:3000/api/health || exit 1']
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:${PORT:-3000}/api/health || exit 1']
       interval: 5s
       timeout: 5s
       retries: 10

@@ -16,6 +16,41 @@ Inksight's design is inspired by Inkit's visual language — modern minimalism w
 - **Responsive from the start:** Mobile-first, scales gracefully to desktop
 - **Subtle delight:** Micro-interactions that feel intelligent, not flashy
 
+### 1.1 Inkit Design Research
+
+Inksight's visual identity was built after a detailed study of [Inkit's public design system](design-system.html) to create visual continuity with the Inkit product family.
+
+**Research Process:**
+
+1. Studied Inkit's website, component patterns, and visual language
+2. Extracted exact color values, typography choices, spacing patterns, and interactive behaviors
+3. Documented findings in a [design token system](../client/src/styles/tokens.css) that serves as the single source of truth
+4. Built an [interactive HTML reference](design-system.html) showing all tokens rendered as live components
+5. Implemented every React component against these tokens, verified visually against Inkit's patterns
+
+**Token Mapping (Inkit to Inksight):**
+
+| Design Element | Inkit Reference | Inksight Token | Value |
+|---------------|----------------|----------------|-------|
+| Primary blue | Inkit brand color | `--color-primary-500` | `#0024CC` |
+| Hover state | Darkened primary | `--color-primary-600` | `#001BA0` |
+| Page background | Cool gray wash | `--color-neutral-25` | `#F7F8FD` |
+| Heading font | Geometric sans | `--font-display` | Space Grotesk |
+| Body font | Clean sans | `--font-body` | Archivo |
+| Monospace | Developer font | `--font-mono` | Space Mono |
+| Button radius | Flat, minimal | `--radius-base` | 4px |
+| Button weight | Bold, confident | `--font-weight-bold` | 700 |
+| Button shadow | None (flat) | `--shadow-none` | `none` |
+
+**Deliberate Design Choices:**
+
+- **Blue-only AI accent.** AI messages use the primary blue family (`#EEF0FF` background, `#D9DEFF` border, `#4D63FF` indicator dot). No teal, no green, no foreign colors. The palette stays within Inkit's color family.
+- **Arrow-link suggested questions.** The upload view presents suggested questions with an arrow prefix, matching Inkit's navigation link pattern.
+- **Flat button design.** Zero shadow on buttons, matching Inkit's minimal aesthetic. Shadows are reserved for elevated layers (dropdowns, modals).
+- **Professional chat bubbles.** 8px radius with a 2px tail. The shape communicates a professional tool, matching the overall geometric precision.
+- **WCAG 2.1 AA compliance.** All text colors meet minimum contrast ratios. Primary blue on white achieves 9.9:1 (AAA). Reduced motion is respected via `prefers-reduced-motion`.
+- **Hero gradient.** A radial blue gradient (`--gradient-hero`) mirrors Inkit's soft concentric-ring hero background.
+
 ---
 
 ## 2. Brand Identity
