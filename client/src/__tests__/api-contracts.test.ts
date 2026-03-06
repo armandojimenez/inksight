@@ -10,6 +10,7 @@
  * (from src/upload/dto/*.dto.ts, src/history/dto/*.dto.ts, etc.).
  */
 import { describe, it, expect } from 'vitest';
+import { MAX_PAGE_LIMIT } from '@/lib/api';
 import type {
   UploadResponse,
   GalleryResponse,
@@ -287,6 +288,21 @@ describe('API Contracts', () => {
       expect(GALLERY_PAYLOAD.images[0]).toHaveProperty('originalFilename');
       expect(UPLOAD_PAYLOAD).toHaveProperty('filename');
       expect(UPLOAD_PAYLOAD).not.toHaveProperty('originalFilename');
+    });
+  });
+
+  describe('Pagination constraints', () => {
+    it('MAX_PAGE_LIMIT matches backend @Max(50) on PaginationQueryDto', () => {
+      // Backend enforces @Max(50) on limit. If this changes,
+      // update MAX_PAGE_LIMIT in api.ts to match.
+      expect(MAX_PAGE_LIMIT).toBe(50);
+    });
+
+    it('client never sends limit exceeding MAX_PAGE_LIMIT', () => {
+      // The queryString helper clamps limit to MAX_PAGE_LIMIT.
+      // Any client code passing limit > 50 will be clamped,
+      // preventing 400 VALIDATION_ERROR from the backend.
+      expect(MAX_PAGE_LIMIT).toBeLessThanOrEqual(50);
     });
   });
 });

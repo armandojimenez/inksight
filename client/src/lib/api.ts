@@ -11,6 +11,9 @@ import type {
 
 const BASE = '/api';
 
+/** Must match backend PaginationQueryDto @Max(50) */
+export const MAX_PAGE_LIMIT = 50;
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function assertUUID(id: string): void {
@@ -73,7 +76,7 @@ function queryString(params?: PaginationParams): string {
   if (!params) return '';
   const qs = new URLSearchParams();
   if (params.page != null) qs.set('page', String(params.page));
-  if (params.limit != null) qs.set('limit', String(params.limit));
+  if (params.limit != null) qs.set('limit', String(Math.min(params.limit, MAX_PAGE_LIMIT)));
   const str = qs.toString();
   return str ? `?${str}` : '';
 }

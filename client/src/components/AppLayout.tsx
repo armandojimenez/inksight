@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { ChatView } from '@/components/ChatView';
 import { UploadView } from '@/components/UploadView';
-import { getImages, deleteImage as apiDeleteImage } from '@/lib/api';
+import { getImages, deleteImage as apiDeleteImage, MAX_PAGE_LIMIT } from '@/lib/api';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { toast } from 'sonner';
 import { Menu, Plus } from 'lucide-react';
@@ -24,7 +24,7 @@ export function AppLayout() {
   // Load images on mount
   useEffect(() => {
     const controller = new AbortController();
-    getImages({ limit: 100 }, controller.signal)
+    getImages({ limit: MAX_PAGE_LIMIT }, controller.signal)
       .then((res) => {
         setImages([...res.images]);
         if (res.images.length > 0 && res.images[0]) {

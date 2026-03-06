@@ -169,7 +169,7 @@ describe('AppLayout', () => {
 
       await waitFor(() => {
         expect(mockGetImages).toHaveBeenCalledWith(
-          { limit: 100 },
+          { limit: 50 },
           expect.any(AbortSignal),
         );
       });
