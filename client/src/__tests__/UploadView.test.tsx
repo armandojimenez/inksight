@@ -436,4 +436,26 @@ describe('UploadView', () => {
       expect(screen.getByRole('alert')).toBeInTheDocument();
     });
   });
+
+  describe('first-time welcome', () => {
+    it('shows welcome headline when isFirstTime is true', () => {
+      render(<UploadView onUploadComplete={onUploadComplete} isFirstTime />);
+
+      expect(screen.getByText('Welcome to Inksight')).toBeInTheDocument();
+      expect(screen.getByText(/upload an image and start a conversation/i)).toBeInTheDocument();
+    });
+
+    it('does not show welcome headline by default', () => {
+      render(<UploadView onUploadComplete={onUploadComplete} />);
+
+      expect(screen.queryByText('Welcome to Inksight')).not.toBeInTheDocument();
+    });
+
+    it('still shows the dropzone when isFirstTime is true', () => {
+      render(<UploadView onUploadComplete={onUploadComplete} isFirstTime />);
+
+      expect(screen.getByRole('button', { name: /upload image/i })).toBeInTheDocument();
+      expect(screen.getByText(/drop an image here/i)).toBeInTheDocument();
+    });
+  });
 });

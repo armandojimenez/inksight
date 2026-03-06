@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Upload } from 'lucide-react';
 
 export interface SidebarProps {
   images: readonly ImageData[];
@@ -81,21 +81,34 @@ export function Sidebar({
         {isLoading ? (
           <SidebarSkeleton />
         ) : images.length === 0 ? (
-          <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
+          <div
+            className="flex flex-col items-center justify-center px-4 py-8 text-center"
+            style={{ animation: 'fadeIn var(--anim-entrance-duration) var(--anim-entrance-easing) both' }}
+          >
+            <Upload className="mb-2 h-5 w-5 text-neutral-300" />
             <p className="text-sm text-neutral-400">
-              Upload an image to get started
+              No images yet
+            </p>
+            <p className="mt-1 text-xs text-neutral-300">
+              Upload one to get started
             </p>
           </div>
         ) : (
           <ul role="list" className="py-2">
-            {images.map((image) => {
+            {images.map((image, i) => {
               const isActive = image.id === selectedImageId;
               return (
-                <li key={image.id}>
+                <li
+                  key={image.id}
+                  style={{
+                    animation: 'slideInLeft var(--anim-entrance-duration) var(--anim-entrance-easing) both',
+                    animationDelay: `${Math.min(i * 40, 200)}ms`,
+                  }}
+                >
                   <div
                     data-image-item
                     data-active={isActive || undefined}
-                    className={`group flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors ${
+                    className={`group flex items-center gap-3 px-4 py-2 cursor-pointer transition-all duration-200 ${
                       isActive
                         ? 'bg-primary-50 border-l-[3px] border-l-primary-500'
                         : 'border-l-[3px] border-l-transparent hover:bg-neutral-50'

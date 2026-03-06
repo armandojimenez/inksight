@@ -226,7 +226,7 @@ describe('Sidebar', () => {
     it('shows encouraging message when no images', () => {
       renderSidebar({ images: [] });
 
-      expect(screen.getByText(/upload an image/i)).toBeInTheDocument();
+      expect(screen.getByText(/no images yet/i)).toBeInTheDocument();
     });
 
     it('still shows new image button in empty state', () => {
@@ -258,7 +258,7 @@ describe('Sidebar', () => {
     it('does not show empty state when loading', () => {
       renderSidebar({ images: [], isLoading: true });
 
-      expect(screen.queryByText(/upload an image/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/no images yet/i)).not.toBeInTheDocument();
     });
   });
 

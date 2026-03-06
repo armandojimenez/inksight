@@ -9,12 +9,14 @@ vi.mock('@/lib/api', async (importOriginal) => {
     ...actual,
     streamMessage: vi.fn(),
     parseSSEStream: vi.fn(),
+    getMessages: vi.fn().mockResolvedValue({ messages: [], totalMessages: 0, page: 1, pageSize: 50, totalPages: 0 }),
   };
 });
 
-import { streamMessage, parseSSEStream } from '@/lib/api';
+import { streamMessage, parseSSEStream, getMessages } from '@/lib/api';
 
 const mockStreamMessage = vi.mocked(streamMessage);
+const mockGetMessages = vi.mocked(getMessages);
 const mockParseSSEStream = vi.mocked(parseSSEStream);
 
 function makeChunk(content: string, finishReason: 'stop' | null = null): StreamChunk {
@@ -515,5 +517,64 @@ describe('useStreamingChat', () => {
 
     // If we get here without error, the abort cleanup worked
     expect(mockStreamMessage).toHaveBeenCalledTimes(1);
+  });
+
+  describe('history loading', () => {
+    it('loads existing messages on mount when history is non-empty', async () => {
+      const existingMessages = [
+        { id: 'msg-1', role: 'user' as const, content: 'Hello', timestamp: '2026-01-01T00:00:00Z' },
+        { id: 'msg-2', role: 'assistant' as const, content: 'Hi there', timestamp: '2026-01-01T00:00:01Z' },
+      ];
+      mockGetMessages.mockResolvedValueOnce({
+        imageId: IMAGE_ID,
+        messages: existingMessages,
+        totalMessages: 2,
+        page: 1,
+        pageSize: 50,
+        totalPages: 1,
+      });
+
+      const { result } = renderHook(() => useStreamingChat(IMAGE_ID));
+
+      // Wait for the async getMessages to resolve
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(result.current.messages).toHaveLength(2);
+      expect(result.current.messages[0]!.content).toBe('Hello');
+      expect(result.current.messages[1]!.content).toBe('Hi there');
+    });
+
+    it('does not set messages when history returns empty array', async () => {
+      mockGetMessages.mockResolvedValueOnce({
+        imageId: IMAGE_ID,
+        messages: [],
+        totalMessages: 0,
+        page: 1,
+        pageSize: 50,
+        totalPages: 0,
+      });
+
+      const { result } = renderHook(() => useStreamingChat(IMAGE_ID));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(result.current.messages).toHaveLength(0);
+    });
+
+    it('calls getMessages with correct imageId and limit', async () => {
+      mockGetMessages.mockResolvedValueOnce({ imageId: IMAGE_ID, messages: [], totalMessages: 0, page: 1, pageSize: 50, totalPages: 0 });
+
+      renderHook(() => useStreamingChat(IMAGE_ID));
+
+      expect(mockGetMessages).toHaveBeenCalledWith(
+        IMAGE_ID,
+        { limit: 50 },
+        expect.any(AbortSignal),
+      );
+    });
   });
 });

@@ -5,6 +5,7 @@ import type { MessageData } from '@/types';
 export interface MessageBubbleProps {
   message: MessageData;
   isStreaming?: boolean;
+  index?: number;
 }
 
 export function formatRelativeTime(timestamp: string): string {
@@ -33,13 +34,17 @@ function useRelativeTime(timestamp: string): string {
   return formatRelativeTime(timestamp);
 }
 
-export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
+export function MessageBubble({ message, isStreaming, index = 0 }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const relativeTime = useRelativeTime(message.timestamp);
 
   return (
     <div
       className={cn('flex', isUser ? 'justify-end' : 'justify-start')}
+      style={{
+        animation: 'fadeInUp var(--anim-entrance-duration) var(--anim-entrance-easing) both',
+        animationDelay: `${Math.min(index * 60, 300)}ms`,
+      }}
     >
       <article
         aria-label={isUser ? 'Your message' : 'Assistant response'}

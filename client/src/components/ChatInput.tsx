@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 export interface ChatInputProps {
@@ -13,14 +13,22 @@ const MAX_TEXTAREA_HEIGHT = 160; // ~4 lines at 16px/24px line-height
 
 export function ChatInput({ onSend, isStreaming, disabled, errorId }: ChatInputProps) {
   const [value, setValue] = useState('');
+  const [justSent, setJustSent] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isDisabled = isStreaming || disabled;
   const canSend = value.trim().length > 0 && !isDisabled;
 
+  useEffect(() => {
+    if (!justSent) return;
+    const timer = setTimeout(() => setJustSent(false), 200);
+    return () => clearTimeout(timer);
+  }, [justSent]);
+
   const handleSend = useCallback(() => {
     const trimmed = value.trim();
     if (!trimmed) return;
+    setJustSent(true);
     onSend(trimmed);
     setValue('');
     if (textareaRef.current) {
@@ -83,6 +91,7 @@ export function ChatInput({ onSend, isStreaming, disabled, errorId }: ChatInputP
           'disabled:cursor-not-allowed disabled:opacity-50',
           'focus-visible:outline-none focus-visible:[box-shadow:var(--shadow-focus)]',
         )}
+        style={justSent ? { animation: 'sendPop 200ms ease' } : undefined}
       >
         <svg
           width="20"

@@ -193,6 +193,45 @@ describe('ChatView', () => {
       const filenameEl = screen.getByText(longNameImage.originalFilename);
       expect(filenameEl.className).toContain('truncate');
     });
+
+    it('thumbnail is a clickable button with preview aria-label', () => {
+      render(<ChatView image={mockImage} />);
+
+      const previewBtn = screen.getByRole('button', { name: /preview photo\.png/i });
+      expect(previewBtn).toBeInTheDocument();
+    });
+
+    it('clicking thumbnail opens image preview modal', async () => {
+      const user = userEvent.setup();
+      render(<ChatView image={mockImage} />);
+
+      await user.click(screen.getByRole('button', { name: /preview photo\.png/i }));
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
+
+      // Modal should contain the full image
+      const images = dialog.querySelectorAll('img');
+      expect(images.length).toBeGreaterThanOrEqual(1);
+      const fullImage = Array.from(images).find(
+        (img) => img.getAttribute('src') === '/api/images/img-123/file',
+      );
+      expect(fullImage).toBeInTheDocument();
+    });
+
+    it('preview modal can be closed', async () => {
+      const user = userEvent.setup();
+      render(<ChatView image={mockImage} />);
+
+      await user.click(screen.getByRole('button', { name: /preview photo\.png/i }));
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      // Close via the X button
+      const closeBtn = screen.getByRole('button', { name: /close/i });
+      await user.click(closeBtn);
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
   });
 
   describe('streaming', () => {

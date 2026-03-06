@@ -109,4 +109,31 @@ describe('MessageBubble', () => {
     const p = screen.getByLabelText(/assistant response/i).querySelector('p');
     expect(p).not.toHaveAttribute('aria-live');
   });
+
+  it('applies fadeInUp entrance animation', () => {
+    const { container } = render(
+      <MessageBubble message={createMessage('user', 'Hello')} index={0} />,
+    );
+
+    const wrapper = container.firstElementChild as HTMLElement;
+    expect(wrapper.style.animation).toContain('fadeInUp');
+  });
+
+  it('staggers animation delay based on index', () => {
+    const { container } = render(
+      <MessageBubble message={createMessage('user', 'Hello')} index={3} />,
+    );
+
+    const wrapper = container.firstElementChild as HTMLElement;
+    expect(wrapper.style.animationDelay).toBe('180ms');
+  });
+
+  it('caps animation delay at 300ms', () => {
+    const { container } = render(
+      <MessageBubble message={createMessage('user', 'Hello')} index={10} />,
+    );
+
+    const wrapper = container.firstElementChild as HTMLElement;
+    expect(wrapper.style.animationDelay).toBe('300ms');
+  });
 });

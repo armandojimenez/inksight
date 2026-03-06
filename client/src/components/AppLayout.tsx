@@ -88,6 +88,16 @@ export function AppLayout() {
     }
   }, []);
 
+  const handleMessageCountChange = useCallback((imageId: string, count: number) => {
+    setImages((prev) =>
+      prev.map((img) =>
+        img.id === imageId && img.messageCount !== count
+          ? { ...img, messageCount: count }
+          : img,
+      ),
+    );
+  }, []);
+
   const handleSelectImage = useCallback((id: string) => {
     setSelectedImageId(id);
     if (!isDesktop) {
@@ -236,9 +246,12 @@ export function AppLayout() {
         {/* Main content */}
         <main id="main-content" className="flex-1 min-w-0">
           {selectedImage ? (
-            <ChatView image={selectedImage} />
+            <ChatView image={selectedImage} onMessageCountChange={handleMessageCountChange} />
           ) : (
-            <UploadView onUploadComplete={handleUploadComplete} />
+            <UploadView
+              onUploadComplete={handleUploadComplete}
+              isFirstTime={images.length === 0 && !isLoadingImages}
+            />
           )}
         </main>
       </div>

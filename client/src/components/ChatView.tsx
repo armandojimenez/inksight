@@ -1,14 +1,20 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStreamingChat } from '@/hooks/useStreamingChat';
 import { getImageFileUrl } from '@/lib/api';
 import { ChatInput } from '@/components/ChatInput';
 import { MessageBubble } from '@/components/MessageBubble';
 import { InksightIcon } from '@/components/InksightIcon';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { ImageData } from '@/types';
 
 export interface ChatViewProps {
   image: ImageData;
+  onMessageCountChange?: (imageId: string, count: number) => void;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -20,11 +26,17 @@ const SUGGESTED_QUESTIONS = [
 const SCROLL_THRESHOLD = 100;
 const CHAT_ERROR_ID = 'chat-error';
 
-export function ChatView({ image }: ChatViewProps) {
+export function ChatView({ image, onMessageCountChange }: ChatViewProps) {
   const { messages, sendMessage, isStreaming, error } = useStreamingChat(image.id);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
+
+  // Notify parent when message count changes
+  useEffect(() => {
+    onMessageCountChange?.(image.id, messages.length);
+  }, [messages.length, image.id, onMessageCountChange]);
 
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
@@ -43,19 +55,39 @@ export function ChatView({ image }: ChatViewProps) {
   const hasMessages = messages.length > 0;
 
   return (
-    <div className="flex h-full flex-col bg-neutral-0">
+    <div className="flex h-full flex-col" style={{ background: 'var(--bg-chat)' }}>
       {/* Image preview */}
       <div className="flex min-w-0 items-center gap-3 border-b border-neutral-100 px-4 h-[var(--topbar-height)]">
-        <img
-          src={getImageFileUrl(image.id)}
-          alt={image.originalFilename}
-          className="h-10 w-10 shrink-0 rounded object-cover"
-        />
+        <button
+          type="button"
+          onClick={() => setPreviewOpen(true)}
+          className="shrink-0 rounded focus-visible:outline-none focus-visible:[box-shadow:var(--shadow-focus)]"
+          aria-label={`Preview ${image.originalFilename}`}
+        >
+          <img
+            src={getImageFileUrl(image.id)}
+            alt={image.originalFilename}
+            className="h-10 w-10 rounded object-cover transition-opacity hover:opacity-80"
+          />
+        </button>
         <span className="truncate text-sm font-medium text-neutral-600">
           {image.originalFilename}
         </span>
         <h2 className="sr-only">Chat</h2>
       </div>
+
+      {/* Image preview modal */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-2xl p-2">
+          <DialogTitle className="sr-only">{image.originalFilename}</DialogTitle>
+          <img
+            src={getImageFileUrl(image.id)}
+            alt={image.originalFilename}
+            className="w-full rounded object-contain"
+            style={{ maxHeight: '80vh' }}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Messages area */}
       <div
@@ -72,19 +104,27 @@ export function ChatView({ image }: ChatViewProps) {
             <InksightIcon
               data-testid="empty-state-icon"
               className="opacity-20"
-              style={{ height: 'var(--logo-height-hero)', width: 'auto' }}
+              style={{
+                height: 'var(--logo-height-hero)',
+                width: 'auto',
+                animation: 'fadeInUp var(--anim-entrance-duration) var(--anim-entrance-easing) both',
+              }}
             />
             <div className="flex flex-col gap-2">
-              {SUGGESTED_QUESTIONS.map((question) => (
+              {SUGGESTED_QUESTIONS.map((question, i) => (
                 <button
                   key={question}
                   type="button"
                   onClick={() => sendMessage(question)}
                   className={cn(
                     'min-h-[44px] rounded px-4 py-3 text-left text-sm text-primary-500',
-                    'transition-colors hover:bg-primary-50',
+                    'transition-all hover:bg-primary-50 hover:scale-[1.01]',
                     'focus-visible:outline-none focus-visible:[box-shadow:var(--shadow-focus)]',
                   )}
+                  style={{
+                    animation: 'fadeInUp var(--anim-entrance-duration) var(--anim-entrance-easing) both',
+                    animationDelay: `${(i + 1) * 60}ms`,
+                  }}
                 >
                   <span aria-hidden="true">→ </span>
                   {question}
@@ -98,6 +138,7 @@ export function ChatView({ image }: ChatViewProps) {
               <MessageBubble
                 key={msg.id}
                 message={msg}
+                index={i}
                 isStreaming={isStreaming && i === messages.length - 1 && msg.role === 'assistant'}
               />
             ))}
@@ -147,8 +188,8 @@ function StreamingIndicator() {
               key={i}
               className="h-1.5 w-1.5 rounded-full bg-ai-500"
               style={{
-                animation: 'pulse var(--anim-streaming-duration) var(--anim-streaming-easing) infinite',
-                animationDelay: `${i * 0.2}s`,
+                animation: 'typingBounce 1.2s ease-in-out infinite',
+                animationDelay: `${i * 0.15}s`,
               }}
             />
           ))}

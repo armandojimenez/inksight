@@ -6,6 +6,7 @@ import type { UploadResponse } from '@/types';
 
 export interface UploadViewProps {
   onUploadComplete: (image: UploadResponse) => void;
+  isFirstTime?: boolean;
 }
 
 const ALLOWED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif']);
@@ -34,7 +35,7 @@ function validateFile(file: File): string | null {
   return null;
 }
 
-export function UploadView({ onUploadComplete }: UploadViewProps) {
+export function UploadView({ onUploadComplete, isFirstTime = false }: UploadViewProps) {
   const [state, setState] = useState<UploadState>({ status: 'idle' });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -169,9 +170,31 @@ export function UploadView({ onUploadComplete }: UploadViewProps) {
 
   return (
     <div
-      className="flex min-h-dvh items-center justify-center p-4 sm:p-8"
+      className="flex min-h-dvh flex-col items-center justify-center gap-8 p-4 sm:p-8"
       style={{ background: 'var(--gradient-hero)' }}
     >
+      {isFirstTime && (
+        <div className="flex max-w-lg flex-col items-center text-center">
+          <h2
+            className="font-display text-2xl font-bold text-neutral-700"
+            style={{
+              animation: 'fadeInUp var(--anim-entrance-duration) var(--anim-entrance-easing) both',
+            }}
+          >
+            Welcome to Inksight
+          </h2>
+          <p
+            className="mt-2 text-neutral-400"
+            style={{
+              animation: 'fadeInUp var(--anim-entrance-duration) var(--anim-entrance-easing) both',
+              animationDelay: '60ms',
+            }}
+          >
+            Upload an image and start a conversation with AI
+          </p>
+        </div>
+      )}
+
       <div
         role="button"
         tabIndex={0}
@@ -184,11 +207,14 @@ export function UploadView({ onUploadComplete }: UploadViewProps) {
         onDrop={onDrop}
         onClick={openFilePicker}
         onKeyDown={onKeyDown}
+        style={{
+          animation: 'scaleIn var(--anim-entrance-duration) var(--anim-entrance-easing) both',
+        }}
         className={cn(
           'flex w-full max-w-lg cursor-pointer flex-col items-center gap-4 rounded p-6 sm:p-12',
-          'transition-colors duration-150',
+          'transition-all duration-150',
           'focus-visible:outline-none focus-visible:[box-shadow:var(--shadow-focus)]',
-          isDragover && 'border-2 border-solid border-primary-500 bg-primary-50',
+          isDragover && 'border-2 border-solid border-primary-500 bg-primary-50 scale-[1.02]',
           isError && 'border-2 border-solid border-error-500 bg-error-50',
           isUploading && 'border-2 border-solid border-primary-500 bg-neutral-25',
           !isDragover && !isError && !isUploading && [
