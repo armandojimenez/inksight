@@ -14,8 +14,8 @@
   <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/Tests-48_files-brightgreen" alt="Tests" />
-  <a href="https://codecov.io/gh/armandojimenez/inksight"><img src="https://img.shields.io/codecov/c/github/armandojimenez/inksight?flag=backend&label=Backend%20Coverage&logo=jest&logoColor=white" alt="Backend Coverage" /></a>
-  <a href="https://codecov.io/gh/armandojimenez/inksight"><img src="https://img.shields.io/codecov/c/github/armandojimenez/inksight?flag=client&label=Client%20Coverage&logo=vitest&logoColor=white" alt="Client Coverage" /></a>
+  <a href="https://codecov.io/gh/armandojimenez/inksight"><img src="https://codecov.io/gh/armandojimenez/inksight/branch/main/graph/badge.svg?flag=backend" alt="Backend Coverage" /></a>
+  <a href="https://codecov.io/gh/armandojimenez/inksight"><img src="https://codecov.io/gh/armandojimenez/inksight/branch/main/graph/badge.svg?flag=client" alt="Client Coverage" /></a>
   <img src="https://img.shields.io/badge/ADRs-11-blue" alt="ADRs" />
 </p>
 
