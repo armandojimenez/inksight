@@ -7,6 +7,7 @@ import { InksightIcon } from '@/components/InksightIcon';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
@@ -80,6 +81,7 @@ export function ChatView({ image, onMessageCountChange }: ChatViewProps) {
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-2xl p-2">
           <DialogTitle className="sr-only">{image.originalFilename}</DialogTitle>
+          <DialogDescription className="sr-only">Full-size preview of {image.originalFilename}</DialogDescription>
           <img
             src={getImageFileUrl(image.id)}
             alt={image.originalFilename}
