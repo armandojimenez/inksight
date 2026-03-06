@@ -401,6 +401,90 @@ describe('useStreamingChat', () => {
     expect(uniqueIds.size).toBe(ids.length);
   });
 
+  it('retryLastMessage resends the last user message', async () => {
+    const error = new Error('Failed');
+    mockStreamMessage
+      .mockRejectedValueOnce(error)
+      .mockRejectedValueOnce(error)
+      .mockRejectedValueOnce(error)
+      .mockRejectedValueOnce(error);
+
+    const { result } = renderHook(() => useStreamingChat(IMAGE_ID));
+
+    // Send and exhaust retries
+    act(() => {
+      result.current.sendMessage('Retry me');
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+
+    expect(result.current.error).toBe('Failed');
+
+    // Now retry — should resend "Retry me"
+    const successChunks = [makeChunk('Recovered', 'stop')];
+    mockStreamMessage.mockResolvedValue(new Response());
+    mockParseSSEStream.mockReturnValue(fakeStream(successChunks));
+
+    await act(async () => {
+      result.current.retryLastMessage();
+    });
+
+    expect(result.current.error).toBeNull();
+    // Should have the recovered assistant message
+    const assistantMsgs = result.current.messages.filter((m) => m.role === 'assistant');
+    expect(assistantMsgs.some((m) => m.content === 'Recovered')).toBe(true);
+  });
+
+  it('messageCapReached is true when messages reach cap', async () => {
+    const fiftyMessages = Array.from({ length: 50 }, (_, i) => ({
+      id: `msg-${i}`,
+      role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: `Message ${i}`,
+      timestamp: '2026-01-01T00:00:00Z',
+    }));
+    mockGetMessages.mockResolvedValueOnce({
+      imageId: IMAGE_ID,
+      messages: fiftyMessages,
+      totalMessages: 50,
+      page: 1,
+      pageSize: 50,
+      totalPages: 1,
+    });
+
+    const { result } = renderHook(() => useStreamingChat(IMAGE_ID));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(result.current.messageCapReached).toBe(true);
+  });
+
+  it('clearError resets error state', async () => {
+    const error = new Error('Fail');
+    mockStreamMessage
+      .mockRejectedValueOnce(error)
+      .mockRejectedValueOnce(error)
+      .mockRejectedValueOnce(error)
+      .mockRejectedValueOnce(error);
+
+    const { result } = renderHook(() => useStreamingChat(IMAGE_ID));
+
+    act(() => { result.current.sendMessage('Fail'); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+
+    expect(result.current.error).toBe('Fail');
+
+    act(() => { result.current.clearError(); });
+
+    expect(result.current.error).toBeNull();
+  });
+
   it('resets state when imageId changes', async () => {
     const chunks = [makeChunk('Reply', 'stop')];
     mockStreamMessage.mockResolvedValue(new Response());
@@ -575,6 +659,76 @@ describe('useStreamingChat', () => {
         { limit: 50 },
         expect.any(AbortSignal),
       );
+    });
+
+    it('sets historyError when getMessages rejects', async () => {
+      mockGetMessages.mockRejectedValueOnce(new Error('Network error'));
+
+      const { result } = renderHook(() => useStreamingChat(IMAGE_ID));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(result.current.historyError).toBe('Network error');
+      expect(result.current.isLoadingHistory).toBe(false);
+      expect(result.current.messages).toHaveLength(0);
+    });
+
+    it('sets generic historyError for non-Error rejections', async () => {
+      mockGetMessages.mockRejectedValueOnce('unknown failure');
+
+      const { result } = renderHook(() => useStreamingChat(IMAGE_ID));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(result.current.historyError).toBe('Failed to load messages');
+    });
+
+    it('shows initialAnalysis as first message immediately', async () => {
+      mockGetMessages.mockResolvedValueOnce({
+        imageId: IMAGE_ID,
+        messages: [],
+        totalMessages: 0,
+        page: 1,
+        pageSize: 50,
+        totalPages: 0,
+      });
+
+      const { result } = renderHook(() =>
+        useStreamingChat(IMAGE_ID, 'This is a landscape photo'),
+      );
+
+      // Initial analysis should appear immediately, before getMessages resolves
+      expect(result.current.messages).toHaveLength(1);
+      expect(result.current.messages[0]).toMatchObject({
+        role: 'assistant',
+        content: 'This is a landscape photo',
+      });
+      expect(result.current.isLoadingHistory).toBe(false);
+    });
+
+    it('sets isLoadingHistory to true initially and false after load', async () => {
+      mockGetMessages.mockResolvedValueOnce({
+        imageId: IMAGE_ID,
+        messages: [],
+        totalMessages: 0,
+        page: 1,
+        pageSize: 50,
+        totalPages: 0,
+      });
+
+      const { result } = renderHook(() => useStreamingChat(IMAGE_ID));
+
+      expect(result.current.isLoadingHistory).toBe(true);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(result.current.isLoadingHistory).toBe(false);
     });
   });
 });

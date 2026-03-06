@@ -12,6 +12,9 @@ import {
   ApiRequestError,
 } from '@/lib/api';
 
+// Valid UUID v4 for all tests
+const IMG_ID = '550e8400-e29b-41d4-a716-446655440000';
+
 // Mock global fetch
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
@@ -50,13 +53,17 @@ describe('api', () => {
 
   describe('getImageFileUrl', () => {
     it('returns correct URL for image ID', () => {
-      expect(getImageFileUrl('abc-123')).toBe('/api/images/abc-123/file');
+      expect(getImageFileUrl(IMG_ID)).toBe(`/api/images/${IMG_ID}/file`);
+    });
+
+    it('rejects invalid image IDs', () => {
+      expect(() => getImageFileUrl('not-a-uuid')).toThrow('Invalid image ID');
     });
   });
 
   describe('uploadImage', () => {
     it('sends POST with FormData and returns response', async () => {
-      const mockResponse = { id: 'img-1', filename: 'photo.png', mimeType: 'image/png', size: 1024, analysis: null };
+      const mockResponse = { id: IMG_ID, filename: 'photo.png', mimeType: 'image/png', size: 1024, analysis: null };
       mockFetch.mockResolvedValueOnce(jsonResponse(mockResponse));
 
       const file = new File(['test'], 'photo.png', { type: 'image/png' });
@@ -70,7 +77,7 @@ describe('api', () => {
     });
 
     it('passes abort signal', async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ id: 'img-1' }));
+      mockFetch.mockResolvedValueOnce(jsonResponse({ id: IMG_ID }));
       const controller = new AbortController();
 
       await uploadImage(new File([''], 'test.png'), controller.signal);
@@ -92,9 +99,9 @@ describe('api', () => {
       const mockCompletion = { id: 'cmpl-1', object: 'chat.completion' };
       mockFetch.mockResolvedValueOnce(jsonResponse(mockCompletion));
 
-      const result = await sendMessage('img-1', 'Hello');
+      const result = await sendMessage(IMG_ID, 'Hello');
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/chat/img-1', expect.objectContaining({
+      expect(mockFetch).toHaveBeenCalledWith(`/api/chat/${IMG_ID}`, expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: 'Hello' }),
@@ -105,7 +112,11 @@ describe('api', () => {
     it('throws on error response', async () => {
       mockFetch.mockResolvedValueOnce(errorResponse(404));
 
-      await expect(sendMessage('bad-id', 'Hello')).rejects.toThrow(ApiRequestError);
+      await expect(sendMessage(IMG_ID, 'Hello')).rejects.toThrow(ApiRequestError);
+    });
+
+    it('rejects invalid image IDs', async () => {
+      await expect(sendMessage('bad-id', 'Hello')).rejects.toThrow('Invalid image ID');
     });
   });
 
@@ -114,9 +125,9 @@ describe('api', () => {
       const mockRes = new Response('data: test\n\n', { status: 200 });
       mockFetch.mockResolvedValueOnce(mockRes);
 
-      const result = await streamMessage('img-1', 'Describe this');
+      const result = await streamMessage(IMG_ID, 'Describe this');
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/chat-stream/img-1', expect.objectContaining({
+      expect(mockFetch).toHaveBeenCalledWith(`/api/chat-stream/${IMG_ID}`, expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: 'Describe this' }),
@@ -127,7 +138,7 @@ describe('api', () => {
     it('throws on error response', async () => {
       mockFetch.mockResolvedValueOnce(errorResponse(500));
 
-      await expect(streamMessage('img-1', 'Hello')).rejects.toThrow(ApiRequestError);
+      await expect(streamMessage(IMG_ID, 'Hello')).rejects.toThrow(ApiRequestError);
     });
   });
 
@@ -171,10 +182,49 @@ describe('api', () => {
     });
 
     it('skips empty lines and non-data lines', async () => {
-      const chunk = { id: 'c-1' };
+      const chunk = { id: 'c-1', choices: [] };
       const response = createSSEResponse(
         `\n: comment\nevent: message\ndata: ${JSON.stringify(chunk)}\n\n`,
       );
+
+      const results = [];
+      for await (const c of parseSSEStream(response)) {
+        results.push(c);
+      }
+
+      expect(results).toEqual([chunk]);
+    });
+
+    it('skips malformed JSON chunks without crashing', async () => {
+      const validChunk = { id: 'c-1', choices: [{ delta: { content: 'Hello' } }] };
+      const response = createSSEResponse(
+        `data: {invalid json}\n\ndata: ${JSON.stringify(validChunk)}\n\n`,
+      );
+
+      const results = [];
+      for await (const c of parseSSEStream(response)) {
+        results.push(c);
+      }
+
+      expect(results).toEqual([validChunk]);
+    });
+
+    it('handles SSE events split across read boundaries', async () => {
+      const chunk = { id: 'c-1', choices: [{ delta: { content: 'split' } }] };
+      const fullData = `data: ${JSON.stringify(chunk)}\n\n`;
+      const splitPoint = Math.floor(fullData.length / 2);
+      const part1 = fullData.slice(0, splitPoint);
+      const part2 = fullData.slice(splitPoint);
+
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(part1));
+          controller.enqueue(encoder.encode(part2));
+          controller.close();
+        },
+      });
+      const response = new Response(stream, { status: 200 });
 
       const results = [];
       for await (const c of parseSSEStream(response)) {
@@ -195,22 +245,22 @@ describe('api', () => {
 
   describe('getMessages', () => {
     it('fetches message history for an image', async () => {
-      const mockHistory = { imageId: 'img-1', messages: [], totalMessages: 0, page: 1, pageSize: 20, totalPages: 0 };
+      const mockHistory = { imageId: IMG_ID, messages: [], totalMessages: 0, page: 1, pageSize: 20, totalPages: 0 };
       mockFetch.mockResolvedValueOnce(jsonResponse(mockHistory));
 
-      const result = await getMessages('img-1');
+      const result = await getMessages(IMG_ID);
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/chat/img-1/history', expect.any(Object));
+      expect(mockFetch).toHaveBeenCalledWith(`/api/chat/${IMG_ID}/history`, expect.any(Object));
       expect(result).toEqual(mockHistory);
     });
 
     it('includes pagination params in query string', async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ messages: [] }));
 
-      await getMessages('img-1', { page: 2, limit: 10 });
+      await getMessages(IMG_ID, { page: 2, limit: 10 });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/chat/img-1/history?page=2&limit=10',
+        `/api/chat/${IMG_ID}/history?page=2&limit=10`,
         expect.any(Object),
       );
     });
@@ -218,9 +268,9 @@ describe('api', () => {
     it('omits empty pagination params', async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ messages: [] }));
 
-      await getMessages('img-1', {});
+      await getMessages(IMG_ID, {});
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/chat/img-1/history', expect.any(Object));
+      expect(mockFetch).toHaveBeenCalledWith(`/api/chat/${IMG_ID}/history`, expect.any(Object));
     });
   });
 
@@ -251,9 +301,9 @@ describe('api', () => {
     it('sends DELETE request', async () => {
       mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
 
-      await deleteImage('img-1');
+      await deleteImage(IMG_ID);
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/images/img-1', expect.objectContaining({
+      expect(mockFetch).toHaveBeenCalledWith(`/api/images/${IMG_ID}`, expect.objectContaining({
         method: 'DELETE',
       }));
     });
@@ -261,7 +311,7 @@ describe('api', () => {
     it('throws on error response', async () => {
       mockFetch.mockResolvedValueOnce(errorResponse(404));
 
-      await expect(deleteImage('bad-id')).rejects.toThrow(ApiRequestError);
+      await expect(deleteImage(IMG_ID)).rejects.toThrow(ApiRequestError);
     });
   });
 
@@ -298,12 +348,12 @@ describe('api', () => {
         const apiErr = err as InstanceType<typeof ApiRequestError>;
         expect(apiErr.status).toBe(422);
         expect(apiErr.body).toEqual(errorBody);
-        expect(apiErr.message).toBe('Invalid input');
+        // Error message should be the user-friendly mapped message
+        expect(apiErr.message).toBe('Invalid input. Please check your request.');
       }
     });
 
     it('handles non-JSON error responses gracefully', async () => {
-      // Server returns HTML error page or empty body
       const res = new Response('Internal Server Error', {
         status: 500,
         statusText: 'Internal Server Error',

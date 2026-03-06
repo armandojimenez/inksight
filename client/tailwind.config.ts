@@ -1,61 +1,66 @@
 import type { Config } from 'tailwindcss';
 import animate from 'tailwindcss-animate';
 
+/**
+ * Colors reference CSS custom properties from tokens.css (single source of truth).
+ * Note: Tailwind opacity modifiers (e.g., bg-primary-500/50) are NOT supported
+ * with this approach. Use explicit opacity values or Tailwind's opacity utilities.
+ */
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
         primary: {
-          50: '#EEF0FF',
-          100: '#D9DEFF',
-          200: '#B3BDFF',
-          300: '#8090FF',
-          400: '#4D63FF',
-          500: '#0024CC',
-          600: '#001BA0',
-          700: '#001478',
-          800: '#000D50',
-          900: '#000628',
+          50: 'var(--color-primary-50)',
+          100: 'var(--color-primary-100)',
+          200: 'var(--color-primary-200)',
+          300: 'var(--color-primary-300)',
+          400: 'var(--color-primary-400)',
+          500: 'var(--color-primary-500)',
+          600: 'var(--color-primary-600)',
+          700: 'var(--color-primary-700)',
+          800: 'var(--color-primary-800)',
+          900: 'var(--color-primary-900)',
         },
         neutral: {
-          0: '#FFFFFF',
-          25: '#F7F8FD',
-          50: '#F1F3F9',
-          100: '#E2E5EF',
-          200: '#C5C9D9',
-          300: '#9CA0B3',
-          400: '#6B7280',
-          500: '#4B5063',
-          600: '#3A415A',
-          700: '#272D42',
-          800: '#181C2E',
-          900: '#0C0F1A',
+          0: 'var(--color-neutral-0)',
+          25: 'var(--color-neutral-25)',
+          50: 'var(--color-neutral-50)',
+          100: 'var(--color-neutral-100)',
+          200: 'var(--color-neutral-200)',
+          300: 'var(--color-neutral-300)',
+          400: 'var(--color-neutral-400)',
+          500: 'var(--color-neutral-500)',
+          600: 'var(--color-neutral-600)',
+          700: 'var(--color-neutral-700)',
+          800: 'var(--color-neutral-800)',
+          900: 'var(--color-neutral-900)',
         },
         ai: {
-          50: '#EEF0FF',
-          100: '#D9DEFF',
-          500: '#4D63FF',
-          600: '#0024CC',
+          50: 'var(--color-ai-50)',
+          100: 'var(--color-ai-100)',
+          500: 'var(--color-ai-500)',
+          600: 'var(--color-ai-600)',
         },
         success: {
-          50: '#ECFDF5',
-          500: '#047857',
-          600: '#065F46',
+          50: 'var(--color-success-50)',
+          500: 'var(--color-success-500)',
+          600: 'var(--color-success-600)',
         },
         error: {
-          50: '#FEF2F2',
-          500: '#DC2626',
-          600: '#B91C1C',
+          50: 'var(--color-error-50)',
+          500: 'var(--color-error-500)',
+          600: 'var(--color-error-600)',
         },
         warning: {
-          50: '#FFFBEB',
-          500: '#D97706',
-          700: '#92400E',
+          50: 'var(--color-warning-50)',
+          500: 'var(--color-warning-500)',
+          700: 'var(--color-warning-700)',
         },
         info: {
-          50: '#EFF6FF',
-          500: '#2563EB',
+          50: 'var(--color-info-50)',
+          500: 'var(--color-info-500)',
         },
       },
       fontFamily: {

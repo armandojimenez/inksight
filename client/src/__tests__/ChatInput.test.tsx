@@ -120,7 +120,7 @@ describe('ChatInput', () => {
   it('has associated label on textarea', () => {
     render(<ChatInput onSend={onSend} isStreaming={false} />);
 
-    const textarea = screen.getByLabelText('Message input');
+    const textarea = screen.getByLabelText('Ask a question about this image');
     expect(textarea).toBeInTheDocument();
     expect(textarea.tagName).toBe('TEXTAREA');
   });

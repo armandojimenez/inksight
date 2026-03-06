@@ -11,13 +11,20 @@ export interface ChatInputProps {
 const MAX_MESSAGE_LENGTH = 4000;
 const MAX_TEXTAREA_HEIGHT = 160; // ~4 lines at 16px/24px line-height
 
+// Zero-width and invisible Unicode characters to strip
+const INVISIBLE_CHARS_RE = /[\u200B\u200C\u200D\u200E\u200F\u2028\u2029\u2060\uFEFF]/g;
+
+function cleanInput(value: string): string {
+  return value.replace(INVISIBLE_CHARS_RE, '').trim();
+}
+
 export function ChatInput({ onSend, isStreaming, disabled, errorId }: ChatInputProps) {
   const [value, setValue] = useState('');
   const [justSent, setJustSent] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isDisabled = isStreaming || disabled;
-  const canSend = value.trim().length > 0 && !isDisabled;
+  const canSend = cleanInput(value).length > 0 && !isDisabled;
 
   useEffect(() => {
     if (!justSent) return;
@@ -26,7 +33,7 @@ export function ChatInput({ onSend, isStreaming, disabled, errorId }: ChatInputP
   }, [justSent]);
 
   const handleSend = useCallback(() => {
-    const trimmed = value.trim();
+    const trimmed = cleanInput(value);
     if (!trimmed) return;
     setJustSent(true);
     onSend(trimmed);
@@ -36,14 +43,21 @@ export function ChatInput({ onSend, isStreaming, disabled, errorId }: ChatInputP
     }
   }, [value, onSend]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (canSend) {
-        handleSend();
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // Enter (without Shift) or Ctrl+Enter to send
+      if (
+        (e.key === 'Enter' && !e.shiftKey) ||
+        (e.key === 'Enter' && (e.ctrlKey || e.metaKey))
+      ) {
+        e.preventDefault();
+        if (canSend) {
+          handleSend();
+        }
       }
-    }
-  };
+    },
+    [canSend, handleSend],
+  );
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -58,7 +72,7 @@ export function ChatInput({ onSend, isStreaming, disabled, errorId }: ChatInputP
   return (
     <div className="flex items-center gap-3 border-t border-neutral-100 bg-neutral-0 px-4 min-h-[var(--bottombar-height)]">
       <label htmlFor="chat-message-input" className="sr-only">
-        Message input
+        Ask a question about this image
       </label>
       <textarea
         id="chat-message-input"
@@ -71,7 +85,7 @@ export function ChatInput({ onSend, isStreaming, disabled, errorId }: ChatInputP
         placeholder="Ask about this image..."
         aria-describedby={errorId}
         rows={1}
-        style={{ maxHeight: 'min(160px, 30vh)' }}
+        style={{ maxHeight: `min(${MAX_TEXTAREA_HEIGHT}px, 30vh)` }}
         className={cn(
           'min-w-0 flex-1 resize-none rounded bg-neutral-0 px-4 py-3',
           'text-base text-neutral-600 placeholder:text-neutral-400',

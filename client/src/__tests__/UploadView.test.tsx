@@ -173,6 +173,43 @@ describe('UploadView', () => {
     });
   });
 
+  describe('file picker onChange', () => {
+    it('uploads file selected via file input', async () => {
+      const user = userEvent.setup();
+      mockUploadImage.mockResolvedValue(mockUploadResponse);
+
+      render(<UploadView onUploadComplete={onUploadComplete} />);
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = createFile('photo.png', 1024, 'image/png');
+
+      await user.upload(fileInput, file);
+
+      await waitFor(() => {
+        expect(mockUploadImage).toHaveBeenCalledWith(file, expect.any(AbortSignal));
+      });
+      expect(onUploadComplete).toHaveBeenCalledWith(mockUploadResponse);
+    });
+
+    it('resets file input value after selection so same file can be re-selected', async () => {
+      const user = userEvent.setup();
+      mockUploadImage.mockResolvedValue(mockUploadResponse);
+
+      render(<UploadView onUploadComplete={onUploadComplete} />);
+
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = createFile('photo.png', 1024, 'image/png');
+
+      await user.upload(fileInput, file);
+
+      await waitFor(() => {
+        expect(onUploadComplete).toHaveBeenCalled();
+      });
+
+      expect(fileInput.value).toBe('');
+    });
+  });
+
   describe('client-side validation', () => {
     it('rejects non-image files', async () => {
       const file = createFile('doc.pdf', 1024, 'application/pdf');
@@ -434,6 +471,35 @@ describe('UploadView', () => {
 
       // Error should still be visible
       expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+  });
+
+  describe('abort on unmount', () => {
+    it('aborts in-flight upload when component unmounts', async () => {
+      let capturedSignal: AbortSignal | undefined;
+      mockUploadImage.mockImplementation((_file, signal) => {
+        capturedSignal = signal;
+        return new Promise(() => {}); // never resolves
+      });
+
+      const file = createFile('photo.png', 1024, 'image/png');
+
+      const { unmount } = render(<UploadView onUploadComplete={onUploadComplete} />);
+
+      const dropZone = screen.getByRole('button', { name: /upload image/i });
+      fireEvent.drop(dropZone, {
+        dataTransfer: { files: [file] },
+      });
+
+      await waitFor(() => {
+        expect(capturedSignal).toBeDefined();
+      });
+
+      expect(capturedSignal!.aborted).toBe(false);
+
+      unmount();
+
+      expect(capturedSignal!.aborted).toBe(true);
     });
   });
 

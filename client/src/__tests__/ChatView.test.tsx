@@ -49,6 +49,12 @@ function mockChatHook(overrides: Partial<UseStreamingChatReturn> = {}): UseStrea
     sendMessage: vi.fn(),
     isStreaming: false,
     error: null,
+    isLoadingHistory: false,
+    historyError: null,
+    retryAttempt: 0,
+    clearError: vi.fn(),
+    retryLastMessage: vi.fn(),
+    messageCapReached: false,
     ...overrides,
   };
 }
@@ -67,7 +73,7 @@ describe('ChatView', () => {
     it('shows Inksight icon when no messages', () => {
       render(<ChatView image={mockImage} />);
 
-      expect(document.querySelector('[data-testid="empty-state-icon"]')).toBeInTheDocument();
+      expect(screen.getByTestId('empty-state-icon')).toBeInTheDocument();
     });
 
     it('hides Inksight icon when messages exist', () => {
@@ -76,7 +82,7 @@ describe('ChatView', () => {
 
       render(<ChatView image={mockImage} />);
 
-      expect(document.querySelector('[data-testid="empty-state-icon"]')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('empty-state-icon')).not.toBeInTheDocument();
     });
 
     it('shows suggested questions with arrow prefix', () => {
@@ -245,6 +251,19 @@ describe('ChatView', () => {
       expect(screen.getByRole('status')).toBeInTheDocument();
     });
 
+    it('shows retry attempt in streaming indicator', () => {
+      mockUseStreamingChat.mockReturnValue(
+        mockChatHook({ isStreaming: true, retryAttempt: 2, messages: [createMessage('user', 'Q')] }),
+      );
+
+      render(<ChatView image={mockImage} />);
+
+      expect(screen.getByRole('status')).toHaveAttribute(
+        'aria-label',
+        'Reconnecting, attempt 2 of 3',
+      );
+    });
+
     it('hides streaming indicator when not streaming', () => {
       mockUseStreamingChat.mockReturnValue(mockChatHook({ isStreaming: false }));
 
@@ -262,8 +281,29 @@ describe('ChatView', () => {
     });
   });
 
-  describe('error state', () => {
-    it('shows error message when error exists', () => {
+  describe('loading and error states', () => {
+    it('shows loading indicator while history is loading', () => {
+      mockUseStreamingChat.mockReturnValue(
+        mockChatHook({ isLoadingHistory: true }),
+      );
+
+      render(<ChatView image={mockImage} />);
+
+      expect(screen.getByText('Loading messages...')).toBeInTheDocument();
+    });
+
+    it('shows history error with reload button', () => {
+      mockUseStreamingChat.mockReturnValue(
+        mockChatHook({ historyError: 'Failed to load messages' }),
+      );
+
+      render(<ChatView image={mockImage} />);
+
+      expect(screen.getByText('Failed to load messages')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument();
+    });
+
+    it('shows error banner with retry and dismiss buttons', () => {
       mockUseStreamingChat.mockReturnValue(
         mockChatHook({ error: 'Connection failed' }),
       );
@@ -271,6 +311,82 @@ describe('ChatView', () => {
       render(<ChatView image={mockImage} />);
 
       expect(screen.getByRole('alert')).toHaveTextContent(/connection failed/i);
+      expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /dismiss/i })).toBeInTheDocument();
+    });
+
+    it('calls retryLastMessage when retry button is clicked', async () => {
+      const user = userEvent.setup();
+      const retryLastMessage = vi.fn();
+      mockUseStreamingChat.mockReturnValue(
+        mockChatHook({ error: 'Connection failed', retryLastMessage }),
+      );
+
+      render(<ChatView image={mockImage} />);
+
+      await user.click(screen.getByRole('button', { name: /retry/i }));
+
+      expect(retryLastMessage).toHaveBeenCalled();
+    });
+
+    it('calls clearError when dismiss button is clicked', async () => {
+      const user = userEvent.setup();
+      const clearError = vi.fn();
+      mockUseStreamingChat.mockReturnValue(
+        mockChatHook({ error: 'Connection failed', clearError }),
+      );
+
+      render(<ChatView image={mockImage} />);
+
+      await user.click(screen.getByRole('button', { name: /dismiss/i }));
+
+      expect(clearError).toHaveBeenCalled();
+    });
+
+    it('shows message cap warning when limit reached', () => {
+      mockUseStreamingChat.mockReturnValue(
+        mockChatHook({
+          messageCapReached: true,
+          messages: [createMessage('user', 'Test')],
+        }),
+      );
+
+      render(<ChatView image={mockImage} />);
+
+      expect(screen.getByText(/message limit reached/i)).toBeInTheDocument();
+    });
+
+    it('disables input when message cap is reached', () => {
+      mockUseStreamingChat.mockReturnValue(
+        mockChatHook({
+          messageCapReached: true,
+          messages: [createMessage('user', 'Test')],
+        }),
+      );
+
+      render(<ChatView image={mockImage} />);
+
+      expect(screen.getByRole('textbox')).toBeDisabled();
+    });
+  });
+
+  describe('message count display', () => {
+    it('shows message count when messages exist', () => {
+      const messages = [
+        createMessage('user', 'Hello'),
+        createMessage('assistant', 'Hi'),
+      ];
+      mockUseStreamingChat.mockReturnValue(mockChatHook({ messages }));
+
+      render(<ChatView image={mockImage} />);
+
+      expect(screen.getByText('2/50 messages')).toBeInTheDocument();
+    });
+
+    it('does not show message count when no messages', () => {
+      render(<ChatView image={mockImage} />);
+
+      expect(screen.queryByText(/\/50 messages/)).not.toBeInTheDocument();
     });
   });
 
@@ -284,7 +400,37 @@ describe('ChatView', () => {
     it('wires hook to correct image ID', () => {
       render(<ChatView image={mockImage} />);
 
-      expect(mockUseStreamingChat).toHaveBeenCalledWith('img-123');
+      expect(mockUseStreamingChat).toHaveBeenCalledWith('img-123', undefined);
+    });
+
+    it('passes initialAnalysis to hook', () => {
+      render(<ChatView image={mockImage} initialAnalysis="A cat photo" />);
+
+      expect(mockUseStreamingChat).toHaveBeenCalledWith('img-123', 'A cat photo');
+    });
+  });
+
+  describe('onMessageCountChange callback', () => {
+    it('calls onMessageCountChange with image ID and count when messages change', () => {
+      const onMessageCountChange = vi.fn();
+      const messages = [
+        createMessage('user', 'Hello'),
+        createMessage('assistant', 'Hi'),
+      ];
+      mockUseStreamingChat.mockReturnValue(mockChatHook({ messages }));
+
+      render(<ChatView image={mockImage} onMessageCountChange={onMessageCountChange} />);
+
+      expect(onMessageCountChange).toHaveBeenCalledWith('img-123', 2);
+    });
+
+    it('calls onMessageCountChange with 0 when no messages', () => {
+      const onMessageCountChange = vi.fn();
+      mockUseStreamingChat.mockReturnValue(mockChatHook({ messages: [] }));
+
+      render(<ChatView image={mockImage} onMessageCountChange={onMessageCountChange} />);
+
+      expect(onMessageCountChange).toHaveBeenCalledWith('img-123', 0);
     });
   });
 

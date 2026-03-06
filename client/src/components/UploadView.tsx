@@ -26,7 +26,7 @@ function getExtension(filename: string): string {
 
 function validateFile(file: File): string | null {
   const ext = getExtension(file.name);
-  if (!ALLOWED_EXTENSIONS.has(ext) && !ALLOWED_MIME_TYPES.has(file.type)) {
+  if (!ALLOWED_EXTENSIONS.has(ext) || !ALLOWED_MIME_TYPES.has(file.type)) {
     return `File type not allowed. Accepted types: ${[...ALLOWED_EXTENSIONS].join(', ')}`;
   }
   if (file.size > MAX_FILE_SIZE) {
@@ -41,6 +41,8 @@ export function UploadView({ onUploadComplete, isFirstTime = false }: UploadView
   const abortRef = useRef<AbortController | null>(null);
   const dragCounterRef = useRef(0);
   const prevErrorRef = useRef<string | null>(null);
+  const stateStatusRef = useRef(state.status);
+  stateStatusRef.current = state.status;
 
   // Abort in-flight upload on unmount
   useEffect(() => {
@@ -127,7 +129,7 @@ export function UploadView({ onUploadComplete, isFirstTime = false }: UploadView
       dragCounterRef.current = 0;
 
       // Block drops while an upload is in progress
-      if (state.status === 'uploading') return;
+      if (stateStatusRef.current === 'uploading') return;
 
       const files = e.dataTransfer.files;
       if (files.length > 1) {
@@ -141,7 +143,7 @@ export function UploadView({ onUploadComplete, isFirstTime = false }: UploadView
       const file = files[0];
       if (file) handleUpload(file);
     },
-    [handleUpload, state.status],
+    [handleUpload],
   );
 
   const onFileChange = useCallback(
@@ -170,8 +172,7 @@ export function UploadView({ onUploadComplete, isFirstTime = false }: UploadView
 
   return (
     <div
-      className="flex min-h-dvh flex-col items-center justify-center gap-8 p-4 sm:p-8"
-      style={{ background: 'var(--gradient-hero)' }}
+      className="flex min-h-full flex-col items-center justify-center gap-8 p-4 sm:p-8 bg-hero"
     >
       {isFirstTime && (
         <div className="flex max-w-lg flex-col items-center text-center">

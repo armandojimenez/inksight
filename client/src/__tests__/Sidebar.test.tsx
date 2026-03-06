@@ -119,8 +119,9 @@ describe('Sidebar', () => {
       const user = userEvent.setup();
       renderSidebar();
 
-      const item = screen.getByText('sunset.jpg').closest('[data-image-item]')!;
-      (item as HTMLElement).focus();
+      // Tab into the list — first item has tabIndex={0} via roving tabindex
+      await user.tab();
+      expect(screen.getByText('sunset.jpg').closest('[data-image-item]')).toHaveFocus();
       await user.keyboard('{Enter}');
 
       expect(onSelectImage).toHaveBeenCalledWith('img-1');
@@ -130,8 +131,7 @@ describe('Sidebar', () => {
       const user = userEvent.setup();
       renderSidebar();
 
-      const item = screen.getByText('sunset.jpg').closest('[data-image-item]')!;
-      (item as HTMLElement).focus();
+      await user.tab();
       await user.keyboard(' ');
 
       expect(onSelectImage).toHaveBeenCalledWith('img-1');
@@ -281,6 +281,92 @@ describe('Sidebar', () => {
 
       const item = screen.getByText('sunset.jpg').closest('[data-image-item]')!;
       expect(item.className).toContain('focus-visible');
+    });
+
+    it('selected item has aria-current="location"', () => {
+      renderSidebar({ selectedImageId: 'img-1' });
+
+      const item = screen.getByText('sunset.jpg').closest('[data-image-item]')!;
+      expect(item).toHaveAttribute('aria-current', 'location');
+    });
+
+    it('each item has aria-label with filename and message count', () => {
+      renderSidebar();
+
+      const item = screen.getByText('sunset.jpg').closest('[data-image-item]')!;
+      expect(item).toHaveAttribute('aria-label', 'sunset.jpg, 3 messages');
+    });
+
+    it('loading skeleton shows accessible status', () => {
+      renderSidebar({ isLoading: true });
+
+      expect(screen.getByText('Loading images...')).toBeInTheDocument();
+    });
+  });
+
+  describe('keyboard navigation', () => {
+    it('ArrowDown moves focus to next item', async () => {
+      const user = userEvent.setup();
+      renderSidebar();
+
+      // Tab into list
+      await user.tab();
+      const first = screen.getByText('sunset.jpg').closest('[data-image-item]')!;
+      expect(first).toHaveFocus();
+
+      await user.keyboard('{ArrowDown}');
+      const second = screen.getByText('portrait.png').closest('[data-image-item]')!;
+      expect(second).toHaveFocus();
+    });
+
+    it('ArrowUp wraps to last item from first', async () => {
+      const user = userEvent.setup();
+      renderSidebar();
+
+      await user.tab();
+      await user.keyboard('{ArrowUp}');
+
+      const last = screen.getByText('landscape.gif').closest('[data-image-item]')!;
+      expect(last).toHaveFocus();
+    });
+
+    it('Home moves to first item', async () => {
+      const user = userEvent.setup();
+      renderSidebar({ selectedImageId: 'img-3' });
+
+      await user.tab();
+      await user.keyboard('{Home}');
+
+      const first = screen.getByText('sunset.jpg').closest('[data-image-item]')!;
+      expect(first).toHaveFocus();
+    });
+
+    it('End moves to last item', async () => {
+      const user = userEvent.setup();
+      renderSidebar();
+
+      await user.tab();
+      await user.keyboard('{End}');
+
+      const last = screen.getByText('landscape.gif').closest('[data-image-item]')!;
+      expect(last).toHaveFocus();
+    });
+  });
+
+  describe('filename truncation in delete dialog', () => {
+    it('truncates long filename in delete confirmation', async () => {
+      const user = userEvent.setup();
+      const longName = 'a-very-long-filename-that-exceeds-forty-characters-easily.png';
+      const images = [createImage({ id: 'img-long', originalFilename: longName })];
+      renderSidebar({ images });
+
+      await user.click(screen.getByRole('button', { name: `Delete ${longName}` }));
+
+      // Should show truncated name in dialog, not full name
+      const dialog = screen.getByRole('alertdialog');
+      expect(dialog).toBeInTheDocument();
+      // The dialog text should contain an ellipsis for the truncated name
+      expect(dialog.textContent).toContain('\u2026');
     });
   });
 });

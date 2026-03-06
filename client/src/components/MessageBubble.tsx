@@ -4,7 +4,6 @@ import type { MessageData } from '@/types';
 
 export interface MessageBubbleProps {
   message: MessageData;
-  isStreaming?: boolean;
   index?: number;
 }
 
@@ -34,7 +33,7 @@ function useRelativeTime(timestamp: string): string {
   return formatRelativeTime(timestamp);
 }
 
-export function MessageBubble({ message, isStreaming, index = 0 }: MessageBubbleProps) {
+export function MessageBubble({ message, index = 0 }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const relativeTime = useRelativeTime(message.timestamp);
 
@@ -52,7 +51,7 @@ export function MessageBubble({ message, isStreaming, index = 0 }: MessageBubble
         className={cn(
           'relative px-4 py-3',
           isUser
-            ? 'max-w-[75%] rounded-[8px_8px_2px_8px] bg-primary-500 text-white'
+            ? 'max-w-[85%] sm:max-w-[75%] rounded-[8px_8px_2px_8px] bg-primary-500 text-white'
             : 'max-w-[85%] rounded-[8px_8px_8px_2px] border border-ai-100 bg-ai-50 text-neutral-600',
         )}
       >
@@ -65,7 +64,7 @@ export function MessageBubble({ message, isStreaming, index = 0 }: MessageBubble
         )}
         <p
           className="break-words whitespace-pre-wrap text-base leading-relaxed"
-          aria-live={!isUser && isStreaming ? 'polite' : undefined}
+          aria-atomic="false"
         >
           {message.content}
         </p>
@@ -73,7 +72,7 @@ export function MessageBubble({ message, isStreaming, index = 0 }: MessageBubble
           dateTime={message.timestamp}
           className={cn(
             'mt-1 block text-xs',
-            isUser ? 'text-white/70' : 'text-neutral-400',
+            isUser ? 'text-white/90' : 'text-neutral-400',
           )}
         >
           {relativeTime}

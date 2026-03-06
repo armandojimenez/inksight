@@ -11,12 +11,32 @@ import type {
 
 const BASE = '/api';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function assertUUID(id: string): void {
+  if (!UUID_RE.test(id)) {
+    throw new Error(`Invalid image ID: ${id}`);
+  }
+}
+
+/** Maps known API error codes to user-friendly messages */
+const ERROR_MESSAGES: Record<string, string> = {
+  IMAGE_NOT_FOUND: 'Image not found. It may have been deleted.',
+  IMAGE_PROCESSING_FAILED: 'Failed to process the image. Please try a different file.',
+  VALIDATION_ERROR: 'Invalid input. Please check your request.',
+  FILE_TOO_LARGE: 'File is too large. Maximum size is 16 MB.',
+  UNSUPPORTED_FILE_TYPE: 'File type not supported. Use PNG, JPG, or GIF.',
+  MESSAGE_LIMIT_REACHED: 'Message limit reached for this image.',
+  AI_SERVICE_ERROR: 'AI service is temporarily unavailable. Please try again.',
+  NETWORK_ERROR: 'Network error. Please check your connection.',
+};
+
 class ApiRequestError extends Error {
   constructor(
     public readonly status: number,
     public readonly body: ApiError,
   ) {
-    super(body.message);
+    super(ERROR_MESSAGES[body.code] ?? body.message);
     this.name = 'ApiRequestError';
   }
 }
@@ -77,7 +97,8 @@ export async function sendMessage(
   message: string,
   signal?: AbortSignal,
 ): Promise<ChatCompletion> {
-  const res = await fetch(`${BASE}/chat/${imageId}`, {
+  assertUUID(imageId);
+  const res = await fetch(`${BASE}/chat/${encodeURIComponent(imageId)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message }),
@@ -91,7 +112,8 @@ export async function streamMessage(
   message: string,
   signal?: AbortSignal,
 ): Promise<Response> {
-  const res = await fetch(`${BASE}/chat-stream/${imageId}`, {
+  assertUUID(imageId);
+  const res = await fetch(`${BASE}/chat-stream/${encodeURIComponent(imageId)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message }),
@@ -99,6 +121,15 @@ export async function streamMessage(
   });
   await throwIfNotOk(res);
   return res;
+}
+
+function isValidStreamChunk(data: unknown): data is StreamChunk {
+  if (typeof data !== 'object' || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  return (
+    typeof obj['id'] === 'string' &&
+    Array.isArray(obj['choices'])
+  );
 }
 
 export async function* parseSSEStream(
@@ -125,7 +156,14 @@ export async function* parseSSEStream(
         if (!trimmed || !trimmed.startsWith('data: ')) continue;
         const payload = trimmed.slice(6);
         if (payload === '[DONE]') return;
-        yield JSON.parse(payload) as StreamChunk;
+        try {
+          const parsed: unknown = JSON.parse(payload);
+          if (isValidStreamChunk(parsed)) {
+            yield parsed;
+          }
+        } catch {
+          // Skip malformed JSON chunks — do not crash the stream
+        }
       }
     }
   } finally {
@@ -138,8 +176,9 @@ export async function getMessages(
   params?: PaginationParams,
   signal?: AbortSignal,
 ): Promise<HistoryResponse> {
+  assertUUID(imageId);
   const res = await fetch(
-    `${BASE}/chat/${imageId}/history${queryString(params)}`,
+    `${BASE}/chat/${encodeURIComponent(imageId)}/history${queryString(params)}`,
     { signal },
   );
   return handleResponse<HistoryResponse>(res);
@@ -157,16 +196,17 @@ export async function deleteImage(
   imageId: string,
   signal?: AbortSignal,
 ): Promise<void> {
-  const res = await fetch(`${BASE}/images/${imageId}`, {
+  assertUUID(imageId);
+  const res = await fetch(`${BASE}/images/${encodeURIComponent(imageId)}`, {
     method: 'DELETE',
     signal,
   });
-  // DELETE returns 204 No Content — no body to parse on success
   await throwIfNotOk(res);
 }
 
 export function getImageFileUrl(imageId: string): string {
-  return `${BASE}/images/${imageId}/file`;
+  assertUUID(imageId);
+  return `${BASE}/images/${encodeURIComponent(imageId)}/file`;
 }
 
 export async function healthCheck(

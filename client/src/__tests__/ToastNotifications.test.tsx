@@ -34,7 +34,7 @@ describe('Toast Notifications', () => {
     it('renders success toast with role="status"', async () => {
       render(<div />, { wrapper: TestWrapper });
 
-      act(() => {
+      await act(async () => {
         toast.success('Upload complete');
       });
 
@@ -50,7 +50,7 @@ describe('Toast Notifications', () => {
     it('success toast auto-dismisses', async () => {
       render(<div />, { wrapper: TestWrapper });
 
-      act(() => {
+      await act(async () => {
         toast.success('Temporary message', { duration: 5000 });
       });
 
@@ -59,7 +59,7 @@ describe('Toast Notifications', () => {
       });
 
       // Advance past the dismiss duration
-      act(() => {
+      await act(async () => {
         vi.advanceTimersByTime(6000);
       });
 
@@ -73,7 +73,7 @@ describe('Toast Notifications', () => {
     it('renders error toast with role="alert"', async () => {
       render(<div />, { wrapper: TestWrapper });
 
-      act(() => {
+      await act(async () => {
         toast.error('Something went wrong');
       });
 
@@ -89,7 +89,7 @@ describe('Toast Notifications', () => {
     it('error toast persists (does not auto-dismiss with default duration)', async () => {
       render(<div />, { wrapper: TestWrapper });
 
-      act(() => {
+      await act(async () => {
         toast.error('Persistent error', { duration: Infinity });
       });
 
@@ -98,7 +98,7 @@ describe('Toast Notifications', () => {
       });
 
       // Advance well past normal auto-dismiss time
-      act(() => {
+      await act(async () => {
         vi.advanceTimersByTime(10000);
       });
 
@@ -111,7 +111,7 @@ describe('Toast Notifications', () => {
     it('toast container has appropriate aria-live region', async () => {
       render(<div />, { wrapper: TestWrapper });
 
-      act(() => {
+      await act(async () => {
         toast('Test message');
       });
 

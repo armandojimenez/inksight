@@ -1,10 +1,13 @@
 import { Toaster } from 'sonner';
 import { AppLayout } from '@/components/AppLayout';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 function App() {
   return (
     <>
-      <AppLayout />
+      <ErrorBoundary>
+        <AppLayout />
+      </ErrorBoundary>
       <Toaster
         position="bottom-right"
         toastOptions={{

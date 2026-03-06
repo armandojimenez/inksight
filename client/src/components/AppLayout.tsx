@@ -3,40 +3,28 @@ import { Sidebar } from '@/components/Sidebar';
 import { ChatView } from '@/components/ChatView';
 import { UploadView } from '@/components/UploadView';
 import { getImages, deleteImage as apiDeleteImage } from '@/lib/api';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { toast } from 'sonner';
-import { Menu } from 'lucide-react';
+import { Menu, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { InksightIcon } from '@/components/InksightIcon';
 import type { ImageData, UploadResponse } from '@/types';
-
-function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() =>
-    window.matchMedia(query).matches,
-  );
-
-  useEffect(() => {
-    const mql = window.matchMedia(query);
-    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
-  }, [query]);
-
-  return matches;
-}
 
 export function AppLayout() {
   const [images, setImages] = useState<ImageData[]>([]);
   const [isLoadingImages, setIsLoadingImages] = useState(true);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [initialAnalysisMap, setInitialAnalysisMap] = useState<Record<string, string>>({});
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const liveRegionRef = useRef<HTMLDivElement>(null);
 
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   // Load images on mount
   useEffect(() => {
     const controller = new AbortController();
-    getImages(undefined, controller.signal)
+    getImages({ limit: 100 }, controller.signal)
       .then((res) => {
         setImages([...res.images]);
         if (res.images.length > 0 && res.images[0]) {
@@ -58,6 +46,14 @@ export function AppLayout() {
 
   const selectedImage = images.find((img) => img.id === selectedImageId) ?? null;
 
+  // Announce image selection to screen readers
+  useEffect(() => {
+    if (selectedImage && liveRegionRef.current) {
+      liveRegionRef.current.textContent =
+        `Now viewing ${selectedImage.originalFilename}, ${selectedImage.messageCount} ${selectedImage.messageCount === 1 ? 'message' : 'messages'}`;
+    }
+  }, [selectedImage]);
+
   const handleUploadComplete = useCallback((upload: UploadResponse) => {
     const newImage: ImageData = {
       id: upload.id,
@@ -69,24 +65,35 @@ export function AppLayout() {
     };
     setImages((prev) => [newImage, ...prev]);
     setSelectedImageId(upload.id);
+
+    // Capture initial analysis for immediate display in chat
+    const analysisContent = upload.analysis?.choices[0]?.message?.content;
+    if (analysisContent) {
+      setInitialAnalysisMap((prev) => ({ ...prev, [upload.id]: analysisContent }));
+    }
+
     toast.success(`Uploaded ${upload.filename}`);
   }, []);
 
   const handleDeleteImage = useCallback(async (imageId: string) => {
     try {
       await apiDeleteImage(imageId);
-      let deletedName = 'image';
-      setImages((prev) => {
-        const target = prev.find((img) => img.id === imageId);
-        if (target) deletedName = target.originalFilename;
-        return prev.filter((img) => img.id !== imageId);
-      });
-      setSelectedImageId((prev) => (prev === imageId ? null : prev));
+      // Capture name and next selection before state mutation
+      const target = images.find((img) => img.id === imageId);
+      const deletedName = target?.originalFilename ?? 'image';
+      const idx = images.findIndex((img) => img.id === imageId);
+      const remaining = images.filter((img) => img.id !== imageId);
+      const nextId = remaining.length > 0
+        ? remaining[Math.min(idx, remaining.length - 1)]?.id ?? null
+        : null;
+
+      setImages(remaining);
+      setSelectedImageId((prev) => (prev === imageId ? nextId : prev));
       toast.success(`Deleted ${deletedName}`);
     } catch {
       toast.error('Failed to delete image', { duration: Infinity });
     }
-  }, []);
+  }, [images]);
 
   const handleMessageCountChange = useCallback((imageId: string, count: number) => {
     setImages((prev) =>
@@ -134,13 +141,12 @@ export function AppLayout() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isDesktop, sidebarOpen]);
 
-  // Dynamic focus trap in mobile sidebar overlay — re-queries on each Tab
+  // Dynamic focus trap in mobile sidebar overlay
   useEffect(() => {
     if (isDesktop || !sidebarOpen || !sidebarRef.current) return;
 
     const sidebar = sidebarRef.current;
 
-    // Focus the first focusable element when opening
     const initialFocusables = sidebar.querySelectorAll<HTMLElement>(
       'a, button, input, textarea, select, [tabindex]:not([tabindex="-1"])',
     );
@@ -151,7 +157,6 @@ export function AppLayout() {
     function handleTab(e: KeyboardEvent) {
       if (e.key !== 'Tab') return;
 
-      // Re-query on every Tab press to handle dynamic DOM changes (e.g., AlertDialog)
       const focusables = sidebar.querySelectorAll<HTMLElement>(
         'a, button, input, textarea, select, [tabindex]:not([tabindex="-1"])',
       );
@@ -198,10 +203,13 @@ export function AppLayout() {
         Skip to main content
       </a>
 
-      {/* App-wide h1 — visible to screen readers on all viewports */}
+      {/* App-wide h1 */}
       <h1 className="sr-only">Inksight</h1>
 
-      {/* Mobile header — hidden on desktop */}
+      {/* Screen reader live region for image selection */}
+      <div ref={liveRegionRef} aria-live="polite" className="sr-only" />
+
+      {/* Mobile header */}
       {!isDesktop && (
         <header className="flex h-[var(--header-height)] items-center gap-3 border-b border-neutral-100 bg-neutral-0 px-4">
           <Button
@@ -216,18 +224,29 @@ export function AppLayout() {
           <InksightIcon
             className="h-[var(--logo-height-mobile)] w-auto"
           />
+          <div className="flex-1" />
+          {selectedImage && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleNewUpload}
+              aria-label="Upload new image"
+            >
+              <Plus className="h-5 w-5" />
+            </Button>
+          )}
         </header>
       )}
 
       <div className="flex flex-1 min-h-0">
-        {/* Desktop sidebar — always visible */}
+        {/* Desktop sidebar */}
         {isDesktop && sidebarNode}
 
-        {/* Mobile sidebar overlay with backdrop animation */}
+        {/* Mobile sidebar overlay */}
         {!isDesktop && sidebarOpen && (
           <>
             <div
-              className="fixed inset-0 z-[var(--z-overlay)] bg-neutral-900/50 animate-in fade-in-0 duration-200"
+              className="fixed inset-0 z-[var(--z-overlay)] bg-[rgba(12,15,26,0.5)] animate-in fade-in-0 duration-200"
               onClick={handleCloseSidebar}
               aria-hidden="true"
             />
@@ -235,7 +254,7 @@ export function AppLayout() {
               ref={sidebarRef}
               role="dialog"
               aria-modal="true"
-              aria-label="Image gallery"
+              aria-label="Sidebar"
               className="fixed inset-y-0 left-0 z-[var(--z-modal)] w-[var(--sidebar-width)] shadow-lg animate-in slide-in-from-left duration-200"
             >
               {sidebarNode}
@@ -246,7 +265,11 @@ export function AppLayout() {
         {/* Main content */}
         <main id="main-content" className="flex-1 min-w-0">
           {selectedImage ? (
-            <ChatView image={selectedImage} onMessageCountChange={handleMessageCountChange} />
+            <ChatView
+              image={selectedImage}
+              initialAnalysis={initialAnalysisMap[selectedImage.id]}
+              onMessageCountChange={handleMessageCountChange}
+            />
           ) : (
             <UploadView
               onUploadComplete={handleUploadComplete}

@@ -10,6 +10,15 @@
   }
 }
 
+@layer utilities {
+  .bg-chat {
+    background: var(--bg-chat);
+  }
+  .bg-hero {
+    background: var(--gradient-hero);
+  }
+}
+
 @keyframes indeterminate {
   0% {
     transform: translateX(-100%);

@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Inksight — AI-powered visual assistant. Upload images and chat about what you see." />
     <meta name="theme-color" content="#0024CC" />
+    <!-- Baseline CSP — backend Helmet CSP is stricter when served via NestJS -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' blob: data:; connect-src 'self' ws:; object-src 'none'; base-uri 'self'" />
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
