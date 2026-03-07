@@ -301,6 +301,7 @@ Built in 13 phases following strict TDD discipline. Each phase has a git tag mar
 | `v0.9-api-docs` | 9 | Swagger UI, Postman collection, automated test script |
 | `v0.10-client` | 10 | React client with streaming, gallery, design system alignment |
 | `v0.11-e2e` | 11 | End-to-end test suite (15 scenarios) |
+| `v1.0` | 12 | Production hardening: diskStorage, reanalyze endpoint, file-first cleanup, subquery optimization |
 
 ---
 
