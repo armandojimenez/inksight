@@ -2,13 +2,16 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ConfigService } from '@nestjs/config';
-import { NotFoundException } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { ConflictException, NotFoundException } from '@nestjs/common';
+import { Repository, OptimisticLockVersionMismatchError } from 'typeorm';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
 import { ImagesService } from '@/upload/images.service';
 import { ImageEntity } from '@/upload/entities/image.entity';
 import { HistoryService } from '@/history/history.service';
+import { AI_SERVICE_TOKEN } from '@/common/constants';
+import { IAiService } from '@/ai/interfaces/ai-service.interface';
+import { OpenAiChatCompletion } from '@/ai/interfaces/openai-chat-completion.interface';
 
 jest.mock('fs');
 jest.mock('fs/promises');
@@ -16,7 +19,7 @@ jest.mock('fs/promises');
 describe('ImagesService', () => {
   let service: ImagesService;
   let imageRepo: jest.Mocked<
-    Pick<Repository<ImageEntity>, 'findAndCount' | 'findOneBy' | 'remove'>
+    Pick<Repository<ImageEntity>, 'findAndCount' | 'findOneBy' | 'remove' | 'save'>
   >;
   let historyService: jest.Mocked<
     Pick<HistoryService, 'getMessageCount' | 'getMessageCountBatch' | 'deleteByImageId'>
@@ -27,6 +30,7 @@ describe('ImagesService', () => {
     del: jest.Mock;
     clear: jest.Mock;
   };
+  let aiService: jest.Mocked<Pick<IAiService, 'analyzeImage'>>;
 
   const IMAGE_ID = '550e8400-e29b-41d4-a716-446655440000';
 
@@ -52,6 +56,11 @@ describe('ImagesService', () => {
       findAndCount: jest.fn(),
       findOneBy: jest.fn(),
       remove: jest.fn(),
+      save: jest.fn(),
+    };
+
+    aiService = {
+      analyzeImage: jest.fn(),
     };
 
     historyService = {
@@ -77,6 +86,10 @@ describe('ImagesService', () => {
           useValue: {
             get: jest.fn().mockReturnValue('uploads'),
           },
+        },
+        {
+          provide: AI_SERVICE_TOKEN,
+          useValue: aiService,
         },
         {
           provide: CACHE_MANAGER,
@@ -318,6 +331,114 @@ describe('ImagesService', () => {
 
       expect(mockCache.del).toHaveBeenCalledWith(`image:${IMAGE_ID}`);
       expect(historyService.invalidateCache).toHaveBeenCalledWith(IMAGE_ID);
+    });
+  });
+
+  describe('reanalyzeImage', () => {
+    const mockCompletion: OpenAiChatCompletion = {
+      id: 'chatcmpl-reanalyze',
+      object: 'chat.completion',
+      created: 1234567890,
+      model: 'gpt-5.2',
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: 'Updated analysis.' },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+    };
+
+    it('should re-run AI analysis and return updated entity', async () => {
+      const image = mockImage();
+      imageRepo.findOneBy.mockResolvedValue(image);
+      (fsPromises.access as jest.Mock).mockResolvedValue(undefined);
+      aiService.analyzeImage.mockResolvedValue(mockCompletion);
+      imageRepo.save.mockResolvedValue({
+        ...image,
+        initialAnalysis: mockCompletion as unknown as Record<string, unknown>,
+        version: 2,
+      });
+
+      const result = await service.reanalyzeImage(IMAGE_ID);
+
+      expect(aiService.analyzeImage).toHaveBeenCalledWith('uploads/abc123.png');
+      expect(imageRepo.save).toHaveBeenCalled();
+      expect(result.id).toBe(IMAGE_ID);
+      expect(result.analysis).toEqual(mockCompletion);
+      expect(result.version).toBe(2);
+    });
+
+    it('should throw 404 for nonexistent image', async () => {
+      imageRepo.findOneBy.mockResolvedValue(null);
+
+      await expect(service.reanalyzeImage(IMAGE_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(aiService.analyzeImage).not.toHaveBeenCalled();
+    });
+
+    it('should throw 409 on OptimisticLockVersionMismatchError', async () => {
+      const image = mockImage();
+      imageRepo.findOneBy.mockResolvedValue(image);
+      (fsPromises.access as jest.Mock).mockResolvedValue(undefined);
+      aiService.analyzeImage.mockResolvedValue(mockCompletion);
+      imageRepo.save.mockRejectedValue(
+        new OptimisticLockVersionMismatchError('ImageEntity', 1, 2),
+      );
+
+      await expect(service.reanalyzeImage(IMAGE_ID)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('should propagate AI service errors', async () => {
+      const image = mockImage();
+      imageRepo.findOneBy.mockResolvedValue(image);
+      (fsPromises.access as jest.Mock).mockResolvedValue(undefined);
+      aiService.analyzeImage.mockRejectedValue(new Error('AI timeout'));
+
+      await expect(service.reanalyzeImage(IMAGE_ID)).rejects.toThrow('AI timeout');
+    });
+
+    it('should throw 404 when image file is missing on disk', async () => {
+      const image = mockImage();
+      imageRepo.findOneBy.mockResolvedValue(image);
+      (fsPromises.access as jest.Mock).mockRejectedValue(
+        Object.assign(new Error('ENOENT'), { code: 'ENOENT' }),
+      );
+
+      await expect(service.reanalyzeImage(IMAGE_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(aiService.analyzeImage).not.toHaveBeenCalled();
+    });
+
+    it('should reject path traversal in uploadPath', async () => {
+      const image = mockImage({ uploadPath: '../../../etc/passwd' });
+      imageRepo.findOneBy.mockResolvedValue(image);
+
+      await expect(service.reanalyzeImage(IMAGE_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(aiService.analyzeImage).not.toHaveBeenCalled();
+    });
+
+    it('should invalidate image cache after successful reanalysis', async () => {
+      const image = mockImage();
+      imageRepo.findOneBy.mockResolvedValue(image);
+      (fsPromises.access as jest.Mock).mockResolvedValue(undefined);
+      aiService.analyzeImage.mockResolvedValue(mockCompletion);
+      imageRepo.save.mockResolvedValue({
+        ...image,
+        initialAnalysis: mockCompletion as unknown as Record<string, unknown>,
+        version: 2,
+      });
+
+      await service.reanalyzeImage(IMAGE_ID);
+
+      expect(mockCache.del).toHaveBeenCalledWith(`image:${IMAGE_ID}`);
     });
   });
 });

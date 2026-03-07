@@ -100,6 +100,7 @@ describe('Chat with History (integration)', () => {
     count: jest.Mock;
     remove: jest.Mock;
     delete: jest.Mock;
+    createQueryBuilder: jest.Mock;
   };
 
   // In-memory message store for realistic behavior
@@ -135,18 +136,9 @@ describe('Chat with History (integration)', () => {
           filtered.length,
         ]);
       }),
-      find: jest.fn().mockImplementation((options: { where: { imageId: string }; order?: { createdAt?: 'ASC' | 'DESC' }; take?: number }) => {
-        const filtered = messageStore.filter(
-          (m) => m.imageId === options.where.imageId,
-        );
-        const sorted = [...filtered];
-        if (options.order?.createdAt === 'DESC') {
-          sorted.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        } else {
-          sorted.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-        }
-        return Promise.resolve(sorted.slice(0, options.take ?? sorted.length));
-      }),
+      // find is unused — getRecentMessages uses createQueryBuilder — but kept as a no-op stub
+      // because TypeORM's Repository type expects it.
+      find: jest.fn().mockResolvedValue([]),
       count: jest.fn().mockImplementation((options: { where: { imageId: string } }) =>
         Promise.resolve(
           messageStore.filter((m) => m.imageId === options.where.imageId).length,
@@ -158,6 +150,31 @@ describe('Chat with History (integration)', () => {
         return Promise.resolve(entities);
       }),
       delete: jest.fn().mockResolvedValue({ affected: 0, raw: [] }),
+      createQueryBuilder: jest.fn().mockImplementation((alias?: string) => {
+        const qb: Record<string, jest.Mock> = {};
+        // Support chaining for all query builder methods
+        for (const method of ['select', 'addSelect', 'where', 'andWhere', 'groupBy', 'orderBy', 'delete'] as const) {
+          qb[method] = jest.fn().mockReturnValue(qb);
+        }
+        qb.execute = jest.fn().mockResolvedValue({ affected: 0 });
+        qb.getRawMany = jest.fn().mockResolvedValue([]);
+        // getMany: used by getRecentMessages subquery — return messages in ASC order
+        qb.getMany = jest.fn().mockImplementation(() => {
+          // Extract imageId from the where call args
+          const whereCall = qb.where!.mock.calls[0];
+          const params = whereCall?.[1] as { imageId?: string; limit?: number } | undefined;
+          const imageId = params?.imageId;
+          const limit = params?.limit ?? 50;
+          if (!imageId) return Promise.resolve([]);
+          const filtered = messageStore
+            .filter((m) => m.imageId === imageId)
+            .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+          // Return last N in ASC order (simulates the subquery)
+          const lastN = filtered.slice(-limit);
+          return Promise.resolve(lastN);
+        });
+        return qb;
+      }),
     };
 
     mockAiService = {

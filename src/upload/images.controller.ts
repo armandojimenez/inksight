@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Delete,
+  Patch,
   Param,
   Query,
   Res,
@@ -9,6 +10,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
@@ -21,6 +23,7 @@ import { ImagesService } from './images.service';
 import { UuidValidationPipe } from '@/common/pipes/uuid-validation.pipe';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { GalleryResponse } from './dto/gallery-response.dto';
+import { ReanalyzeResponseDto } from './dto/reanalyze-response.dto';
 import { buildErrorResponse } from '@/common/utils/build-error-response';
 import { RequestWithCorrelation } from '@/common/interfaces/request.interface';
 import { ErrorResponseSchema } from '@/common/swagger/error-response.schema';
@@ -100,6 +103,51 @@ export class ImagesController {
     @Param('imageId', UuidValidationPipe) imageId: string,
   ): Promise<void> {
     await this.imagesService.deleteImage(imageId);
+  }
+
+  @Patch(':imageId/reanalyze')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({
+    summary: 'Re-run AI analysis on an image',
+    description:
+      'Re-runs the AI vision analysis on an existing image. Uses optimistic locking (@VersionColumn) — ' +
+      'if another request modified the image concurrently, returns 409 Conflict.',
+  })
+  @ApiParam({
+    name: 'imageId',
+    description: 'Image UUID (v4 format)',
+    format: 'uuid',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Image re-analyzed successfully',
+    type: ReanalyzeResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid UUID format (`INVALID_UUID`)',
+    type: ErrorResponseSchema,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Image not found (`IMAGE_NOT_FOUND`)',
+    type: ErrorResponseSchema,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Version conflict — image was modified concurrently (`VERSION_CONFLICT`)',
+    type: ErrorResponseSchema,
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Rate limit exceeded (`RATE_LIMIT_EXCEEDED`)',
+    type: ErrorResponseSchema,
+  })
+  async reanalyzeImage(
+    @Param('imageId', UuidValidationPipe) imageId: string,
+  ): Promise<ReanalyzeResponseDto> {
+    return this.imagesService.reanalyzeImage(imageId);
   }
 
   @Get(':imageId/file')

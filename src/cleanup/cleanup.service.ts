@@ -103,24 +103,25 @@ export class CleanupService {
     let deletedCount = 0;
     for (const image of toDelete) {
       try {
-        // DB-first deletion order (safer: if file delete fails, DB record is already gone)
-        await this.historyService.invalidateCache(image.id);
-        await this.cacheManager.del(CACHE_KEYS.image(image.id));
-        await this.imageRepository.remove(image);
-
-        // Delete file from disk — tolerate ENOENT, validate path containment
-        if (this.isPathContained(image.uploadPath, uploadDir)) {
-          try {
-            await fs.unlink(image.uploadPath);
-          } catch (err) {
-            const errno = err as NodeJS.ErrnoException;
-            if (errno.code !== 'ENOENT') throw err;
-          }
-        } else {
+        // Validate path containment — skip entire image on traversal (preserve DB record for investigation)
+        if (!this.isPathContained(image.uploadPath, uploadDir)) {
           this.logger.error(
             `Path traversal blocked in cleanup: ${image.uploadPath}`,
           );
+          continue;
         }
+
+        // File-first deletion order: if file delete fails, DB record survives for retry next cycle
+        try {
+          await fs.unlink(image.uploadPath);
+        } catch (err) {
+          const errno = err as NodeJS.ErrnoException;
+          if (errno.code !== 'ENOENT') throw err;
+        }
+
+        await this.historyService.invalidateCache(image.id);
+        await this.cacheManager.del(CACHE_KEYS.image(image.id));
+        await this.imageRepository.remove(image);
 
         deletedCount++;
       } catch (err) {

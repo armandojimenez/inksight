@@ -44,9 +44,8 @@ export class ImageEntity {
    * Optimistic locking — TypeORM auto-increments on save() and includes
    * `WHERE version = N` in UPDATE queries. If two concurrent operations
    * load the same row and both try to save, the second save fails with
-   * OptimisticLockVersionMismatchError. Current access patterns are
-   * insert-once (upload) with no concurrent update path, but the column
-   * protects against future update scenarios (e.g., metadata edits).
+   * OptimisticLockVersionMismatchError. Exercised by PATCH /api/images/:imageId/reanalyze
+   * which re-runs AI analysis with a version-checked save.
    */
   @VersionColumn()
   version!: number;

@@ -390,6 +390,51 @@
       "response": []
     },
     {
+      "name": "Reanalyze Image",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has reanalyze structure', function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json).to.have.property('id');",
+              "    pm.expect(json).to.have.property('filename');",
+              "    pm.expect(json).to.have.property('mimeType');",
+              "    pm.expect(json).to.have.property('size');",
+              "    pm.expect(json).to.have.property('analysis');",
+              "    pm.expect(json).to.have.property('version');",
+              "    pm.expect(json.version).to.be.a('number');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/images/{{imageId}}/reanalyze",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "images",
+            "{{imageId}}",
+            "reanalyze"
+          ]
+        },
+        "description": "Re-runs AI vision analysis on an existing image. Uses optimistic locking — if another request modified the image concurrently, returns 409 Conflict with code `VERSION_CONFLICT`.\n\nThe updated analysis replaces the previous `initialAnalysis` field on the image entity."
+      },
+      "response": []
+    },
+    {
       "name": "Delete Image",
       "event": [
         {

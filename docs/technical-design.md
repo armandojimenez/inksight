@@ -613,7 +613,7 @@ export class ImageEntity {
   updatedAt: Date;
 
   @VersionColumn()
-  version: number;  // Optimistic locking — prevents concurrent overwrites
+  version: number;  // Optimistic locking — exercised by PATCH /api/images/:imageId/reanalyze
 
   @OneToMany(() => ChatMessageEntity, (msg) => msg.image, { cascade: true })
   messages: ChatMessageEntity[];
@@ -684,7 +684,7 @@ TypeOrmModule.forRoot({
 - `synchronize: false` — Forces use of migrations (production discipline)
 - `migrationsRun: true` — No manual migration step needed; pending migrations run on startup
 - `retryAttempts: 10` — Handles Docker Compose startup race (app starts before PostgreSQL is ready)
-- `@VersionColumn()` on ImageEntity — Optimistic locking prevents silent concurrent overwrites (chat messages are append-only, no locking needed)
+- `@VersionColumn()` on ImageEntity — Optimistic locking exercised by the `PATCH /api/images/:imageId/reanalyze` endpoint; prevents concurrent reanalysis from silently overwriting results (chat messages are append-only, no locking needed)
 
 ### 7.4 Migration Strategy
 
@@ -1055,10 +1055,16 @@ export class FileValidationPipe implements PipeTransform {
       throw new UnsupportedMediaTypeException(`File type '${ext}' not supported`);
     }
 
-    // 3. Verify magic bytes match declared type
+    // 3. Verify magic bytes match declared type — dual-path: buffer (memory) or path (disk)
     const expectedMagic = this.MAGIC_BYTES[file.mimetype];
-    if (expectedMagic && !file.buffer.subarray(0, expectedMagic.length).equals(expectedMagic)) {
-      throw new BadRequestException('File content does not match declared type');
+    if (expectedMagic) {
+      const header = file.buffer
+        ? file.buffer.subarray(0, expectedMagic.length)
+        : await this.readHeaderFromDisk(file.path, expectedMagic.length);
+      if (!header || !header.equals(Buffer.from(expectedMagic))) {
+        await this.cleanupDiskFile(file); // Remove Multer's disk file on validation failure
+        throw new BadRequestException('File content does not match declared type');
+      }
     }
 
     // 4. Sanitize original filename for display purposes
@@ -1075,7 +1081,7 @@ export class FileValidationPipe implements PipeTransform {
 }
 ```
 
-> **Note on `memoryStorage`:** Multer uses `memoryStorage()` so `file.buffer` is available for magic byte verification. At the 16MB file size limit × 10 concurrent uploads (rate limit), peak memory is ~160MB — acceptable for expected load. For higher concurrency, switch to `diskStorage()` with post-write magic byte verification via `fs.createReadStream()` reading only the first 4 bytes.
+> **Note on `diskStorage`:** Multer uses `diskStorage()` to write uploads directly to disk, avoiding Node process memory pressure from buffering files up to 16MB. The `FileValidationPipe` uses a dual-path approach for magic byte verification: it checks `file.buffer` first (for memory-based uploads in tests), falling back to reading the first 4 bytes from `file.path` via `fs.open()`. On any validation failure, the pipe cleans up the disk file with `unlink(file.path)`. Multer's temp files use `.tmp-{uuid}` naming, and the existing `cleanupOrphanedTempFiles()` cron handles any stale temp files.
 
 ---
 

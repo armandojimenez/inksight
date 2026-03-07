@@ -617,7 +617,7 @@ git tag v0.5-history -m "Conversation history, image gallery, deletion with casc
 **Reference Docs:** [TDD Sec 7.1–7.6](./technical-design.md#71-entity-definitions) (entities, indexes, TypeORM config, migrations, connection lifecycle, withRetry), [ADR-002](./adr/002-database.md) (PostgreSQL selection + connection pool config)
 
 ### Tasks
-1. Verify `ImageEntity` is properly configured with `@VersionColumn()` (ChatMessageEntity is append-only — no locking needed)
+1. Verify `ImageEntity` is properly configured with `@VersionColumn()` — exercised by `PATCH /api/images/:imageId/reanalyze` (ChatMessageEntity is append-only — no locking needed)
 2. Generate and verify database migrations
 3. Add indexes: `imageId` on chat_messages, `createdAt` on both tables
 4. Verify cascade delete (deleting image removes all messages)
@@ -626,7 +626,7 @@ git tag v0.5-history -m "Conversation history, image gallery, deletion with casc
 7. Implement `withRetry` utility for transient DB failure retry in services
 8. Implement graceful shutdown (close DB connections on SIGTERM/SIGINT)
 9. Add database connectivity check to health endpoint
-10. Test optimistic locking — concurrent updates to same entity should throw `OptimisticLockVersionMismatchError`
+10. Test optimistic locking via reanalyze endpoint — concurrent `PATCH /api/images/:imageId/reanalyze` to same entity should throw `OptimisticLockVersionMismatchError` → 409 Conflict
 
 ### Tests to Write First
 - [ ] `database.integration.spec.ts`
@@ -637,8 +637,8 @@ git tag v0.5-history -m "Conversation history, image gallery, deletion with casc
   - Index exists on `chat_messages.imageId`
   - Connection pool handles concurrent requests
 - [ ] `locking.spec.ts`
-  - Concurrent update to same image → `OptimisticLockVersionMismatchError` on stale version
-  - Sequential updates increment version correctly
+  - Concurrent reanalyze requests to same image → `OptimisticLockVersionMismatchError` → 409 Conflict
+  - Sequential reanalyze increments version correctly
   - `@VersionColumn` is present on ImageEntity
 - [ ] `retry.spec.ts`
   - `withRetry` retries on transient error
@@ -677,9 +677,10 @@ curl -s http://localhost:3000/api/health | jq .checks.database
 # ✓ App logs "Database connection closed" on shutdown
 # ✓ Process exits cleanly (exit code 0)
 
-# 4. Version column increments on update
-# Upload an image, note the version, update it, check version incremented
-# (Verified primarily via automated locking tests — manual check is supplementary)
+# 4. Reanalyze endpoint exercises version column
+curl -X PATCH http://localhost:3000/api/images/<imageId>/reanalyze
+# ✓ Returns updated analysis with version: 2
+# ✓ Concurrent PATCH returns 409 VERSION_CONFLICT
 ```
 
 **Git:**

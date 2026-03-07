@@ -8,6 +8,10 @@ import { ConversationMessage } from '@/ai/interfaces/conversation-message.interf
 import { CACHE_KEYS } from '@/cache/cache-keys';
 import { withRetry } from '@/common/utils/retry';
 import { DEFAULT_HISTORY_CAP, DEFAULT_PAGE_SIZE } from '@/common/pagination.constants';
+
+/** Must match @Entity('chat_messages') on ChatMessageEntity */
+const CHAT_MESSAGES_TABLE = 'chat_messages';
+
 const VALID_ROLES = new Set(['user', 'assistant']);
 
 export type MessageRole = 'user' | 'assistant';
@@ -108,12 +112,22 @@ export class HistoryService {
       this.logger.debug(`Cache MISS for ${cacheKey}`);
     }
 
-    const messages = await this.messageRepository.find({
-      where: { imageId },
-      order: { createdAt: 'DESC' },
-      take: maxMessages,
-    });
-    const result = messages.reverse().map((msg) => ({
+    // Subquery: inner SELECT gets last N by DESC, outer ORDER BY ASC — one DB round-trip
+    const messages = await this.messageRepository
+      .createQueryBuilder('msg')
+      .where(
+        `msg.id IN (
+          SELECT id FROM ${CHAT_MESSAGES_TABLE}
+          WHERE "imageId" = :imageId
+          ORDER BY "createdAt" DESC
+          LIMIT :limit
+        )`,
+        { imageId, limit: maxMessages },
+      )
+      .orderBy('msg.createdAt', 'ASC')
+      .getMany();
+
+    const result = messages.map((msg) => ({
       role: msg.role as ConversationMessage['role'],
       content: msg.content,
     }));
@@ -171,7 +185,7 @@ export class HistoryService {
       .delete()
       .where(
         `id IN (
-          SELECT id FROM chat_messages
+          SELECT id FROM ${CHAT_MESSAGES_TABLE}
           WHERE "imageId" = :imageId
           ORDER BY "createdAt" ASC
           LIMIT :excess

@@ -10,7 +10,6 @@ import { AI_SERVICE_TOKEN } from '@/common/constants';
 import { IAiService } from '@/ai/interfaces/ai-service.interface';
 import { OpenAiChatCompletion } from '@/ai/interfaces/openai-chat-completion.interface';
 import { HistoryService } from '@/history/history.service';
-import { createMinimalPng } from '../../test/fixtures/image-buffers';
 
 jest.mock('fs/promises');
 jest.mock('uuid');
@@ -42,6 +41,25 @@ describe('UploadService', () => {
 
   const UPLOAD_DIR = 'test-uploads';
   const TEST_UUID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+
+  /** Create a mock file as diskStorage would produce (file.path set, no buffer) */
+  function createDiskFile(
+    overrides: Partial<Express.Multer.File> = {},
+  ): Express.Multer.File {
+    return {
+      fieldname: 'image',
+      originalname: 'photo.png',
+      encoding: '7bit',
+      mimetype: 'image/png',
+      buffer: undefined as unknown as Buffer,
+      size: 1024,
+      destination: UPLOAD_DIR,
+      filename: `.tmp-multer-uuid.png`,
+      path: `${UPLOAD_DIR}/.tmp-multer-uuid.png`,
+      stream: null as never,
+      ...overrides,
+    };
+  }
 
   beforeEach(async () => {
     repository = {
@@ -86,7 +104,6 @@ describe('UploadService', () => {
 
     (mockedUuid.v4 as jest.Mock).mockReturnValue(TEST_UUID);
     mockedFs.mkdir.mockResolvedValue(undefined);
-    mockedFs.writeFile.mockResolvedValue(undefined);
     mockedFs.rename.mockResolvedValue(undefined);
   });
 
@@ -99,53 +116,23 @@ describe('UploadService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should create the upload directory if it does not exist', async () => {
-    const buffer = createMinimalPng();
-    const file = {
-      originalname: 'photo.png',
-      mimetype: 'image/png',
-      buffer,
-      size: buffer.length,
-    } as Express.Multer.File;
-
-    const savedEntity = {
-      id: TEST_UUID,
-      originalFilename: 'photo.png',
-      storedFilename: `${TEST_UUID}.png`,
-      mimeType: 'image/png',
-      size: buffer.length,
-      uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
-      initialAnalysis: mockAnalysisCompletion as unknown as Record<
-        string,
-        unknown
-      >,
-    } as ImageEntity;
-
-    repository.create.mockReturnValue(savedEntity);
-    repository.save.mockResolvedValue(savedEntity);
-
-    await service.handleUpload(file);
+  it('should create the upload directory on module init', async () => {
+    await service.onModuleInit();
 
     expect(mockedFs.mkdir).toHaveBeenCalledWith(UPLOAD_DIR, {
       recursive: true,
     });
   });
 
-  it('should write file atomically (temp then rename)', async () => {
-    const buffer = createMinimalPng();
-    const file = {
-      originalname: 'photo.png',
-      mimetype: 'image/png',
-      buffer,
-      size: buffer.length,
-    } as Express.Multer.File;
+  it('should rename disk file from Multer temp path to final UUID path', async () => {
+    const file = createDiskFile();
 
     const savedEntity = {
       id: TEST_UUID,
       originalFilename: 'photo.png',
       storedFilename: `${TEST_UUID}.png`,
       mimeType: 'image/png',
-      size: buffer.length,
+      size: file.size,
       uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
       initialAnalysis: mockAnalysisCompletion as unknown as Record<
         string,
@@ -158,28 +145,19 @@ describe('UploadService', () => {
 
     await service.handleUpload(file);
 
-    const tempPath = `${UPLOAD_DIR}/.tmp-${TEST_UUID}.png`;
     const finalPath = `${UPLOAD_DIR}/${TEST_UUID}.png`;
-
-    expect(mockedFs.writeFile).toHaveBeenCalledWith(tempPath, buffer);
-    expect(mockedFs.rename).toHaveBeenCalledWith(tempPath, finalPath);
+    expect(mockedFs.rename).toHaveBeenCalledWith(file.path, finalPath);
   });
 
   it('should generate a UUID-based stored filename', async () => {
-    const buffer = createMinimalPng();
-    const file = {
-      originalname: 'my-photo.png',
-      mimetype: 'image/png',
-      buffer,
-      size: buffer.length,
-    } as Express.Multer.File;
+    const file = createDiskFile({ originalname: 'my-photo.png' });
 
     const savedEntity = {
       id: TEST_UUID,
       originalFilename: 'my-photo.png',
       storedFilename: `${TEST_UUID}.png`,
       mimeType: 'image/png',
-      size: buffer.length,
+      size: file.size,
       uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
       initialAnalysis: mockAnalysisCompletion as unknown as Record<
         string,
@@ -201,20 +179,14 @@ describe('UploadService', () => {
   });
 
   it('should persist the image entity to the database with AI analysis', async () => {
-    const buffer = createMinimalPng();
-    const file = {
-      originalname: 'photo.png',
-      mimetype: 'image/png',
-      buffer,
-      size: buffer.length,
-    } as Express.Multer.File;
+    const file = createDiskFile();
 
     const savedEntity = {
       id: TEST_UUID,
       originalFilename: 'photo.png',
       storedFilename: `${TEST_UUID}.png`,
       mimeType: 'image/png',
-      size: buffer.length,
+      size: file.size,
       uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
       initialAnalysis: mockAnalysisCompletion as unknown as Record<
         string,
@@ -231,7 +203,7 @@ describe('UploadService', () => {
       originalFilename: 'photo.png',
       storedFilename: `${TEST_UUID}.png`,
       mimeType: 'image/png',
-      size: buffer.length,
+      size: file.size,
       uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
       initialAnalysis: mockAnalysisCompletion,
     });
@@ -239,20 +211,14 @@ describe('UploadService', () => {
   });
 
   it('should call AI analyzeImage with the upload path', async () => {
-    const buffer = createMinimalPng();
-    const file = {
-      originalname: 'photo.png',
-      mimetype: 'image/png',
-      buffer,
-      size: buffer.length,
-    } as Express.Multer.File;
+    const file = createDiskFile();
 
     const savedEntity = {
       id: TEST_UUID,
       originalFilename: 'photo.png',
       storedFilename: `${TEST_UUID}.png`,
       mimeType: 'image/png',
-      size: buffer.length,
+      size: file.size,
       uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
       initialAnalysis: mockAnalysisCompletion as unknown as Record<
         string,
@@ -271,20 +237,14 @@ describe('UploadService', () => {
   });
 
   it('should return the upload response with analysis from AI', async () => {
-    const buffer = createMinimalPng();
-    const file = {
-      originalname: 'photo.png',
-      mimetype: 'image/png',
-      buffer,
-      size: buffer.length,
-    } as Express.Multer.File;
+    const file = createDiskFile();
 
     const savedEntity = {
       id: TEST_UUID,
       originalFilename: 'photo.png',
       storedFilename: `${TEST_UUID}.png`,
       mimeType: 'image/png',
-      size: buffer.length,
+      size: file.size,
       uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
       initialAnalysis: mockAnalysisCompletion as unknown as Record<
         string,
@@ -301,7 +261,7 @@ describe('UploadService', () => {
       id: TEST_UUID,
       filename: 'photo.png',
       mimeType: 'image/png',
-      size: buffer.length,
+      size: file.size,
       analysis: mockAnalysisCompletion,
     });
   });
@@ -309,20 +269,14 @@ describe('UploadService', () => {
   it('should gracefully handle AI analysis failure and return analysis: null', async () => {
     aiService.analyzeImage.mockRejectedValue(new Error('AI service down'));
 
-    const buffer = createMinimalPng();
-    const file = {
-      originalname: 'photo.png',
-      mimetype: 'image/png',
-      buffer,
-      size: buffer.length,
-    } as Express.Multer.File;
+    const file = createDiskFile();
 
     const savedEntity = {
       id: TEST_UUID,
       originalFilename: 'photo.png',
       storedFilename: `${TEST_UUID}.png`,
       mimeType: 'image/png',
-      size: buffer.length,
+      size: file.size,
       uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
       initialAnalysis: null,
     } as ImageEntity;
@@ -339,20 +293,14 @@ describe('UploadService', () => {
   });
 
   it('should extract the correct extension from the original filename', async () => {
-    const buffer = createMinimalPng();
-    const file = {
-      originalname: 'my.complex.name.png',
-      mimetype: 'image/png',
-      buffer,
-      size: buffer.length,
-    } as Express.Multer.File;
+    const file = createDiskFile({ originalname: 'my.complex.name.png' });
 
     const savedEntity = {
       id: TEST_UUID,
       originalFilename: 'my.complex.name.png',
       storedFilename: `${TEST_UUID}.png`,
       mimeType: 'image/png',
-      size: buffer.length,
+      size: file.size,
       uploadPath: `${UPLOAD_DIR}/${TEST_UUID}.png`,
       initialAnalysis: mockAnalysisCompletion as unknown as Record<
         string,
@@ -375,13 +323,7 @@ describe('UploadService', () => {
   it('should clean up both temp and final paths if database save fails', async () => {
     jest.useFakeTimers();
     try {
-      const buffer = createMinimalPng();
-      const file = {
-        originalname: 'photo.png',
-        mimetype: 'image/png',
-        buffer,
-        size: buffer.length,
-      } as Express.Multer.File;
+      const file = createDiskFile();
 
       const entity = { id: TEST_UUID } as ImageEntity;
       repository.create.mockReturnValue(entity);
@@ -397,9 +339,8 @@ describe('UploadService', () => {
 
       await expectation;
 
-      const tempPath = `${UPLOAD_DIR}/.tmp-${TEST_UUID}.png`;
       const finalPath = `${UPLOAD_DIR}/${TEST_UUID}.png`;
-      expect(mockedFs.unlink).toHaveBeenCalledWith(tempPath);
+      expect(mockedFs.unlink).toHaveBeenCalledWith(file.path);
       expect(mockedFs.unlink).toHaveBeenCalledWith(finalPath);
       // withRetry retries 3 times before giving up
       expect(repository.save).toHaveBeenCalledTimes(3);
@@ -411,13 +352,7 @@ describe('UploadService', () => {
   it('should propagate DB error even when unlink also fails', async () => {
     jest.useFakeTimers();
     try {
-      const buffer = createMinimalPng();
-      const file = {
-        originalname: 'photo.png',
-        mimetype: 'image/png',
-        buffer,
-        size: buffer.length,
-      } as Express.Multer.File;
+      const file = createDiskFile();
 
       const entity = { id: TEST_UUID } as ImageEntity;
       repository.create.mockReturnValue(entity);
@@ -437,38 +372,13 @@ describe('UploadService', () => {
   });
 
   it('should clean up temp file if rename fails', async () => {
-    const buffer = createMinimalPng();
-    const file = {
-      originalname: 'photo.png',
-      mimetype: 'image/png',
-      buffer,
-      size: buffer.length,
-    } as Express.Multer.File;
+    const file = createDiskFile();
 
     mockedFs.rename.mockRejectedValue(new Error('EXDEV: cross-device rename'));
     mockedFs.unlink = jest.fn().mockResolvedValue(undefined);
 
     await expect(service.handleUpload(file)).rejects.toThrow('EXDEV');
 
-    const tempPath = `${UPLOAD_DIR}/.tmp-${TEST_UUID}.png`;
-    expect(mockedFs.unlink).toHaveBeenCalledWith(tempPath);
-  });
-
-  it('should not call rename if writeFile fails', async () => {
-    const buffer = createMinimalPng();
-    const file = {
-      originalname: 'photo.png',
-      mimetype: 'image/png',
-      buffer,
-      size: buffer.length,
-    } as Express.Multer.File;
-
-    mockedFs.writeFile.mockRejectedValue(new Error('ENOSPC: disk full'));
-    mockedFs.unlink = jest.fn().mockResolvedValue(undefined);
-
-    await expect(service.handleUpload(file)).rejects.toThrow('ENOSPC');
-
-    expect(mockedFs.rename).not.toHaveBeenCalled();
-    expect(repository.create).not.toHaveBeenCalled();
+    expect(mockedFs.unlink).toHaveBeenCalledWith(file.path);
   });
 });

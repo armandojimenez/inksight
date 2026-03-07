@@ -1,8 +1,8 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
-import { mkdir, writeFile, rename, unlink } from 'fs/promises';
+import { mkdir, rename, unlink } from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import { extname, join } from 'path';
 import { ImageEntity } from './entities/image.entity';
@@ -13,7 +13,7 @@ import { withRetry } from '@/common/utils/retry';
 import { HistoryService } from '@/history/history.service';
 
 @Injectable()
-export class UploadService {
+export class UploadService implements OnModuleInit {
   private readonly logger = new Logger(UploadService.name);
   private readonly uploadDir: string;
 
@@ -28,19 +28,20 @@ export class UploadService {
     this.uploadDir = this.configService.get<string>('UPLOAD_DIR', 'uploads');
   }
 
+  async onModuleInit(): Promise<void> {
+    await mkdir(this.uploadDir, { recursive: true });
+  }
+
   async handleUpload(file: Express.Multer.File): Promise<UploadResponseDto> {
     const id = uuidv4();
     const ext = extname(file.originalname).toLowerCase();
     const storedFilename = `${id}${ext}`;
     const uploadPath = join(this.uploadDir, storedFilename);
-    const tempPath = join(this.uploadDir, `.tmp-${id}${ext}`);
 
-    // Ensure upload directory exists
-    await mkdir(this.uploadDir, { recursive: true });
+    // file.path is set by diskStorage — rename from Multer's temp name to final UUID name
+    const tempPath = file.path;
 
     try {
-      // Atomic write: temp file then rename
-      await writeFile(tempPath, file.buffer);
       await rename(tempPath, uploadPath);
 
       // Attempt AI analysis — failure does not block upload

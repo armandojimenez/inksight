@@ -56,6 +56,10 @@ async function createE2eApp(overrides?: {
   const rateLimitTtl = overrides?.rateLimitTtl ?? 1000;
   const uploadDir = overrides?.uploadDir ?? E2E_UPLOAD_DIR;
 
+  // Multer's diskStorage reads process.env.UPLOAD_DIR at module load (before DI).
+  // Must match the ConfigService value so temp files land in the same directory.
+  process.env.UPLOAD_DIR = uploadDir;
+
   const module: TestingModule = await Test.createTestingModule({
     imports: [
       // P2-10: Include Joi validationSchema to match production
@@ -168,6 +172,7 @@ async function cleanDatabase(app: INestApplication): Promise<void> {
  */
 async function cleanUploadDir(dir: string): Promise<void> {
   await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+  await fs.mkdir(dir, { recursive: true });
 }
 
 /**

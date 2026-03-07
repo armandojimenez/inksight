@@ -15,7 +15,9 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
+import { diskStorage } from 'multer';
+import { v4 as uuidv4 } from 'uuid';
+import { extname } from 'path';
 import { UploadService } from './upload.service';
 import { UploadResponseDto } from './dto/upload-response.dto';
 import { FileValidationPipe } from '../common/pipes/file-validation.pipe';
@@ -86,7 +88,20 @@ export class UploadController {
   @UseInterceptors(
     MulterErrorInterceptor,
     FileInterceptor('image', {
-      storage: memoryStorage(),
+      // diskStorage writes directly to disk — avoids buffering up to 16MB in Node process memory.
+      // Uses process.env.UPLOAD_DIR (not ConfigService) because Multer config runs at module load before DI.
+      // Value is validated at startup by Joi schema in AppModule (pattern: /^[a-zA-Z0-9._/-]+$/).
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          cb(null, process.env.UPLOAD_DIR || 'uploads');
+        },
+        filename: (_req, file, cb) => {
+          // No extension on temp file — prevents attacker-controlled extensions from touching disk.
+          // The pipe validates the original extension; UploadService renames to final {uuid}.{ext}.
+          void file;
+          cb(null, `.tmp-${uuidv4()}`);
+        },
+      }),
       limits: {
         fileSize: MAX_FILE_SIZE_HARD_LIMIT,
         files: 1,

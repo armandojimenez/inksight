@@ -160,7 +160,7 @@ describe('CleanupService', () => {
       expect(result).toBe(0);
     });
 
-    it('should delete expired images with no recent activity', async () => {
+    it('should delete expired images with no recent activity (file-first order)', async () => {
       const img = mockImage();
       imageRepo.find!.mockResolvedValue([img]);
       mockFs.unlink.mockResolvedValue(undefined);
@@ -168,9 +168,16 @@ describe('CleanupService', () => {
       const result = await service.cleanupExpiredImages();
 
       expect(result).toBe(1);
+      // Verify file-first deletion order: unlink → cache → DB
+      const unlinkOrder = mockFs.unlink.mock.invocationCallOrder[0]!;
+      const cacheOrder = historyService.invalidateCache!.mock.invocationCallOrder[0]!;
+      const removeOrder = imageRepo.remove!.mock.invocationCallOrder[0]!;
+      expect(unlinkOrder).toBeLessThan(cacheOrder);
+      expect(cacheOrder).toBeLessThan(removeOrder);
+
+      expect(mockFs.unlink).toHaveBeenCalledWith('uploads/abc.png');
       expect(historyService.invalidateCache).toHaveBeenCalledWith('img-1');
       expect(imageRepo.remove).toHaveBeenCalledWith(img);
-      expect(mockFs.unlink).toHaveBeenCalledWith('uploads/abc.png');
     });
 
     it('should skip images with recent chat activity', async () => {
@@ -209,7 +216,7 @@ describe('CleanupService', () => {
       expect(result).toBe(1);
     });
 
-    it('should block path traversal in cleanup and not delete file', async () => {
+    it('should block path traversal in cleanup — skip entire image (preserve DB record)', async () => {
       const img = mockImage({
         uploadPath: '/etc/passwd',
       });
@@ -218,10 +225,9 @@ describe('CleanupService', () => {
 
       const result = await service.cleanupExpiredImages();
 
-      // Image DB record is still removed, but fs.unlink should NOT be called
-      // because path traversal is blocked
-      expect(result).toBe(1);
-      expect(imageRepo.remove).toHaveBeenCalledWith(img);
+      // Path traversal: skip the entire image — don't delete file OR DB record
+      expect(result).toBe(0);
+      expect(imageRepo.remove).not.toHaveBeenCalled();
       expect(mockFs.unlink).not.toHaveBeenCalled();
     });
 

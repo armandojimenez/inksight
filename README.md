@@ -13,8 +13,8 @@
   <img src="https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white" alt="NestJS" />
   <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL" />
-  <img src="https://img.shields.io/badge/Tests-55_files-brightgreen" alt="Tests" />
-  <img src="https://img.shields.io/badge/Coverage-98.7%25_Statements-brightgreen" alt="Coverage: 98.7% Statements" />
+  <img src="https://img.shields.io/badge/Tests-56_files-brightgreen" alt="Tests" />
+  <img src="https://img.shields.io/badge/Coverage-98%25_Statements-brightgreen" alt="Coverage: 98% Statements" />
   <img src="https://img.shields.io/badge/ADRs-11-blue" alt="ADRs" />
 </p>
 
@@ -95,7 +95,7 @@ graph TD
 
 | Module | Purpose |
 |--------|---------|
-| `upload/` | Image upload, file validation (magic bytes + extension + size), disk storage, gallery listing, file serving, deletion with cascade |
+| `upload/` | Image upload via `diskStorage`, file validation (magic bytes + extension + size), gallery listing, file serving, reanalysis with optimistic locking, deletion with cascade |
 | `chat/` | Chat orchestration (non-streaming + SSE streaming), conversation context assembly, concurrent SSE limiting |
 | `ai/` | AI service abstraction via DI token, mock implementation with OpenAI-compatible response format |
 | `history/` | Conversation persistence, paginated retrieval, 50-message cap per image |
@@ -132,6 +132,7 @@ All endpoints are prefixed with `/api`. Interactive documentation is available a
 | `GET` | `/api/images` | List uploaded images with message counts (paginated) |
 | `GET` | `/api/images/:imageId/file` | Serve the original image file |
 | `DELETE` | `/api/images/:imageId` | Delete image + messages + file (cascade) |
+| `PATCH` | `/api/images/:imageId/reanalyze` | Re-run AI analysis (optimistic locking) |
 | `POST` | `/api/chat/:imageId` | Send a message, get complete AI response (OpenAI format) |
 | `POST` | `/api/chat-stream/:imageId` | Send a message, get SSE-streamed AI response |
 | `GET` | `/api/chat/:imageId/history` | Get conversation history (paginated, ascending) |
@@ -194,7 +195,7 @@ inksight/
 │
 ├── test/                         # Backend tests
 │   ├── unit/                     #   25 unit test files
-│   ├── integration/              #   14 integration test files
+│   ├── integration/              #   15 integration test files
 │   ├── e2e/                      #   1 E2E test file (15 scenarios)
 │   └── schemas/                  #   2 JSON Schema validation files
 │
@@ -219,7 +220,7 @@ inksight/
 
 ## Testing
 
-**55 test files, 806 tests, 98.7% statement coverage** across six layers: unit, integration, E2E, client, contract, and schema validation.
+**56 test files, 848 tests, 98% statement coverage** across six layers: unit, integration, E2E, client, contract, and schema validation.
 
 ```bash
 npm test                  # Backend unit + integration

@@ -35,7 +35,7 @@ src/
 - **DTOs validated** with `class-validator` + global `ValidationPipe`
 - **Consistent error shape** everywhere: `{ statusCode, error, code, message, timestamp, path, requestId }`
 - **Files stored as** `uploads/{uuid}.{ext}` — original filename in DB only
-- **`@VersionColumn()`** on `ImageEntity` only — chat messages are append-only, no locking needed
+- **`@VersionColumn()`** on `ImageEntity` only — exercised by `PATCH /api/images/:imageId/reanalyze`; chat messages are append-only, no locking needed
 - **No authentication** — intentionally deferred, documented in PRD SEC-11
 - **Global prefix** `/api` on all routes
 

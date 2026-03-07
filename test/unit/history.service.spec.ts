@@ -27,6 +27,8 @@ describe('HistoryService', () => {
     groupBy: jest.Mock;
     execute: jest.Mock;
     getRawMany: jest.Mock;
+    orderBy: jest.Mock;
+    getMany: jest.Mock;
   };
 
   const IMAGE_ID_A = '550e8400-e29b-41d4-a716-446655440000';
@@ -41,6 +43,8 @@ describe('HistoryService', () => {
       groupBy: jest.fn().mockReturnThis(),
       execute: jest.fn().mockResolvedValue({ affected: 0 }),
       getRawMany: jest.fn().mockResolvedValue([]),
+      orderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
     };
 
     repo = {
@@ -245,17 +249,16 @@ describe('HistoryService', () => {
   });
 
   describe('getRecentMessages', () => {
-    it('should return ConversationMessage array in chronological order', async () => {
-      // Repo returns DESC order (newest first)
+    it('should return ConversationMessage array in chronological order via subquery', async () => {
+      // Query builder returns ASC-ordered results directly (no JS reverse needed)
       const messages = [
-        { role: 'assistant', content: 'Hi' },
         { role: 'user', content: 'Hello' },
+        { role: 'assistant', content: 'Hi' },
       ] as ChatMessageEntity[];
-      repo.find.mockResolvedValue(messages);
+      mockQueryBuilder.getMany.mockResolvedValue(messages);
 
       const result = await service.getRecentMessages(IMAGE_ID_A);
 
-      // Service reverses to chronological order
       expect(result).toEqual([
         { role: 'user', content: 'Hello' },
         { role: 'assistant', content: 'Hi' },
@@ -263,35 +266,36 @@ describe('HistoryService', () => {
     });
 
     it('should return empty array when no messages', async () => {
-      repo.find.mockResolvedValue([]);
+      mockQueryBuilder.getMany.mockResolvedValue([]);
 
       const result = await service.getRecentMessages(IMAGE_ID_A);
 
       expect(result).toEqual([]);
     });
 
-    it('should query with DESC order and cap at 50 by default', async () => {
-      repo.find.mockResolvedValue([]);
+    it('should use subquery with DESC inner and ASC outer ordering', async () => {
+      mockQueryBuilder.getMany.mockResolvedValue([]);
 
       await service.getRecentMessages(IMAGE_ID_A);
 
-      expect(repo.find).toHaveBeenCalledWith({
-        where: { imageId: IMAGE_ID_A },
-        order: { createdAt: 'DESC' },
-        take: 50,
-      });
+      expect(repo.createQueryBuilder).toHaveBeenCalledWith('msg');
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        expect.stringContaining('ORDER BY "createdAt" DESC'),
+        expect.objectContaining({ imageId: IMAGE_ID_A, limit: 50 }),
+      );
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith('msg.createdAt', 'ASC');
+      expect(mockQueryBuilder.getMany).toHaveBeenCalled();
     });
 
     it('should respect custom maxMessages parameter', async () => {
-      repo.find.mockResolvedValue([]);
+      mockQueryBuilder.getMany.mockResolvedValue([]);
 
       await service.getRecentMessages(IMAGE_ID_A, 10);
 
-      expect(repo.find).toHaveBeenCalledWith({
-        where: { imageId: IMAGE_ID_A },
-        order: { createdAt: 'DESC' },
-        take: 10,
-      });
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        expect.stringContaining('LIMIT'),
+        expect.objectContaining({ imageId: IMAGE_ID_A, limit: 10 }),
+      );
     });
   });
 
@@ -341,12 +345,14 @@ describe('HistoryService', () => {
     });
 
     it('should scope getRecentMessages to the given imageId', async () => {
-      repo.find.mockResolvedValue([]);
+      mockQueryBuilder.getMany.mockResolvedValue([]);
 
       await service.getRecentMessages(IMAGE_ID_B);
 
-      const call = repo.find.mock.calls[0]![0]!;
-      expect((call as { where: { imageId: string } }).where.imageId).toBe(IMAGE_ID_B);
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        expect.stringContaining('imageId'),
+        expect.objectContaining({ imageId: IMAGE_ID_B }),
+      );
     });
   });
 
@@ -466,7 +472,7 @@ describe('HistoryService', () => {
     });
 
     it('getRecentMessages should call cache get/set for default count', async () => {
-      repo.find.mockResolvedValue([]);
+      mockQueryBuilder.getMany.mockResolvedValue([]);
 
       const result = await service.getRecentMessages(IMAGE_ID_A);
 
@@ -479,7 +485,7 @@ describe('HistoryService', () => {
     });
 
     it('getRecentMessages should NOT cache non-default count', async () => {
-      repo.find.mockResolvedValue([]);
+      mockQueryBuilder.getMany.mockResolvedValue([]);
 
       await service.getRecentMessages(IMAGE_ID_A, 10);
 
@@ -525,19 +531,19 @@ describe('HistoryService', () => {
 
     it('getRecentMessages should fall through to DB when cache.get throws', async () => {
       mockCache.get.mockRejectedValue(new Error('Cache connection lost'));
-      repo.find.mockResolvedValue([
+      mockQueryBuilder.getMany.mockResolvedValue([
         { role: 'user', content: 'Hello' } as ChatMessageEntity,
       ]);
 
       const result = await service.getRecentMessages(IMAGE_ID_A);
 
       expect(result).toEqual([{ role: 'user', content: 'Hello' }]);
-      expect(repo.find).toHaveBeenCalled();
+      expect(repo.createQueryBuilder).toHaveBeenCalledWith('msg');
     });
 
     it('getRecentMessages should still return data when cache.set throws', async () => {
       mockCache.set.mockRejectedValue(new Error('Cache write failed'));
-      repo.find.mockResolvedValue([
+      mockQueryBuilder.getMany.mockResolvedValue([
         { role: 'assistant', content: 'Hi' } as ChatMessageEntity,
       ]);
 

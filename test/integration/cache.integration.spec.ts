@@ -13,6 +13,7 @@ import { HistoryService } from '@/history/history.service';
 import { ImagesService } from '@/upload/images.service';
 import { ChatMessageEntity } from '@/history/entities/chat-message.entity';
 import { ImageEntity } from '@/upload/entities/image.entity';
+import { AI_SERVICE_TOKEN } from '@/common/constants';
 
 jest.mock('fs');
 jest.mock('fs/promises');
@@ -51,6 +52,8 @@ describe('Cache Integration', () => {
     delete: jest.Mock;
     where: jest.Mock;
     execute: jest.Mock;
+    orderBy: jest.Mock;
+    getMany: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -58,6 +61,8 @@ describe('Cache Integration', () => {
       delete: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       execute: jest.fn().mockResolvedValue({ affected: 0 }),
+      orderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
     };
 
     mockMessageRepo = {
@@ -104,6 +109,10 @@ describe('Cache Integration', () => {
         {
           provide: ConfigService,
           useValue: { get: jest.fn().mockReturnValue('uploads') },
+        },
+        {
+          provide: AI_SERVICE_TOKEN,
+          useValue: { analyzeImage: jest.fn() },
         },
       ],
     }).compile();
@@ -186,26 +195,26 @@ describe('Cache Integration', () => {
       const dbMessages = [
         { role: 'user', content: 'Hi' },
       ] as ChatMessageEntity[];
-      mockMessageRepo.find.mockResolvedValue(dbMessages);
+      mockQueryBuilder.getMany.mockResolvedValue(dbMessages);
 
       await historyService.getRecentMessages(IMAGE_ID_A);
-      mockMessageRepo.find.mockClear();
+      mockMessageRepo.createQueryBuilder.mockClear();
 
       const result = await historyService.getRecentMessages(IMAGE_ID_A);
 
-      expect(mockMessageRepo.find).not.toHaveBeenCalled();
+      expect(mockMessageRepo.createQueryBuilder).not.toHaveBeenCalled();
       expect(result).toEqual([{ role: 'user', content: 'Hi' }]);
     });
 
     it('should not cache non-default count', async () => {
-      mockMessageRepo.find.mockResolvedValue([]);
+      mockQueryBuilder.getMany.mockResolvedValue([]);
 
       await historyService.getRecentMessages(IMAGE_ID_A, 10);
-      mockMessageRepo.find.mockClear();
+      mockMessageRepo.createQueryBuilder.mockClear();
 
       await historyService.getRecentMessages(IMAGE_ID_A, 10);
 
-      expect(mockMessageRepo.find).toHaveBeenCalledTimes(1);
+      expect(mockMessageRepo.createQueryBuilder).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -266,7 +275,7 @@ describe('Cache Integration', () => {
       await imagesService.getImageForServing(IMAGE_ID_A);
       mockMessageRepo.findAndCount.mockResolvedValue([[], 0]);
       await historyService.getHistory(IMAGE_ID_A);
-      mockMessageRepo.find.mockResolvedValue([]);
+      mockQueryBuilder.getMany.mockResolvedValue([]);
       await historyService.getRecentMessages(IMAGE_ID_A);
 
       // Delete — should invalidate all 3 keys
@@ -275,11 +284,11 @@ describe('Cache Integration', () => {
       // Verify caches are empty by checking DB is queried again
       mockImageRepo.findOneBy.mockClear();
       mockMessageRepo.findAndCount.mockClear();
-      mockMessageRepo.find.mockClear();
+      mockMessageRepo.createQueryBuilder.mockClear();
 
       mockImageRepo.findOneBy.mockResolvedValue(image);
       mockMessageRepo.findAndCount.mockResolvedValue([[], 0]);
-      mockMessageRepo.find.mockResolvedValue([]);
+      mockQueryBuilder.getMany.mockResolvedValue([]);
 
       await imagesService.getImageForServing(IMAGE_ID_A);
       await historyService.getHistory(IMAGE_ID_A);
@@ -287,7 +296,7 @@ describe('Cache Integration', () => {
 
       expect(mockImageRepo.findOneBy).toHaveBeenCalledTimes(1);
       expect(mockMessageRepo.findAndCount).toHaveBeenCalledTimes(1);
-      expect(mockMessageRepo.find).toHaveBeenCalledTimes(1);
+      expect(mockMessageRepo.createQueryBuilder).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -327,22 +336,22 @@ describe('Cache Integration', () => {
   describe('deleteByImageId invalidation', () => {
     it('should invalidate history and recent cache', async () => {
       mockMessageRepo.findAndCount.mockResolvedValue([[], 0]);
-      mockMessageRepo.find.mockResolvedValue([]);
+      mockQueryBuilder.getMany.mockResolvedValue([]);
       await historyService.getHistory(IMAGE_ID_A);
       await historyService.getRecentMessages(IMAGE_ID_A);
 
       await historyService.deleteByImageId(IMAGE_ID_A);
 
       mockMessageRepo.findAndCount.mockClear();
-      mockMessageRepo.find.mockClear();
+      mockMessageRepo.createQueryBuilder.mockClear();
       mockMessageRepo.findAndCount.mockResolvedValue([[], 0]);
-      mockMessageRepo.find.mockResolvedValue([]);
+      mockQueryBuilder.getMany.mockResolvedValue([]);
 
       await historyService.getHistory(IMAGE_ID_A);
       await historyService.getRecentMessages(IMAGE_ID_A);
 
       expect(mockMessageRepo.findAndCount).toHaveBeenCalledTimes(1);
-      expect(mockMessageRepo.find).toHaveBeenCalledTimes(1);
+      expect(mockMessageRepo.createQueryBuilder).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -383,16 +392,16 @@ describe('Cache Integration', () => {
 
     it('addMessage for imageId A should not invalidate imageId B recent cache', async () => {
       const dbMessages = [{ role: 'user', content: 'Hi' }] as ChatMessageEntity[];
-      mockMessageRepo.find.mockResolvedValue(dbMessages);
+      mockQueryBuilder.getMany.mockResolvedValue(dbMessages);
       await historyService.getRecentMessages(IMAGE_ID_B);
 
       await historyService.addMessage(IMAGE_ID_A, 'user', 'Hello');
 
       // B's recent cache should still be valid
-      mockMessageRepo.find.mockClear();
+      mockMessageRepo.createQueryBuilder.mockClear();
       const result = await historyService.getRecentMessages(IMAGE_ID_B);
 
-      expect(mockMessageRepo.find).not.toHaveBeenCalled();
+      expect(mockMessageRepo.createQueryBuilder).not.toHaveBeenCalled();
       expect(result).toEqual([{ role: 'user', content: 'Hi' }]);
     });
   });
@@ -427,21 +436,21 @@ describe('Cache Integration', () => {
 
     it('getRecentMessages should fall through to DB when cache get throws', async () => {
       const dbMessages = [{ role: 'user', content: 'Hi' }] as ChatMessageEntity[];
-      mockMessageRepo.find.mockResolvedValue(dbMessages);
+      mockQueryBuilder.getMany.mockResolvedValue(dbMessages);
 
       const spy = jest.spyOn(cacheManager, 'get').mockRejectedValue(new Error('cache failure'));
 
       const result = await historyService.getRecentMessages(IMAGE_ID_A);
 
       expect(result).toEqual([{ role: 'user', content: 'Hi' }]);
-      expect(mockMessageRepo.find).toHaveBeenCalledTimes(1);
+      expect(mockMessageRepo.createQueryBuilder).toHaveBeenCalled();
 
       spy.mockRestore();
     });
 
     it('getRecentMessages should return DB result when cache set throws', async () => {
       const dbMessages = [{ role: 'user', content: 'Hi' }] as ChatMessageEntity[];
-      mockMessageRepo.find.mockResolvedValue(dbMessages);
+      mockQueryBuilder.getMany.mockResolvedValue(dbMessages);
 
       const spy = jest.spyOn(cacheManager, 'set').mockRejectedValue(new Error('cache failure'));
 

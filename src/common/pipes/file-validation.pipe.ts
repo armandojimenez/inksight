@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { extname } from 'path';
+import { open, unlink } from 'fs/promises';
 
 const ALLOWED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif']);
 
@@ -37,7 +38,7 @@ export class FileValidationPipe implements PipeTransform<Express.Multer.File> {
     );
   }
 
-  transform(file: Express.Multer.File): Express.Multer.File {
+  async transform(file: Express.Multer.File): Promise<Express.Multer.File> {
     if (!file) {
       throw new BadRequestException({
         message: 'No file provided',
@@ -52,6 +53,7 @@ export class FileValidationPipe implements PipeTransform<Express.Multer.File> {
     // 2. Validate extension (extracted from sanitized filename)
     const ext = extname(file.originalname).toLowerCase();
     if (!ALLOWED_EXTENSIONS.has(ext)) {
+      await this.cleanupDiskFile(file);
       throw new UnsupportedMediaTypeException({
         message: `File type not allowed. Accepted types: ${[...ALLOWED_EXTENSIONS].join(', ')}`,
         code: 'INVALID_FILE_TYPE',
@@ -60,20 +62,26 @@ export class FileValidationPipe implements PipeTransform<Express.Multer.File> {
 
     // 3. Validate file size (cheapest check before magic byte inspection)
     if (file.size > this.maxFileSize) {
+      await this.cleanupDiskFile(file);
       throw new PayloadTooLargeException({
         message: `File size exceeds the maximum allowed size of ${this.maxFileSize} bytes`,
         code: 'FILE_TOO_LARGE',
       });
     }
 
-    // 4. Validate magic bytes (keyed by extension, not client-declared mimetype)
+    // 4. Validate magic bytes — dual-path: buffer (memory) or path (disk)
     const expectedMagic = EXT_TO_MAGIC[ext];
     if (expectedMagic) {
+      const headerBytes = file.buffer
+        ? file.buffer.subarray(0, expectedMagic.length)
+        : await this.readHeaderFromDisk(file.path, expectedMagic.length);
+
       if (
-        !file.buffer ||
-        file.buffer.length < expectedMagic.length ||
-        !expectedMagic.every((byte, i) => file.buffer[i] === byte)
+        !headerBytes ||
+        headerBytes.length < expectedMagic.length ||
+        !expectedMagic.every((byte, i) => headerBytes[i] === byte)
       ) {
+        await this.cleanupDiskFile(file);
         throw new BadRequestException({
           message: 'File content does not match its extension',
           code: 'FILE_CONTENT_MISMATCH',
@@ -88,6 +96,36 @@ export class FileValidationPipe implements PipeTransform<Express.Multer.File> {
     }
 
     return file;
+  }
+
+  private async readHeaderFromDisk(
+    filePath: string,
+    byteCount: number,
+  ): Promise<Buffer | null> {
+    let fh;
+    try {
+      fh = await open(filePath, 'r');
+      const buf = Buffer.alloc(byteCount);
+      const { bytesRead } = await fh.read(buf, 0, byteCount, 0);
+      return buf.subarray(0, bytesRead);
+    } catch (err) {
+      // Log non-ENOENT errors — ENOENT means the file disappeared between Multer and pipe
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if (code !== 'ENOENT') {
+        // Use console.warn — pipe has no injected Logger
+        console.warn(`[FileValidationPipe] Failed to read header from ${filePath}: ${code ?? err}`);
+      }
+      return null;
+    } finally {
+      await fh?.close();
+    }
+  }
+
+  /** Remove Multer's disk file on validation failure to prevent disk buildup */
+  private async cleanupDiskFile(file: Express.Multer.File): Promise<void> {
+    if (file.path) {
+      await unlink(file.path).catch(() => {});
+    }
   }
 
   private sanitizeFilename(filename: string): string {

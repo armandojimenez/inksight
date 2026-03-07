@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -12,9 +13,13 @@ import { Repository } from 'typeorm';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
+import { OptimisticLockVersionMismatchError } from 'typeorm';
 import { ImageEntity } from './entities/image.entity';
 import { HistoryService } from '@/history/history.service';
+import { IAiService } from '@/ai/interfaces/ai-service.interface';
+import { AI_SERVICE_TOKEN } from '@/common/constants';
 import { GalleryImageResponse } from './dto/gallery-response.dto';
+import { ReanalyzeResponseDto } from './dto/reanalyze-response.dto';
 import { CACHE_KEYS } from '@/cache/cache-keys';
 
 // Allowed MIME types for serving. Includes webp defensively even though
@@ -44,6 +49,7 @@ export class ImagesService {
     private readonly historyService: HistoryService,
     private readonly configService: ConfigService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(AI_SERVICE_TOKEN) private readonly aiService: IAiService,
   ) {
     this.uploadDir = path.resolve(
       this.configService.get<string>('UPLOAD_DIR', 'uploads'),
@@ -175,6 +181,64 @@ export class ImagesService {
 
     const stream = fs.createReadStream(image.uploadPath);
     return { stream, image };
+  }
+
+  async reanalyzeImage(imageId: string): Promise<ReanalyzeResponseDto> {
+    const image = await this.imageRepository.findOneBy({ id: imageId });
+    if (!image) {
+      throw new NotFoundException({
+        statusCode: 404,
+        message: 'Image not found',
+        code: 'IMAGE_NOT_FOUND',
+      });
+    }
+
+    this.assertPathContainment(image.uploadPath);
+
+    // Verify file exists on disk before sending to AI service
+    try {
+      await fsPromises.access(image.uploadPath);
+    } catch {
+      throw new NotFoundException({
+        statusCode: 404,
+        message: 'Image file not found on disk',
+        code: 'IMAGE_FILE_NOT_FOUND',
+      });
+    }
+
+    const completion = await this.aiService.analyzeImage(image.uploadPath);
+    image.initialAnalysis = completion as unknown as Record<string, unknown>;
+
+    try {
+      const saved = await this.imageRepository.save(image);
+
+      // Invalidate caches after successful update
+      try {
+        await this.cacheManager.del(CACHE_KEYS.image(imageId));
+      } catch (err) {
+        this.logger.warn(
+          `Cache invalidation failed for image:${imageId}: ${err instanceof Error ? err.message : 'Unknown'}`,
+        );
+      }
+
+      return {
+        id: saved.id,
+        filename: saved.originalFilename,
+        mimeType: saved.mimeType,
+        size: saved.size,
+        analysis: saved.initialAnalysis,
+        version: saved.version,
+      };
+    } catch (err) {
+      if (err instanceof OptimisticLockVersionMismatchError) {
+        throw new ConflictException({
+          statusCode: 409,
+          message: 'Image was modified by another request. Please retry.',
+          code: 'VERSION_CONFLICT',
+        });
+      }
+      throw err;
+    }
   }
 
   private assertPathContainment(filePath: string): void {

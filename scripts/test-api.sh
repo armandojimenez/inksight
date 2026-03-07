@@ -449,7 +449,35 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-section "12. Delete Image"
+section "12. Reanalyze Image"
+# ---------------------------------------------------------------------------
+
+REANALYZE_HEADERS=$(mktemp "$TMPDIR_TEST/headers.XXXXXX")
+REANALYZE_BODY=$(curl -s -w '\n%{http_code}' -D "$REANALYZE_HEADERS" \
+  -X PATCH "$BASE_URL/api/images/$IMAGE_ID/reanalyze")
+REANALYZE_STATUS=$(echo "$REANALYZE_BODY" | tail -1)
+REANALYZE_JSON=$(echo "$REANALYZE_BODY" | sed '$d')
+
+assert_status "200" "$REANALYZE_STATUS" "Reanalyze returns 200 OK"
+assert_json_equals "$REANALYZE_JSON" '.id' "$IMAGE_ID" "Response id matches image"
+assert_json_field "$REANALYZE_JSON" '.filename' "Response has filename"
+assert_json_equals "$REANALYZE_JSON" '.mimeType' 'image/png' "MIME type is image/png"
+assert_json_field "$REANALYZE_JSON" '.size' "Response has size"
+assert_json_field "$REANALYZE_JSON" '.analysis' "Response has analysis"
+assert_json_field "$REANALYZE_JSON" '.version' "Response has version"
+assert_header "$(cat "$REANALYZE_HEADERS")" "X-Request-Id" "X-Request-Id header present"
+
+# Reanalyze nonexistent image
+REANALYZE_404_BODY=$(curl -s -w '\n%{http_code}' \
+  -X PATCH "$BASE_URL/api/images/$FAKE_UUID/reanalyze")
+REANALYZE_404_STATUS=$(echo "$REANALYZE_404_BODY" | tail -1)
+REANALYZE_404_JSON=$(echo "$REANALYZE_404_BODY" | sed '$d')
+
+assert_status "404" "$REANALYZE_404_STATUS" "Reanalyze nonexistent image returns 404"
+assert_json_equals "$REANALYZE_404_JSON" '.code' 'IMAGE_NOT_FOUND' "Error code is IMAGE_NOT_FOUND"
+
+# ---------------------------------------------------------------------------
+section "13. Delete Image"
 # ---------------------------------------------------------------------------
 
 DELETE_BODY=$(curl -s -w '\n%{http_code}' -X DELETE "$BASE_URL/api/images/$IMAGE_ID")
