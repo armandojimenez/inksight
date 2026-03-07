@@ -37,7 +37,7 @@ import { OpenAiStreamChunk } from '@/ai/interfaces/openai-stream-chunk.interface
 // P3-2: Absolute path to avoid CWD-dependent resolution
 const E2E_UPLOAD_DIR = path.resolve(process.cwd(), 'test-uploads-e2e');
 const E2E_UPLOAD_DIR_RATE = path.resolve(process.cwd(), 'test-uploads-e2e-rate');
-const E2E_DB_URL = process.env.DATABASE_URL || 'postgres://test:test@localhost:5432/inksight_test';
+const E2E_DB_URL = process.env.DATABASE_URL || 'postgres://inksight:inksight_dev@localhost:5432/inksight';
 
 /**
  * Build the full AppModule equivalent for E2E tests.
