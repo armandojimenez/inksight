@@ -182,6 +182,8 @@ export function AppLayout() {
     return () => sidebar.removeEventListener('keydown', handleTab);
   }, [isDesktop, sidebarOpen]);
 
+  const hasImages = images.length > 0;
+
   const sidebarNode = (
     <Sidebar
       images={images}
@@ -212,15 +214,17 @@ export function AppLayout() {
       {/* Mobile header */}
       {!isDesktop && (
         <header className="flex h-[var(--header-height)] items-center gap-3 border-b border-neutral-100 bg-neutral-0 px-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleToggleSidebar}
-            aria-label="Toggle sidebar"
-            aria-expanded={sidebarOpen}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
+          {hasImages ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleToggleSidebar}
+              aria-label="Toggle sidebar"
+              aria-expanded={sidebarOpen}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          ) : null}
           <InksightIcon
             className="h-[var(--logo-height-mobile)] w-auto"
           />
@@ -239,11 +243,11 @@ export function AppLayout() {
       )}
 
       <div className="flex flex-1 min-h-0">
-        {/* Desktop sidebar */}
-        {isDesktop && sidebarNode}
+        {/* Desktop sidebar (hidden when no images) */}
+        {isDesktop && hasImages && sidebarNode}
 
         {/* Mobile sidebar overlay */}
-        {!isDesktop && sidebarOpen && (
+        {!isDesktop && hasImages && sidebarOpen && (
           <>
             <div
               className="fixed inset-0 z-[var(--z-overlay)] bg-[rgba(12,15,26,0.5)] animate-in fade-in-0 duration-200"

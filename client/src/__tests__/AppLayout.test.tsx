@@ -431,12 +431,61 @@ describe('AppLayout', () => {
     });
   });
 
+  describe('sidebar visibility', () => {
+    it('hides sidebar on desktop when no images and not loading', async () => {
+      render(<AppLayout />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('upload-view')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
+    });
+
+    it('shows sidebar on desktop when images exist', async () => {
+      mockGetImages.mockResolvedValue({
+        images: sampleImages,
+        total: 2,
+        page: 1,
+        pageSize: 100,
+        totalPages: 1,
+      });
+
+      render(<AppLayout />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('sidebar')).toBeInTheDocument();
+      });
+    });
+  });
+
   describe('mobile layout', () => {
     beforeEach(() => {
       mockUseMediaQuery.mockReturnValue(false); // mobile
     });
 
-    it('shows mobile header with toggle button', async () => {
+    it('shows mobile header without sidebar toggle when no images', async () => {
+      render(<AppLayout />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('upload-view')).toBeInTheDocument();
+      });
+
+      // Header is visible (branding) but toggle button is hidden
+      expect(screen.queryByRole('button', { name: /toggle sidebar/i })).not.toBeInTheDocument();
+      // Logo is still visible in header
+      expect(screen.getByRole('banner')).toBeInTheDocument();
+    });
+
+    it('shows mobile header with toggle button when images exist', async () => {
+      mockGetImages.mockResolvedValue({
+        images: sampleImages,
+        total: 2,
+        page: 1,
+        pageSize: 100,
+        totalPages: 1,
+      });
+
       render(<AppLayout />);
 
       await waitFor(() => {
@@ -446,6 +495,14 @@ describe('AppLayout', () => {
 
     it('opens sidebar overlay on toggle click', async () => {
       const user = userEvent.setup();
+      mockGetImages.mockResolvedValue({
+        images: sampleImages,
+        total: 2,
+        page: 1,
+        pageSize: 100,
+        totalPages: 1,
+      });
+
       render(<AppLayout />);
 
       await waitFor(() => {
@@ -486,6 +543,14 @@ describe('AppLayout', () => {
 
     it('closes sidebar overlay on Escape key', async () => {
       const user = userEvent.setup();
+      mockGetImages.mockResolvedValue({
+        images: sampleImages,
+        total: 2,
+        page: 1,
+        pageSize: 100,
+        totalPages: 1,
+      });
+
       render(<AppLayout />);
 
       await waitFor(() => {
@@ -543,6 +608,14 @@ describe('AppLayout', () => {
 
     it('closes sidebar when backdrop overlay is clicked', async () => {
       const user = userEvent.setup();
+      mockGetImages.mockResolvedValue({
+        images: sampleImages,
+        total: 2,
+        page: 1,
+        pageSize: 100,
+        totalPages: 1,
+      });
+
       render(<AppLayout />);
 
       await waitFor(() => {
@@ -559,12 +632,26 @@ describe('AppLayout', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
-    it('does not show upload button when no image selected', async () => {
+    it('does not show upload button in header when no image selected', async () => {
+      mockGetImages.mockResolvedValue({
+        images: sampleImages,
+        total: 2,
+        page: 1,
+        pageSize: 100,
+        totalPages: 1,
+      });
+
       render(<AppLayout />);
 
+      // Wait for images to load, then click New Image to deselect
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /toggle sidebar/i })).toBeInTheDocument();
       });
+
+      // Open sidebar and click New Image to deselect
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('button', { name: /toggle sidebar/i }));
+      await user.click(screen.getByText('New Image'));
 
       expect(screen.queryByRole('button', { name: /upload new image/i })).not.toBeInTheDocument();
     });
@@ -604,6 +691,14 @@ describe('AppLayout', () => {
 
     it('toggle button has aria-expanded attribute', async () => {
       const user = userEvent.setup();
+      mockGetImages.mockResolvedValue({
+        images: sampleImages,
+        total: 2,
+        page: 1,
+        pageSize: 100,
+        totalPages: 1,
+      });
+
       render(<AppLayout />);
 
       await waitFor(() => {

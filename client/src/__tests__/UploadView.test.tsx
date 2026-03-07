@@ -523,5 +523,36 @@ describe('UploadView', () => {
       expect(screen.getByRole('button', { name: /upload image/i })).toBeInTheDocument();
       expect(screen.getByText(/drop an image here/i)).toBeInTheDocument();
     });
+
+    it('shows Inksight logo in welcome state', () => {
+      render(<UploadView onUploadComplete={onUploadComplete} isFirstTime />);
+
+      const logo = screen.getByAltText('Inksight');
+      expect(logo).toBeInTheDocument();
+      expect(logo.tagName).toBe('IMG');
+    });
+
+    it('shows how-it-works steps as a semantic ordered list', () => {
+      render(<UploadView onUploadComplete={onUploadComplete} isFirstTime />);
+
+      const list = screen.getByRole('list');
+      expect(list).toBeInTheDocument();
+      expect(list.tagName).toBe('OL');
+
+      const items = screen.getAllByRole('listitem');
+      expect(items).toHaveLength(3);
+
+      expect(screen.getByText('Upload')).toBeInTheDocument();
+      expect(screen.getByText('Analyze')).toBeInTheDocument();
+      expect(screen.getByText('Chat')).toBeInTheDocument();
+    });
+
+    it('does not show how-it-works steps when not first time', () => {
+      render(<UploadView onUploadComplete={onUploadComplete} />);
+
+      expect(screen.queryByRole('list')).not.toBeInTheDocument();
+      expect(screen.queryByText('Analyze')).not.toBeInTheDocument();
+      expect(screen.queryByText('Chat')).not.toBeInTheDocument();
+    });
   });
 });

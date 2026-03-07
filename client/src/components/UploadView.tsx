@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { uploadImage } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { InksightIcon } from '@/components/InksightIcon';
+import { Upload, Search, MessageCircle } from 'lucide-react';
 import type { UploadResponse } from '@/types';
 
 export interface UploadViewProps {
@@ -170,105 +171,155 @@ export function UploadView({ onUploadComplete, isFirstTime = false }: UploadView
   const isUploading = state.status === 'uploading';
   const isError = state.status === 'error';
 
-  return (
+  const dropZone = (
     <div
-      className="flex min-h-full flex-col items-center justify-center gap-8 p-4 sm:p-8 bg-hero"
+      role="button"
+      tabIndex={0}
+      aria-label="Upload image. Drag and drop or press Enter to browse. Accepts PNG, JPG, and GIF up to 16 megabytes."
+      aria-busy={isUploading}
+      data-dragover={isDragover ? 'true' : undefined}
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onClick={openFilePicker}
+      onKeyDown={onKeyDown}
+      style={{
+        animation: 'scaleIn var(--anim-entrance-duration) var(--anim-entrance-easing) both',
+        animationDelay: isFirstTime ? '180ms' : '0ms',
+      }}
+      className={cn(
+        'flex w-full max-w-lg cursor-pointer flex-col items-center gap-4 rounded p-6 sm:p-12',
+        'transition-all duration-150',
+        'focus-visible:outline-none focus-visible:[box-shadow:var(--shadow-focus)]',
+        isDragover && 'border-2 border-solid border-primary-500 bg-primary-50 scale-[1.02]',
+        isError && 'border-2 border-solid border-error-500 bg-error-50',
+        isUploading && 'border-2 border-solid border-primary-500 bg-neutral-25',
+        !isDragover && !isError && !isUploading && [
+          'border-2 border-dashed border-neutral-200 bg-neutral-25',
+          'hover:border-primary-400 hover:bg-primary-50',
+        ],
+      )}
     >
-      {isFirstTime && (
-        <div className="flex max-w-lg flex-col items-center text-center">
-          <h2
-            className="font-display text-2xl font-bold text-neutral-700"
-            style={{
-              animation: 'fadeInUp var(--anim-entrance-duration) var(--anim-entrance-easing) both',
-            }}
-          >
-            Welcome to Inksight
-          </h2>
-          <p
-            className="mt-2 text-neutral-400"
-            style={{
-              animation: 'fadeInUp var(--anim-entrance-duration) var(--anim-entrance-easing) both',
-              animationDelay: '60ms',
-            }}
-          >
-            Upload an image and start a conversation with AI
-          </p>
+      <InksightIcon
+        className="opacity-30"
+        style={{ height: 'var(--logo-height-hero)', width: 'auto' }}
+      />
+
+      {isUploading ? (
+        <div
+          className="flex flex-col items-center gap-2"
+          aria-live="polite"
+        >
+          <div className="h-1 w-48 overflow-hidden rounded-full bg-neutral-100">
+            <div className="h-full rounded-full bg-primary-500 animate-indeterminate" />
+          </div>
+          <p className="text-sm text-neutral-500">Uploading...</p>
         </div>
+      ) : (
+        <>
+          <p className="text-center text-neutral-500">
+            Drop an image here, or{' '}
+            <span className="font-semibold text-primary-500 underline">
+              browse
+            </span>
+          </p>
+          <p className="text-sm text-neutral-400">
+            PNG, JPG, GIF — up to 16 MB
+          </p>
+        </>
       )}
 
-      <div
-        role="button"
-        tabIndex={0}
-        aria-label="Upload image. Drag and drop or press Enter to browse. Accepts PNG, JPG, and GIF up to 16 megabytes."
-        aria-busy={isUploading}
-        data-dragover={isDragover ? 'true' : undefined}
-        onDragEnter={onDragEnter}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-        onClick={openFilePicker}
-        onKeyDown={onKeyDown}
-        style={{
-          animation: 'scaleIn var(--anim-entrance-duration) var(--anim-entrance-easing) both',
-        }}
-        className={cn(
-          'flex w-full max-w-lg cursor-pointer flex-col items-center gap-4 rounded p-6 sm:p-12',
-          'transition-all duration-150',
-          'focus-visible:outline-none focus-visible:[box-shadow:var(--shadow-focus)]',
-          isDragover && 'border-2 border-solid border-primary-500 bg-primary-50 scale-[1.02]',
-          isError && 'border-2 border-solid border-error-500 bg-error-50',
-          isUploading && 'border-2 border-solid border-primary-500 bg-neutral-25',
-          !isDragover && !isError && !isUploading && [
-            'border-2 border-dashed border-neutral-200 bg-neutral-25',
-            'hover:border-primary-400 hover:bg-primary-50',
-          ],
-        )}
-      >
-        <InksightIcon
-          className="opacity-30"
-          style={{ height: 'var(--logo-height-hero)', width: 'auto' }}
+      {isError && (
+        <p role="alert" className="text-sm text-error-500">
+          {state.message}
+        </p>
+      )}
+    </div>
+  );
+
+  const hiddenInput = (
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/png,image/jpeg,image/gif"
+      className="hidden"
+      tabIndex={-1}
+      onChange={onFileChange}
+      aria-hidden="true"
+    />
+  );
+
+  if (!isFirstTime) {
+    return (
+      <div className="flex min-h-full flex-col items-center justify-center gap-8 p-4 sm:p-8 bg-hero">
+        {dropZone}
+        {hiddenInput}
+      </div>
+    );
+  }
+
+  const steps = [
+    { icon: Upload, label: 'Upload', description: 'Drag and drop any image' },
+    { icon: Search, label: 'Analyze', description: 'AI sees the details instantly' },
+    { icon: MessageCircle, label: 'Chat', description: 'Ask follow-up questions' },
+  ];
+
+  return (
+    <div className="flex min-h-full flex-col items-center justify-center gap-10 p-4 sm:p-8 bg-hero">
+      {/* Branding */}
+      <div className="flex flex-col items-center text-center">
+        <img
+          src="/inksight-logo.png"
+          alt="Inksight"
+          className="h-8 w-auto"
+          style={{
+            animation: 'fadeInUp var(--anim-entrance-duration) var(--anim-entrance-easing) both',
+          }}
         />
-
-        {isUploading ? (
-          <div
-            className="flex flex-col items-center gap-2"
-            aria-live="polite"
-          >
-            <div className="h-1 w-48 overflow-hidden rounded-full bg-neutral-100">
-              <div className="h-full rounded-full bg-primary-500 animate-indeterminate" />
-            </div>
-            <p className="text-sm text-neutral-500">Uploading...</p>
-          </div>
-        ) : (
-          <>
-            <p className="text-center text-neutral-500">
-              Drop an image here, or{' '}
-              <span className="font-semibold text-primary-500 underline">
-                browse
-              </span>
-            </p>
-            <p className="text-sm text-neutral-400">
-              PNG, JPG, GIF — up to 16 MB
-            </p>
-          </>
-        )}
-
-        {isError && (
-          <p role="alert" className="text-sm text-error-500">
-            {state.message}
-          </p>
-        )}
+        <h2
+          className="mt-6 font-display text-3xl font-bold text-neutral-800 sm:text-4xl"
+          style={{
+            animation: 'fadeInUp var(--anim-entrance-duration) var(--anim-entrance-easing) both',
+            animationDelay: '60ms',
+          }}
+        >
+          Welcome to Inksight
+        </h2>
+        <p
+          className="mt-3 max-w-md text-lg text-neutral-400"
+          style={{
+            animation: 'fadeInUp var(--anim-entrance-duration) var(--anim-entrance-easing) both',
+            animationDelay: '120ms',
+          }}
+        >
+          Upload an image and start a conversation with AI
+        </p>
       </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/gif"
-        className="hidden"
-        tabIndex={-1}
-        onChange={onFileChange}
-        aria-hidden="true"
-      />
+      {/* Drop zone */}
+      {dropZone}
+
+      {/* How it works steps */}
+      <ol
+        className="flex flex-wrap items-start justify-center gap-8 sm:gap-12 list-none p-0 m-0"
+        style={{
+          animation: 'fadeInUp var(--anim-entrance-duration) var(--anim-entrance-easing) both',
+          animationDelay: '300ms',
+        }}
+      >
+        {steps.map((step) => (
+          <li key={step.label} className="flex flex-col items-center gap-2 text-center w-28">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50">
+              <step.icon className="h-5 w-5 text-primary-500" aria-hidden="true" />
+            </div>
+            <span className="text-sm font-semibold text-neutral-700">{step.label}</span>
+            <span className="text-xs text-neutral-400 leading-relaxed">{step.description}</span>
+          </li>
+        ))}
+      </ol>
+
+      {hiddenInput}
     </div>
   );
 }
