@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white" alt="NestJS" />
   <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL" />
-  <img src="https://img.shields.io/badge/Tests-54_files-brightgreen" alt="Tests" />
+  <img src="https://img.shields.io/badge/Tests-55_files-brightgreen" alt="Tests" />
   <img src="https://img.shields.io/badge/Coverage-98.7%25_Statements-brightgreen" alt="Coverage: 98.7% Statements" />
   <img src="https://img.shields.io/badge/ADRs-11-blue" alt="ADRs" />
 </p>
@@ -219,7 +219,7 @@ inksight/
 
 ## Testing
 
-**54 test files, 738 tests, 98.7% statement coverage** across six layers: unit, integration, E2E, client, contract, and schema validation.
+**55 test files, 806 tests, 98.7% statement coverage** across six layers: unit, integration, E2E, client, contract, and schema validation.
 
 ```bash
 npm test                  # Backend unit + integration

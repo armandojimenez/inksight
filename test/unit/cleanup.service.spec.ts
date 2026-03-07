@@ -40,9 +40,15 @@ describe('CleanupService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
+    const imageQueryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    };
     imageRepo = {
       find: jest.fn().mockResolvedValue([]),
       remove: jest.fn().mockResolvedValue(undefined),
+      createQueryBuilder: jest.fn().mockReturnValue(imageQueryBuilder),
     };
 
     const queryBuilder = {
@@ -329,6 +335,71 @@ describe('CleanupService', () => {
 
       const result = await service.cleanupOrphanedTempFiles();
       expect(result).toBe(1);
+    });
+  });
+
+  describe('cleanupOrphanedFiles', () => {
+    it('should return 0 when upload dir does not exist', async () => {
+      const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      mockFs.readdir.mockRejectedValue(enoent);
+
+      const result = await service.cleanupOrphanedFiles();
+      expect(result).toBe(0);
+    });
+
+    it('should return 0 when no UUID-named files exist', async () => {
+      mockFs.readdir.mockResolvedValue(['.tmp-abc', 'readme.txt'] as any);
+
+      const result = await service.cleanupOrphanedFiles();
+      expect(result).toBe(0);
+    });
+
+    it('should delete files with no matching DB record', async () => {
+      const orphanFile = '550e8400-e29b-41d4-a716-446655440000.png';
+      mockFs.readdir.mockResolvedValue([orphanFile] as any);
+
+      const qb = imageRepo.createQueryBuilder!('img') as any;
+      qb.getMany.mockResolvedValue([]); // no DB records match
+
+      mockFs.unlink.mockResolvedValue(undefined);
+
+      const result = await service.cleanupOrphanedFiles();
+      expect(result).toBe(1);
+      expect(mockFs.unlink).toHaveBeenCalled();
+    });
+
+    it('should keep files that have a matching DB record', async () => {
+      const knownFile = '550e8400-e29b-41d4-a716-446655440000.png';
+      mockFs.readdir.mockResolvedValue([knownFile] as any);
+
+      const qb = imageRepo.createQueryBuilder!('img') as any;
+      qb.getMany.mockResolvedValue([{ storedFilename: knownFile }]);
+
+      const result = await service.cleanupOrphanedFiles();
+      expect(result).toBe(0);
+      expect(mockFs.unlink).not.toHaveBeenCalled();
+    });
+
+    it('should tolerate ENOENT when deleting orphan files', async () => {
+      const orphanFile = '550e8400-e29b-41d4-a716-446655440000.jpg';
+      mockFs.readdir.mockResolvedValue([orphanFile] as any);
+
+      const qb = imageRepo.createQueryBuilder!('img') as any;
+      qb.getMany.mockResolvedValue([]);
+
+      const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      mockFs.unlink.mockRejectedValue(enoent);
+
+      const result = await service.cleanupOrphanedFiles();
+      expect(result).toBe(0);
+    });
+
+    it('should ignore non-UUID files like .gitkeep or random names', async () => {
+      mockFs.readdir.mockResolvedValue(['.gitkeep', 'random.png', '.tmp-abc'] as any);
+
+      const result = await service.cleanupOrphanedFiles();
+      expect(result).toBe(0);
+      expect(imageRepo.createQueryBuilder).not.toHaveBeenCalled();
     });
   });
 });

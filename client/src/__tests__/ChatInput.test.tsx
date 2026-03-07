@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ChatInput } from '@/components/ChatInput';
+import { MAX_MESSAGE_LENGTH } from '@/lib/constants';
 
 describe('ChatInput', () => {
   let onSend: ReturnType<typeof vi.fn<(message: string) => void>>;
@@ -132,10 +133,153 @@ describe('ChatInput', () => {
     expect(button).toHaveAttribute('aria-label', 'Send message');
   });
 
-  it('has maxLength on textarea', () => {
+  it('has maxLength on textarea matching server limit', () => {
     render(<ChatInput onSend={onSend} isStreaming={false} />);
 
     const textarea = screen.getByRole('textbox');
-    expect(textarea).toHaveAttribute('maxLength', '4000');
+    expect(textarea).toHaveAttribute('maxLength', String(MAX_MESSAGE_LENGTH));
+  });
+
+  // --- Character counter ---
+
+  it('shows character counter when approaching the limit', async () => {
+    const user = userEvent.setup();
+    render(<ChatInput onSend={onSend} isStreaming={false} />);
+
+    const textarea = screen.getByRole('textbox');
+    const text = 'a'.repeat(Math.ceil(MAX_MESSAGE_LENGTH * 0.5));
+    await user.click(textarea);
+    await user.paste(text);
+
+    expect(screen.getByText(`${text.length}/${MAX_MESSAGE_LENGTH}`)).toBeInTheDocument();
+  });
+
+  it('hides character counter when below threshold', () => {
+    render(<ChatInput onSend={onSend} isStreaming={false} />);
+
+    expect(screen.queryByText(/\/\d+/)).not.toBeInTheDocument();
+  });
+
+  it('shows warning color on counter at 90% of limit', async () => {
+    const user = userEvent.setup();
+    render(<ChatInput onSend={onSend} isStreaming={false} />);
+
+    const textarea = screen.getByRole('textbox');
+    const text = 'a'.repeat(Math.ceil(MAX_MESSAGE_LENGTH * 0.9));
+    await user.click(textarea);
+    await user.paste(text);
+
+    const counter = screen.getByText(`${text.length}/${MAX_MESSAGE_LENGTH}`);
+    expect(counter.className).toContain('text-warning-600');
+  });
+
+  it('shows error color on counter and border at limit but keeps send enabled', async () => {
+    const user = userEvent.setup();
+    render(<ChatInput onSend={onSend} isStreaming={false} />);
+
+    const textarea = screen.getByRole('textbox');
+    const text = 'a'.repeat(MAX_MESSAGE_LENGTH);
+    await user.click(textarea);
+    await user.paste(text);
+
+    const counter = screen.getByText(`${MAX_MESSAGE_LENGTH}/${MAX_MESSAGE_LENGTH}`);
+    expect(counter.className).toContain('text-error-500');
+    expect(textarea.className).toContain('border-error-500');
+
+    // Send button remains enabled — 2000 is a valid message length
+    const button = screen.getByRole('button', { name: /send/i });
+    expect(button).not.toBeDisabled();
+  });
+
+  it('send is enabled at MAX_MESSAGE_LENGTH - 1', async () => {
+    const user = userEvent.setup();
+    render(<ChatInput onSend={onSend} isStreaming={false} />);
+
+    const textarea = screen.getByRole('textbox');
+    await user.click(textarea);
+    await user.paste('a'.repeat(MAX_MESSAGE_LENGTH - 1));
+
+    const button = screen.getByRole('button', { name: /send/i });
+    expect(button).not.toBeDisabled();
+  });
+
+  // --- Keyboard shortcuts ---
+
+  it('Ctrl+Enter submits message', async () => {
+    const user = userEvent.setup();
+    render(<ChatInput onSend={onSend} isStreaming={false} />);
+
+    const textarea = screen.getByRole('textbox');
+    await user.type(textarea, 'Ctrl send');
+    await user.keyboard('{Control>}{Enter}{/Control}');
+
+    expect(onSend).toHaveBeenCalledWith('Ctrl send');
+  });
+
+  it('Meta+Enter (Cmd) submits message', async () => {
+    const user = userEvent.setup();
+    render(<ChatInput onSend={onSend} isStreaming={false} />);
+
+    const textarea = screen.getByRole('textbox');
+    await user.type(textarea, 'Cmd send');
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
+
+    expect(onSend).toHaveBeenCalledWith('Cmd send');
+  });
+
+  // --- Accessibility ---
+
+  it('sets aria-describedby to both errorId and char-counter when both present', async () => {
+    const user = userEvent.setup();
+    render(<ChatInput onSend={onSend} isStreaming={false} errorId="chat-error" />);
+
+    const textarea = screen.getByRole('textbox');
+    const text = 'a'.repeat(Math.ceil(MAX_MESSAGE_LENGTH * 0.5));
+    await user.click(textarea);
+    await user.paste(text);
+
+    expect(textarea.getAttribute('aria-describedby')).toBe('chat-error char-counter');
+  });
+
+  it('sets aria-describedby to only errorId when counter is hidden', () => {
+    render(<ChatInput onSend={onSend} isStreaming={false} errorId="chat-error" />);
+
+    const textarea = screen.getByRole('textbox');
+    expect(textarea.getAttribute('aria-describedby')).toBe('chat-error');
+  });
+
+  it('sets aria-invalid when at character limit', async () => {
+    const user = userEvent.setup();
+    render(<ChatInput onSend={onSend} isStreaming={false} />);
+
+    const textarea = screen.getByRole('textbox');
+    await user.click(textarea);
+    await user.paste('a'.repeat(MAX_MESSAGE_LENGTH));
+
+    expect(textarea).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('does not set aria-invalid below the limit', async () => {
+    const user = userEvent.setup();
+    render(<ChatInput onSend={onSend} isStreaming={false} />);
+
+    const textarea = screen.getByRole('textbox');
+    await user.type(textarea, 'short');
+
+    expect(textarea).not.toHaveAttribute('aria-invalid');
+  });
+
+  // --- Input sanitization ---
+
+  it('strips invisible Unicode characters from input', async () => {
+    const user = userEvent.setup();
+    render(<ChatInput onSend={onSend} isStreaming={false} />);
+
+    const textarea = screen.getByRole('textbox');
+    await user.click(textarea);
+    await user.paste('\u200BHello\u200B world\uFEFF');
+    await user.keyboard('{Enter}');
+
+    expect(onSend).toHaveBeenCalledWith('Hello world');
   });
 });

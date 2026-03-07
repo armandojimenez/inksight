@@ -58,6 +58,7 @@ export class CleanupService {
         this.logger.log(`Image cleanup complete: ${totalDeleted} total`);
       }
       await this.cleanupOrphanedTempFiles();
+      await this.cleanupOrphanedFiles();
     } catch (err) {
       this.logger.error(
         `Cleanup cycle failed: ${err instanceof Error ? err.message : 'Unknown'}`,
@@ -179,6 +180,61 @@ export class CleanupService {
 
     if (deletedCount > 0) {
       this.logger.log(`Cleaned up ${deletedCount} orphaned temp file(s)`);
+    }
+
+    return deletedCount;
+  }
+
+  async cleanupOrphanedFiles(): Promise<number> {
+    const uploadDir = path.resolve(
+      this.configService.get<string>('UPLOAD_DIR', 'uploads'),
+    );
+
+    let entries: string[];
+    try {
+      entries = await fs.readdir(uploadDir);
+    } catch (err) {
+      const errno = err as NodeJS.ErrnoException;
+      if (errno.code === 'ENOENT') return 0;
+      throw err;
+    }
+
+    // Only consider non-temp, non-hidden files that look like stored uploads (uuid.ext)
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$/i;
+    const storedFiles = entries.filter((f) => uuidPattern.test(f));
+    if (storedFiles.length === 0) return 0;
+
+    // Batch-check which filenames have DB records
+    const knownFilenames = new Set(
+      (
+        await this.imageRepository
+          .createQueryBuilder('img')
+          .select('img.storedFilename')
+          .where('img.storedFilename IN (:...filenames)', {
+            filenames: storedFiles,
+          })
+          .getMany()
+      ).map((img) => img.storedFilename),
+    );
+
+    let deletedCount = 0;
+    for (const file of storedFiles) {
+      if (knownFilenames.has(file)) continue;
+
+      const filePath = path.join(uploadDir, file);
+      try {
+        await fs.unlink(filePath);
+        deletedCount++;
+      } catch (err) {
+        const errno = err as NodeJS.ErrnoException;
+        if (errno.code !== 'ENOENT') {
+          this.logger.warn(`Failed to clean orphaned file ${file}: ${errno.message}`);
+        }
+      }
+    }
+
+    if (deletedCount > 0) {
+      this.logger.log(`Cleaned up ${deletedCount} orphaned file(s) with no DB record`);
     }
 
     return deletedCount;

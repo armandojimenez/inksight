@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { MESSAGE_COLLAPSE_THRESHOLD } from '@/lib/constants';
 import type { MessageData } from '@/types';
 
 export interface MessageBubbleProps {
@@ -26,16 +27,61 @@ function useRelativeTime(timestamp: string): string {
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => setTick((t) => t + 1), 60_000);
-    return () => clearInterval(interval);
+    let interval: ReturnType<typeof setInterval>;
+
+    const start = () => {
+      interval = setInterval(() => setTick((t) => t + 1), 60_000);
+    };
+
+    const handleVisibility = () => {
+      clearInterval(interval);
+      if (document.visibilityState === 'visible') {
+        setTick((t) => t + 1);
+        start();
+      }
+    };
+
+    start();
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   return formatRelativeTime(timestamp);
 }
 
+/** Truncate at a word boundary, safe for surrogate pairs (emoji). */
+function truncateText(text: string, maxLen: number): string {
+  const chars = Array.from(text);
+  if (chars.length <= maxLen) return text;
+  const truncated = chars.slice(0, maxLen).join('');
+  const lastSpace = truncated.lastIndexOf(' ');
+  // Only break at space if it's not too far back (within 80% of threshold)
+  const breakPoint = lastSpace > maxLen * 0.8 ? lastSpace : truncated.length;
+  return truncated.slice(0, breakPoint) + '...';
+}
+
 export function MessageBubble({ message, index = 0 }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const relativeTime = useRelativeTime(message.timestamp);
+  const isLong = message.content.length > MESSAGE_COLLAPSE_THRESHOLD;
+  const [collapsed, setCollapsed] = useState(isLong);
+  const wasLongRef = useRef(isLong);
+
+  // Auto-collapse when content first crosses the threshold (e.g., streaming)
+  useEffect(() => {
+    if (isLong && !wasLongRef.current) {
+      setCollapsed(true);
+    }
+    wasLongRef.current = isLong;
+  }, [isLong]);
+
+  const displayContent = collapsed
+    ? truncateText(message.content, MESSAGE_COLLAPSE_THRESHOLD)
+    : message.content;
 
   return (
     <div
@@ -66,8 +112,22 @@ export function MessageBubble({ message, index = 0 }: MessageBubbleProps) {
           className="break-words whitespace-pre-wrap text-base leading-relaxed"
           aria-atomic="false"
         >
-          {message.content}
+          {displayContent}
         </p>
+        {isLong && (
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            className={cn(
+              'mt-1 text-xs font-medium underline underline-offset-2 transition-colors',
+              isUser
+                ? 'text-white/80 hover:text-white'
+                : 'text-ai-500 hover:text-ai-600',
+            )}
+          >
+            {collapsed ? 'Show more' : 'Show less'}
+          </button>
+        )}
         <time
           dateTime={message.timestamp}
           className={cn(

@@ -164,14 +164,12 @@ describe('ChatService', () => {
       );
     });
 
-    it('should fire-and-forget enforceHistoryCap after both messages', async () => {
+    it('should await enforceHistoryCap after both messages', async () => {
       const image = { id: TEST_IMAGE_ID } as ImageEntity;
       imageRepository.findOneBy.mockResolvedValue(image);
       aiService.chat.mockResolvedValue(mockCompletion);
 
       await service.chat(TEST_IMAGE_ID, 'Hello');
-      // Flush microtasks so fire-and-forget promise resolves
-      await new Promise(process.nextTick);
 
       expect(historyService.enforceHistoryCap).toHaveBeenCalledTimes(1);
       expect(historyService.enforceHistoryCap).toHaveBeenCalledWith(
@@ -188,8 +186,6 @@ describe('ChatService', () => {
       );
 
       const result = await service.chat(TEST_IMAGE_ID, 'Hello');
-      // Flush microtasks so fire-and-forget .catch() runs
-      await new Promise(process.nextTick);
 
       expect(result).toBe(mockCompletion);
       expect(historyService.enforceHistoryCap).toHaveBeenCalledWith(

@@ -40,7 +40,14 @@ export class ImageEntity {
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt!: Date;
 
-  /** Passive audit column — TypeORM auto-increments on every save(). */
+  /**
+   * Optimistic locking — TypeORM auto-increments on save() and includes
+   * `WHERE version = N` in UPDATE queries. If two concurrent operations
+   * load the same row and both try to save, the second save fails with
+   * OptimisticLockVersionMismatchError. Current access patterns are
+   * insert-once (upload) with no concurrent update path, but the column
+   * protects against future update scenarios (e.g., metadata edits).
+   */
   @VersionColumn()
   version!: number;
 
